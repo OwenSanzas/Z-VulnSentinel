@@ -1,0 +1,204 @@
+## 9. 独立使用场景
+
+### 9.1 工单 JSON
+
+所有分析任务通过**工单 JSON** 驱动，不使用命令行参数。
+
+**创建工单模板：**
+```bash
+z-analyze create-work -o work.json
+```
+
+**工单格式：**
+```json
+{
+  "repo_url": "https://github.com/curl/curl",
+  "version": "curl-8_5_0",
+  "path": "./curl-src",
+  "build_script": "./ossfuzz/build.sh",
+  "backend": "svf",
+  "fuzzer_sources": {
+    "curl_fuzzer_http": ["fuzz/fuzz_http.c", "fuzz/fuzzer_template.c"],
+    "curl_fuzzer_ftp": ["fuzz/fuzz_ftp.c", "fuzz/fuzzer_template.c"],
+    "curl_fuzzer_smtp": ["fuzz/fuzz_smtp.c"]
+  },
+  "diff_files": null,
+  "ai_refine": false
+}
+```
+
+**字段说明：**
+
+| 字段 | 必填 | 类型 | 说明 |
+|------|------|------|------|
+| `repo_url` | Y | str | 仓库地址 |
+| `version` | Y | str | tag 或 commit hash |
+| `path` | N | str | 本地项目路径，不传则自动 clone |
+| `build_script` | N | str | 构建脚本路径，不传则自动检测/LLM 推断 |
+| `backend` | N | str | 分析后端，默认 `"svf"` |
+| `fuzzer_sources` | Y | dict | fuzzer 名 → 源文件列表（list[str]） |
+| `diff_files` | N | list[str] | 增量分析的变更文件 |
+| `ai_refine` | N | bool | 启用 AI 精化（v1 预留） |
+
+> **fuzzer_sources 必传**：v1 不支持自动检测 fuzzer，用户必须指定每个 fuzzer 的名称和源文件。
+
+**执行分析：**
+```bash
+# 使用工单 JSON 执行分析
+z-analyze run work.json
+
+# 查询已有数据
+z-query --repo-url https://github.com/curl/curl \
+           --version curl-8_5_0 \
+           --shortest-path LLVMFuzzerTestOneInput dict_do
+
+# 列出所有已有 Snapshot
+z-snapshots list
+z-snapshots list --repo-url https://github.com/curl/curl
+```
+
+**CLI 实现：**
+```python
+# z_code_analyzer/cli.py
+
+def main():
+    parser = argparse.ArgumentParser(description="Z-Code Analyzer Station")
+    subparsers = parser.add_subparsers(dest="command")
+
+    # z-analyze create-work
+    create_parser = subparsers.add_parser("create-work", help="创建工单模板")
+    create_parser.add_argument("-o", "--output", default="work.json", help="输出文件路径")
+
+    # z-analyze run
+    run_parser = subparsers.add_parser("run", help="执行分析")
+    run_parser.add_argument("work_file", help="工单 JSON 文件路径")
+    run_parser.add_argument("--neo4j-uri", default="bolt://localhost:7687")
+
+    args = parser.parse_args()
+
+    if args.command == "create-work":
+        create_work_template(args.output)
+    elif args.command == "run":
+        work = json.loads(Path(args.work_file).read_text())
+        graph = GraphStore(neo4j_uri=args.neo4j_uri)
+        orchestrator = StaticAnalysisOrchestrator(graph_store=graph)
+
+        # 无本地路径 → 自动 clone 到临时目录
+        project_path = work.get("path")
+        if not project_path:
+            project_path = auto_clone(work["repo_url"], work["version"])
+
+        result = asyncio.run(orchestrator.analyze(
+            project_path=project_path,
+            repo_url=work["repo_url"],
+            version=work["version"],
+            build_script=work.get("build_script"),
+            fuzzer_sources=work["fuzzer_sources"],
+            backend=work.get("backend"),
+            diff_files=work.get("diff_files"),
+        ))
+
+        print(f"Snapshot: {result.snapshot_id}")
+        print(f"Functions: {result.function_count}, Edges: {result.edge_count}")
+        print(f"Fuzzers: {result.fuzzer_names}")
+        print(f"Backend: {result.backend}")
+```
+
+### 9.2 REST API
+
+异步分析接口，适用于 Web 集成。
+
+```
+POST /api/analyze
+  Body: 工单 JSON（格式同 §9.1）
+  Response:
+    {
+      "job_id": "abc-123",
+      "status": "queued"
+    }
+
+GET /api/analyze/{job_id}
+  Response:
+    {
+      "job_id": "abc-123",
+      "status": "completed",    // "queued" | "running" | "completed" | "failed"
+      "progress": {
+        "phase": "import",
+        "phases_completed": 5,
+        "phases_total": 6
+      },
+      "result": { ... AnalysisOutput JSON ... }
+    }
+
+GET /api/analyze/{job_id}/callgraph?format=dot
+  Response: DOT 格式调用图
+
+GET /api/analyze/{job_id}/functions?pattern=parse.*
+  Response: 函数列表
+```
+
+### 9.3 输出格式
+
+**JSON（默认）：**
+```json
+{
+  "backend": "svf",
+  "language": "c",
+  "analysis_duration_seconds": 1.23,
+  "functions": [
+    {
+      "name": "parse_input",
+      "file_path": "src/parser.c",
+      "start_line": 42,
+      "end_line": 87,
+      "cyclomatic_complexity": 12,
+      "language": "c"
+    }
+  ],
+  "edges": [
+    {
+      "caller": "main",
+      "callee": "parse_input",
+      "call_type": "direct",
+      "confidence": 1.0
+    }
+  ],
+  "fuzzer_sources": {
+    "fuzz_parse": ["fuzz/fuzz_parse.c"]
+  },
+  "warnings": []
+}
+```
+
+**DOT（Graphviz）：**
+```dot
+digraph callgraph {
+    rankdir=TB;
+    node [shape=box, style=filled, fillcolor=lightblue];
+
+    "LLVMFuzzerTestOneInput" [fillcolor=lightgreen];
+    "LLVMFuzzerTestOneInput" -> "parse_input";
+    "parse_input" -> "lex_token";
+    "parse_input" -> "handle_error";
+    "lex_token" -> "read_char";
+}
+```
+
+**GraphML：**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphstruct.org/xmlns">
+  <key id="d0" for="node" attr.name="file" attr.type="string"/>
+  <key id="d1" for="edge" attr.name="call_type" attr.type="string"/>
+  <graph id="G" edgedefault="directed">
+    <node id="parse_input">
+      <data key="d0">src/parser.c</data>
+    </node>
+    <edge source="main" target="parse_input">
+      <data key="d1">direct</data>
+    </edge>
+  </graph>
+</graphml>
+```
+
+---

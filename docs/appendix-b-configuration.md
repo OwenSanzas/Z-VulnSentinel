@@ -1,0 +1,65 @@
+## 附录 B: 配置示例
+
+**独立使用（z-code-analyzer）：**
+
+```json
+{
+  "neo4j_uri": "bolt://localhost:7687",
+  "neo4j_auth": null,
+  "analysis_backend": "auto",
+  "orchestration_mode": null,
+  "svf_docker_image": null,
+  "svf_case_config": null,
+  "joern_path": null,
+  "ai_refine_enabled": false,
+  "ai_refine_budget_usd": 1.0
+}
+```
+
+**FBv2 集成：**
+
+```json
+{
+  "neo4j_uri": "bolt://neo4j:7687",
+  "analysis_backend": "auto",
+  "orchestration_mode": null,
+  "ai_refine_enabled": false
+}
+```
+
+**`analysis_backend` 可选值：**
+- `"auto"` — 自动选择（v1 默认使用 SVF）
+- `"svf"` — 强制 SVF（失败则报错，不降级）
+- `"joern"` — 强制 Joern
+- `"introspector"` — 旧路径（向后兼容，数据导入 Neo4j）
+- `"prebuild"` — 从预计算数据导入 Neo4j
+
+等效环境变量：
+```bash
+export NEO4J_URI=bolt://localhost:7687       # Neo4j 连接地址
+export NEO4J_AUTH=none                        # Neo4j 认证（none / neo4j:password）
+export ANALYSIS_BACKEND=auto
+export SVF_DOCKER_IMAGE=curl-fuzzer-base     # SVF 构建用的 Docker 镜像
+export SVF_CASE_CONFIG=curl                   # SVF 构建配置名（对应 cases/ 下的文件）
+export JOERN_PATH=/opt/joern/joern-cli        # Joern 安装路径
+export AI_REFINE_ENABLED=false
+export AI_REFINE_BUDGET=1.0
+```
+
+**Docker Compose（独立使用）：**
+
+```yaml
+services:
+  neo4j:
+    image: neo4j:community
+    ports:
+      - "7474:7474"   # Web UI
+      - "7687:7687"   # Bolt 协议
+    volumes:
+      - neo4j-data:/data
+    environment:
+      - NEO4J_AUTH=none
+
+volumes:
+  neo4j-data:
+```

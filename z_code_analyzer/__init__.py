@@ -9,6 +9,9 @@ from z_code_analyzer.backends.base import (
     CallType,
     FunctionRecord,
 )
+from z_code_analyzer.graph_store import GraphStore
+from z_code_analyzer.orchestrator import StaticAnalysisOrchestrator
+from z_code_analyzer.snapshot_manager import SnapshotManager
 
 __all__ = [
     "AnalysisBackend",
@@ -16,4 +19,7 @@ __all__ = [
     "CallEdge",
     "CallType",
     "FunctionRecord",
+    "GraphStore",
+    "SnapshotManager",
+    "StaticAnalysisOrchestrator",
 ]

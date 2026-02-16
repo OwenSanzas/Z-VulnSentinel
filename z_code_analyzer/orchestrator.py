@@ -244,6 +244,11 @@ class StaticAnalysisOrchestrator:
                 f"reaches={len(reaches)}, fuzzers={len(fuzzer_names)}",
             )
 
+            # Evict old snapshots for this repo (keep MAX_VERSIONS_PER_REPO)
+            evicted = self.snapshot_manager.evict_by_version_limit(repo_url)
+            if evicted:
+                logger.info("Evicted %d old snapshot(s) for %s", evicted, repo_url)
+
             return AnalysisOutput(
                 snapshot_id=snapshot_id,
                 repo_url=repo_url,
@@ -300,6 +305,11 @@ class StaticAnalysisOrchestrator:
             analysis_duration_sec=result.analysis_duration_seconds,
             language=result.language,
         )
+
+        # Evict old snapshots for this repo (keep MAX_VERSIONS_PER_REPO)
+        evicted = self.snapshot_manager.evict_by_version_limit(repo_url)
+        if evicted:
+            logger.info("Evicted %d old snapshot(s) for %s", evicted, repo_url)
 
         return AnalysisOutput(
             snapshot_id=snapshot_id,

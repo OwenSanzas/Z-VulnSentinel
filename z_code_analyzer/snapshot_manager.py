@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import shutil
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -19,6 +20,8 @@ SNAPSHOT_TTL_DAYS = 90
 BUILDING_TIMEOUT_MINUTES = 30
 WAIT_POLL_INTERVAL = 5  # seconds
 WAIT_TIMEOUT = 1800  # 30 minutes
+DISK_THRESHOLD = 0.80  # Start evicting when disk usage exceeds 80%
+DISK_TARGET = 0.70  # Evict until usage drops below 70%
 
 
 class SnapshotManager:
@@ -181,8 +184,13 @@ class SnapshotManager:
         fuzzer_names: list[str],
         analysis_duration_sec: float = 0.0,
         language: str = "",
+        size_bytes: int = 0,
     ) -> None:
         from bson import ObjectId
+
+        # Estimate size if not provided (~1200 bytes/node + ~150 bytes/edge)
+        if size_bytes <= 0:
+            size_bytes = node_count * 1200 + edge_count * 150
 
         self._snapshots.update_one(
             {"_id": ObjectId(snapshot_id)},
@@ -194,6 +202,7 @@ class SnapshotManager:
                     "fuzzer_names": fuzzer_names,
                     "analysis_duration_sec": analysis_duration_sec,
                     "language": language,
+                    "size_bytes": size_bytes,
                     "last_accessed_at": datetime.now(timezone.utc),
                 }
             },
@@ -243,6 +252,46 @@ class SnapshotManager:
         for snap in expired:
             self._delete_snapshot(snap)
         return len(expired)
+
+    def evict_by_disk_pressure(self, data_dir: str = "/var/lib/neo4j/data") -> int:
+        """Evict LRU snapshots when disk usage exceeds DISK_THRESHOLD.
+
+        Keeps evicting until usage drops below DISK_TARGET or no snapshots remain.
+        """
+        evicted = 0
+        while True:
+            try:
+                usage = shutil.disk_usage(data_dir)
+                ratio = usage.used / usage.total
+            except OSError:
+                logger.warning("Cannot check disk usage for %s, skipping pressure eviction", data_dir)
+                break
+
+            if ratio <= DISK_THRESHOLD:
+                break
+
+            oldest = self._snapshots.find_one(
+                {"status": "completed"},
+                sort=[("last_accessed_at", 1)],
+            )
+            if not oldest:
+                logger.warning("Disk pressure at %.0f%% but no snapshots to evict", ratio * 100)
+                break
+
+            self._delete_snapshot(oldest)
+            evicted += 1
+
+            # Re-check against target
+            try:
+                usage = shutil.disk_usage(data_dir)
+                if usage.used / usage.total <= DISK_TARGET:
+                    break
+            except OSError:
+                break
+
+        if evicted:
+            logger.info("Evicted %d snapshot(s) due to disk pressure", evicted)
+        return evicted
 
     def _delete_snapshot(self, snap: dict) -> None:
         """Delete snapshot from Neo4j, logs, and MongoDB."""

@@ -262,16 +262,24 @@ class GraphStore:
 
                 # Step 4: Connect entry to library functions
                 if fz.called_library_functions:
+                    # Use file_path matching only when available;
+                    # Neo4j null comparison (= null) always yields null (falsy),
+                    # so we must use IS NULL to handle the no-file case.
+                    entry_where = (
+                        "WHERE entry.file_path = $main_file"
+                        if main_file
+                        else "WHERE entry.file_path IS NULL OR true"
+                    )
                     session.run(
-                        """
+                        f"""
                         UNWIND $lib_funcs AS lib_name
-                        MATCH (entry:Function {
+                        MATCH (entry:Function {{
                             snapshot_id: $sid,
-                            name: $entry_function,
-                            file_path: $main_file
-                        })
-                        MATCH (lib:Function {snapshot_id: $sid, name: lib_name})
-                        MERGE (entry)-[r:CALLS {call_type: 'direct', backend: 'fuzzer_parser'}]->(lib)
+                            name: $entry_function
+                        }})
+                        {entry_where}
+                        MATCH (lib:Function {{snapshot_id: $sid, name: lib_name}})
+                        MERGE (entry)-[r:CALLS {{call_type: 'direct', backend: 'fuzzer_parser'}}]->(lib)
                         ON CREATE SET r.confidence = 1.0
                         """,
                         sid=snapshot_id,

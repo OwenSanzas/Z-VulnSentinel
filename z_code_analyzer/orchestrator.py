@@ -67,7 +67,7 @@ class StaticAnalysisOrchestrator:
             return
         try:
             writer = self.log_store.get_writer(self._snapshot_id_for_log, phase.phase)
-            duration_str = f" ({phase.duration}s)" if phase.duration else ""
+            duration_str = f" ({phase.duration}s)" if phase.duration is not None else ""
             detail_str = f" — {phase.detail}" if phase.detail else ""
             error_str = f" ERROR: {phase.error}" if phase.error else ""
             writer.write(f"[{phase.status}]{duration_str}{detail_str}{error_str}\n")
@@ -271,6 +271,10 @@ class StaticAnalysisOrchestrator:
         except Exception as e:
             if snapshot_id:
                 self.snapshot_manager.mark_failed(snapshot_id, str(e))
+                try:
+                    self.graph_store.delete_snapshot(snapshot_id)
+                except Exception:
+                    logger.warning("Failed to clean up partial Neo4j data for %s", snapshot_id, exc_info=True)
             raise
 
     def analyze_full(
@@ -287,49 +291,58 @@ class StaticAnalysisOrchestrator:
         Used when SVF has already been run externally.
         """
         self._snapshot_id_for_log = snapshot_id
-        # Phase 4b: Fuzzer entry parsing
-        library_func_names = {f.name for f in result.functions}
-        fuzzer_calls = FuzzerEntryParser().parse(
-            fuzzer_sources, library_func_names, project_path
-        )
-
-        # Phase 6: Neo4j import
-        self.graph_store.create_snapshot_node(snapshot_id, repo_url, version, result.backend)
-        func_count = self.graph_store.import_functions(snapshot_id, result.functions)
-        edge_count = self.graph_store.import_edges(snapshot_id, result.edges)
-
-        fuzzer_infos = self._assemble_fuzzer_infos(fuzzer_sources, fuzzer_calls)
-        self.graph_store.import_fuzzers(snapshot_id, fuzzer_infos)
-
-        reaches = self._compute_reaches(snapshot_id, fuzzer_infos)
-        self.graph_store.import_reaches(snapshot_id, reaches)
-
-        fuzzer_names = [f.name for f in fuzzer_infos]
-        self.snapshot_manager.mark_completed(
-            snapshot_id,
-            func_count,
-            edge_count,
-            fuzzer_names,
-            analysis_duration_sec=result.analysis_duration_seconds,
-            language=result.language,
-        )
-
-        # Eviction runs after mark_completed — failures must not affect the result
         try:
-            self._run_eviction(repo_url)
-        except Exception:
-            logger.warning("Eviction failed (non-fatal)", exc_info=True)
+            # Phase 4b: Fuzzer entry parsing
+            library_func_names = {f.name for f in result.functions}
+            fuzzer_calls = FuzzerEntryParser().parse(
+                fuzzer_sources, library_func_names, project_path
+            )
 
-        return AnalysisOutput(
-            snapshot_id=snapshot_id,
-            repo_url=repo_url,
-            version=version,
-            backend=result.backend,
-            function_count=func_count,
-            edge_count=edge_count,
-            fuzzer_names=fuzzer_names,
-            cached=False,
-        )
+            # Phase 6: Neo4j import
+            self.graph_store.create_snapshot_node(snapshot_id, repo_url, version, result.backend)
+            func_count = self.graph_store.import_functions(snapshot_id, result.functions)
+            edge_count = self.graph_store.import_edges(snapshot_id, result.edges)
+
+            fuzzer_infos = self._assemble_fuzzer_infos(fuzzer_sources, fuzzer_calls)
+            self.graph_store.import_fuzzers(snapshot_id, fuzzer_infos)
+
+            reaches = self._compute_reaches(snapshot_id, fuzzer_infos)
+            self.graph_store.import_reaches(snapshot_id, reaches)
+
+            fuzzer_names = [f.name for f in fuzzer_infos]
+            self.snapshot_manager.mark_completed(
+                snapshot_id,
+                func_count,
+                edge_count,
+                fuzzer_names,
+                analysis_duration_sec=result.analysis_duration_seconds,
+                language=result.language,
+            )
+
+            # Eviction runs after mark_completed — failures must not affect the result
+            try:
+                self._run_eviction(repo_url)
+            except Exception:
+                logger.warning("Eviction failed (non-fatal)", exc_info=True)
+
+            return AnalysisOutput(
+                snapshot_id=snapshot_id,
+                repo_url=repo_url,
+                version=version,
+                backend=result.backend,
+                function_count=func_count,
+                edge_count=edge_count,
+                fuzzer_names=fuzzer_names,
+                cached=False,
+            )
+
+        except Exception as e:
+            self.snapshot_manager.mark_failed(snapshot_id, str(e))
+            try:
+                self.graph_store.delete_snapshot(snapshot_id)
+            except Exception:
+                logger.warning("Failed to clean up partial Neo4j data for %s", snapshot_id, exc_info=True)
+            raise
 
     @staticmethod
     def _resolve_case_config(build_system: str, project_path: str) -> str | None:
@@ -392,12 +405,21 @@ class StaticAnalysisOrchestrator:
         reaches = []
         max_reach_depth = 50  # upper bound to prevent Neo4j memory exhaustion
         for fuzzer in fuzzer_infos:
-            main_file = fuzzer.files[0]["path"] if fuzzer.files else ""
+            main_file = fuzzer.files[0]["path"] if fuzzer.files else None
+            # Neo4j null != "" — use different queries depending on whether file_path is known
+            if main_file:
+                entry_match = (
+                    f'MATCH path = (entry:Function {{snapshot_id: $sid, '
+                    f'name: "LLVMFuzzerTestOneInput", file_path: $fpath}})'
+                )
+            else:
+                entry_match = (
+                    f'MATCH path = (entry:Function {{snapshot_id: $sid, '
+                    f'name: "LLVMFuzzerTestOneInput"}})'
+                )
             bfs_result = self.graph_store.raw_query(
                 f"""
-                MATCH path = (entry:Function {{snapshot_id: $sid,
-                                              name: "LLVMFuzzerTestOneInput",
-                                              file_path: $fpath}})
+                {entry_match}
                              -[:CALLS*0..{max_reach_depth}]->(f:Function {{snapshot_id: $sid}})
                 WITH f.name AS func_name, f.file_path AS file_path, min(length(path)) AS depth
                 RETURN func_name, file_path, depth

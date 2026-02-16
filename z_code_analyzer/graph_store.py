@@ -229,7 +229,7 @@ class GraphStore:
                         fz.entry_function = $entry_function,
                         fz.focus = $focus,
                         fz.files = $files_json
-                    CREATE (s)-[:CONTAINS]->(fz)
+                    MERGE (s)-[:CONTAINS]->(fz)
                     MERGE (entry:Function {
                         snapshot_id: $sid,
                         name: $entry_function,
@@ -696,7 +696,7 @@ class GraphStore:
             # Get edges between the collected nodes, using (name, file_path)
             # pairs to avoid false matches on same-named static functions
             node_keys = [
-                {"name": n["name"], "fp": n.get("file_path", "")}
+                {"name": n["name"], "fp": n.get("file_path") or ""}
                 for n in nodes
             ]
             edge_result = session.run(
@@ -716,7 +716,13 @@ class GraphStore:
                 node_keys=node_keys,
             )
             edges = [
-                {"from": r["from_name"], "to": r["to_name"], "call_type": r["call_type"]}
+                {
+                    "from": r["from_name"],
+                    "to": r["to_name"],
+                    "from_file": r["from_file"],
+                    "to_file": r["to_file"],
+                    "call_type": r["call_type"],
+                }
                 for r in edge_result
             ]
 
@@ -868,7 +874,7 @@ class GraphStore:
                 WITH s,
                      count(f) AS func_count,
                      count(CASE WHEN f.is_external THEN 1 END) AS ext_count
-                OPTIONAL MATCH (s)-[:CONTAINS]->(:Function)-[e:CALLS]->(:Function)
+                OPTIONAL MATCH (s)-[:CONTAINS]->(:Function)-[e:CALLS]->(:Function {snapshot_id: $sid})
                 WITH s, func_count, ext_count, count(e) AS edge_count
                 OPTIONAL MATCH (s)-[:CONTAINS]->(fz:Fuzzer)
                 WITH s, func_count, ext_count, edge_count, count(fz) AS fuzzer_count

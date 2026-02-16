@@ -116,10 +116,15 @@ class SVFBackend(AnalysisBackend):
             typed_edges = [(c, e, "direct") for c, es in final_adj.items() for e in es]
 
         # Build function metadata lookup from BitcodeOutput
+        # Index by both ir_name (mangled, e.g. _Z3foov) and original_name (demangled, e.g. foo)
+        # so SVF DOT names (which use IR/mangled names) can find their metadata
         meta_by_name: dict[str, dict] = {}
         for meta in function_metas:
-            original = meta.get("original_name", meta.get("ir_name", ""))
-            if original:
+            ir = meta.get("ir_name", "")
+            original = meta.get("original_name", "")
+            if ir:
+                meta_by_name[ir] = meta
+            if original and original != ir:
                 meta_by_name[original] = meta
 
         # Build FunctionRecord list

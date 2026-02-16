@@ -17,17 +17,16 @@ from z_code_analyzer.models.build import BitcodeOutput, BuildCommand, FunctionMe
 
 logger = logging.getLogger(__name__)
 
-# Regex to extract DISubprogram from LLVM IR .ll file
-# Example: !1234 = distinct !DISubprogram(name: "foo", linkageName: "foo", scope: ...,
-#          file: !56, line: 42, ...)
-_DI_SUBPROGRAM_RE = re.compile(
-    r'!DISubprogram\('
-    r'.*?name:\s*"([^"]+)"'  # name
-    r'(?:.*?linkageName:\s*"([^"]+)")?'  # optional linkageName
-    r'.*?file:\s*!(\d+)'  # file reference
-    r'.*?line:\s*(\d+)',  # line number
-    re.DOTALL,
-)
+# Regex to extract a complete DISubprogram(...) entry (may span lines due to LLVM formatting)
+# Note: DISubprogram entries may contain nested parens (e.g., type: !DISubroutineType(...))
+# so we match up to the closing paren at depth 0.
+_DI_SUBPROGRAM_ENTRY_RE = re.compile(r'!DISubprogram\([^)]+\)', re.DOTALL)
+
+# Field extractors applied within a single DISubprogram entry
+_DI_NAME_RE = re.compile(r'name:\s*"([^"]+)"')
+_DI_LINK_RE = re.compile(r'linkageName:\s*"([^"]+)"')
+_DI_FILE_REF_RE = re.compile(r'file:\s*!(\d+)')
+_DI_LINE_RE = re.compile(r'(?<![a-zA-Z])line:\s*(\d+)')
 
 # Regex to extract DIFile
 # Example: !56 = !DIFile(filename: "lib/ftp.c", directory: "/src/curl")
@@ -185,13 +184,22 @@ class BitcodeGenerator:
         for m in _DI_FILE_RE.finditer(content):
             file_refs[m.group(1)] = (m.group(2), m.group(3) or "")
 
-        # Second pass: extract DISubprogram entries
+        # Second pass: extract DISubprogram entries (two-step to avoid cross-entry matching)
         metas = []
-        for m in _DI_SUBPROGRAM_RE.finditer(content):
-            name = m.group(1)
-            link_name = m.group(2) or name
-            file_ref = m.group(3)
-            line = int(m.group(4))
+        for entry_m in _DI_SUBPROGRAM_ENTRY_RE.finditer(content):
+            entry = entry_m.group(0)
+            name_m = _DI_NAME_RE.search(entry)
+            if not name_m:
+                continue
+            file_m = _DI_FILE_REF_RE.search(entry)
+            line_m = _DI_LINE_RE.search(entry)
+            if not file_m or not line_m:
+                continue
+            name = name_m.group(1)
+            link_m = _DI_LINK_RE.search(entry)
+            link_name = link_m.group(1) if link_m else name
+            file_ref = file_m.group(1)
+            line = int(line_m.group(1))
 
             file_info = file_refs.get(file_ref)
             if file_info:

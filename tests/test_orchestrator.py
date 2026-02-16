@@ -298,8 +298,8 @@ class TestOrchestratorAnalyzeFull:
         )
 
         stats = self.gs.get_snapshot_statistics(self.snapshot_id)
-        # 6 library functions + 1 LLVMFuzzerTestOneInput entry
-        assert stats["function_count"] >= 6
+        # 6 library functions + 1 LLVMFuzzerTestOneInput entry = 7
+        assert stats["function_count"] == 7
         assert stats["edge_count"] >= 5
         assert stats["fuzzer_count"] == 1
         assert stats["external_function_count"] == 1

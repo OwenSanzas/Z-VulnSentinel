@@ -83,7 +83,7 @@ def auto_select_single(project_path, language) -> AnalysisBackend:
 async def run_parallel(backends: List[AnalysisBackend], ...) -> AnalysisResult:
     tasks = [
         asyncio.get_event_loop().run_in_executor(
-            None, backend.analyze, project_path, language, fuzzer_sources
+            None, backend.analyze, project_path, language
         )
         for backend in backends
     ]
@@ -92,6 +92,8 @@ async def run_parallel(backends: List[AnalysisBackend], ...) -> AnalysisResult:
     valid_results = [r for r in results if not isinstance(r, Exception)]
     return ResultMerger.merge(valid_results)
 ```
+> **注意**: `backend.analyze()` 只接受 `project_path` 和 `language`，不接受 `fuzzer_sources`。
+> Fuzzer 的处理在 Phase 4b 中单独进行（`FuzzerEntryParser`）。
 
 ### 2.4 编排模式选择矩阵
 

@@ -12,6 +12,11 @@ def neo4j_uri():
 
 @pytest.fixture
 def neo4j_auth():
+    auth_env = os.environ.get("NEO4J_AUTH", "none")
+    if auth_env.lower() == "none":
+        return None
+    if ":" in auth_env:
+        return tuple(auth_env.split(":", 1))
     user = os.environ.get("NEO4J_USER", "neo4j")
     password = os.environ.get("NEO4J_PASSWORD", "testpassword")
     return (user, password)

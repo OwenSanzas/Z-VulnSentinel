@@ -138,7 +138,8 @@ class BitcodeGenerator:
         if not pipeline_script.exists():
             raise BitcodeError(f"Pipeline script not found: {pipeline_script}")
 
-        fuzzer_env = " ".join(fuzzer_source_files)
+        # Use newline as delimiter to handle paths with spaces
+        fuzzer_env = "\n".join(fuzzer_source_files)
         cmd = [
             "docker",
             "run",

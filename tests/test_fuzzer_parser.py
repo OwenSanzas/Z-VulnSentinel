@@ -75,9 +75,8 @@ class TestFuzzerEntryParser:
         assert "fuzz1" in result
         calls = set(result["fuzz1"])
         # Should follow setup_context helper and find lib_create_context, lib_set_data
-        assert "lib_create_context" in calls
-        assert "lib_set_data" in calls
-        assert "lib_run" in calls
+        # Exact set comparison ensures no internal helpers leak through
+        assert calls == {"lib_create_context", "lib_set_data", "lib_run"}
 
     def test_stdlib_calls_filtered(self, tmp_path: Path):
         src = tmp_path / "fuzz.c"

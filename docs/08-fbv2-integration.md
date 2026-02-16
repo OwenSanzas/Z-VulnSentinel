@@ -31,10 +31,10 @@ async def _analysis_phase(self):
         return
 
     # 新路径：用 StaticAnalysisOrchestrator
+    graph_store = GraphStore(neo4j_uri=config.neo4j_uri)
     orchestrator = StaticAnalysisOrchestrator(
-        snapshot_manager=SnapshotManager(),
-        graph_store=GraphStore(neo4j_uri=config.neo4j_uri),
-        ai_config=AIRefinerConfig(enabled=config.ai_refine_enabled),
+        snapshot_manager=SnapshotManager(graph_store=graph_store),
+        graph_store=graph_store,
     )
 
     result = await orchestrator.analyze(
@@ -149,12 +149,13 @@ RPC 方法的输入输出格式完全不变。
 ```
 # 独立仓库（static-analysis-engine）提供：
 from z_code_analyzer import StaticAnalysisOrchestrator
-from z_code_analyzer import GraphStore  # Neo4j 连接
+from z_code_analyzer import GraphStore, SnapshotManager
 
 # FBv2 的 analyzer/server.py 中：
+graph_store = GraphStore(neo4j_uri="bolt://localhost:7687")
 orchestrator = StaticAnalysisOrchestrator(
-    graph_store=GraphStore(neo4j_uri="bolt://localhost:7687"),
-    ...
+    snapshot_manager=SnapshotManager(graph_store=graph_store),
+    graph_store=graph_store,
 )
 result = await orchestrator.analyze(...)
 # result.snapshot_id 供 RPC 方法查询时使用

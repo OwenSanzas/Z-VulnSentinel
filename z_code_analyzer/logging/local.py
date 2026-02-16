@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import shutil
 from pathlib import Path
 from typing import IO
@@ -18,7 +19,8 @@ class LocalLogStore(LogStore):
     def get_writer(self, snapshot_id: str, phase: str) -> IO:
         log_dir = self.base_dir / snapshot_id
         log_dir.mkdir(parents=True, exist_ok=True)
-        return open(log_dir / f"{phase}.log", "a")
+        # Return a context-manager-capable file handle for safe resource cleanup
+        return contextlib.closing(open(log_dir / f"{phase}.log", "a"))
 
     def read_log(self, snapshot_id: str, phase: str) -> str:
         log_file = self.base_dir / snapshot_id / f"{phase}.log"

@@ -258,6 +258,18 @@ class TestCallRelations:
         assert "deep_func" in node_names
         assert len(subtree["edges"]) >= 3
 
+    def test_get_subtree_depth_boundary(self, store: GraphStore, snapshot_id: str):
+        """depth=1 should exclude nodes at depth 2 (deep_func, malloc)."""
+        _populate(store, snapshot_id)
+        subtree = store.get_subtree(snapshot_id, "main_func", depth=1)
+        node_names = {n["name"] for n in subtree["nodes"]}
+        assert "main_func" in node_names
+        assert "helper_a" in node_names
+        assert "helper_b" in node_names
+        # deep_func and malloc are at depth 2 — should be excluded
+        assert "deep_func" not in node_names
+        assert "malloc" not in node_names
+
 
 # ── Fuzzer Tests ──
 
@@ -318,11 +330,11 @@ class TestFuzzer:
     def test_unreached_functions(self, store: GraphStore, snapshot_id: str):
         _populate(store, snapshot_id)
         unreached = store.unreached_functions_by_all_fuzzers(snapshot_id)
-        # All non-entry functions should be reached in our test graph
-        # Only LLVMFuzzerTestOneInput is excluded by the query
         unreached_names = {u["name"] for u in unreached}
-        # The LLVMFuzzerTestOneInput is excluded from unreached query
+        # All non-external, non-entry functions are reached in our test graph
         assert "LLVMFuzzerTestOneInput" not in unreached_names
+        # The unreached set should be empty (all library functions are reachable)
+        assert len(unreached) == 0
 
 
 # ── Snapshot Tests ──

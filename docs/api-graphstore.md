@@ -325,10 +325,11 @@
 说明: 按 depth 升序。与 get_functions(fuzzer_name=xxx) 类似，但语义更明确。
 ```
 
-#### `unreached_functions_by_all_fuzzers(snapshot_id)`
+#### `unreached_functions_by_all_fuzzers(snapshot_id, include_external?)`
 ```
 输入:
   snapshot_id: str
+  include_external: bool = False  — 可选，是否包含外部函数
 输出:
   list[dict]
   [
@@ -370,11 +371,12 @@
 说明: files.source — "user"(用户通过工单 JSON fuzzer_sources 传入) 或 "auto_detect"(从 debug info 检测到入口函数所在文件, v2)
 ```
 
-#### `get_fuzzer_metadata(snapshot_id, fuzzer_name)`
+#### `get_fuzzer_metadata(snapshot_id, fuzzer_name, project_path?)`
 ```
 输入:
   snapshot_id: str
   fuzzer_name: str
+  project_path: str?   — 可选，提供时在 files 中附带 code 字段（文件完整内容）
 输出:
   dict | None
   {

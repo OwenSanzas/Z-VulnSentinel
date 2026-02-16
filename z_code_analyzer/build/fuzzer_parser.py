@@ -228,14 +228,22 @@ class FuzzerEntryParser:
 
         for i, m in enumerate(defs):
             func_name = m.group(1)
-            # Get function body — start after the opening '{' to avoid
-            # matching the function's own name in the definition line
+            # Get function body using brace-counting for accurate boundary
             brace_pos = content.find("{", m.start())
             if brace_pos == -1:
                 continue
-            start = brace_pos + 1
-            end = defs[i + 1].start() if i + 1 < len(defs) else len(content)
-            body = content[start:end]
+            # Count braces to find matching closing brace
+            depth = 1
+            pos = brace_pos + 1
+            limit = len(content)
+            while pos < limit and depth > 0:
+                ch = content[pos]
+                if ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                pos += 1
+            body = content[brace_pos + 1 : pos - 1]
 
             # Find all calls in body
             calls = set()

@@ -6,6 +6,7 @@
 {
   "neo4j_uri": "bolt://localhost:7687",
   "neo4j_auth": null,
+  "mongo_uri": "mongodb://localhost:27017",
   "analysis_backend": "auto",
   "orchestration_mode": null,
   "svf_docker_image": null,
@@ -21,6 +22,7 @@
 ```json
 {
   "neo4j_uri": "bolt://neo4j:7687",
+  "mongo_uri": "mongodb://mongo:27017",
   "analysis_backend": "auto",
   "orchestration_mode": null,
   "ai_refine_enabled": false
@@ -38,6 +40,7 @@
 ```bash
 export NEO4J_URI=bolt://localhost:7687       # Neo4j 连接地址
 export NEO4J_AUTH=none                        # Neo4j 认证（none / neo4j:password）
+export MONGO_URI=mongodb://localhost:27017    # MongoDB 连接地址（SnapshotManager 用）
 export ANALYSIS_BACKEND=auto
 export SVF_DOCKER_IMAGE=curl-fuzzer-base     # SVF 构建用的 Docker 镜像
 export SVF_CASE_CONFIG=curl                   # SVF 构建配置名（对应 cases/ 下的文件）
@@ -60,6 +63,14 @@ services:
     environment:
       - NEO4J_AUTH=none
 
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
 volumes:
   neo4j-data:
+  mongo-data:
 ```

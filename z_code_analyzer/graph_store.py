@@ -191,11 +191,16 @@ class GraphStore:
                     WHERE e.caller_file IS NULL OR caller.file_path = e.caller_file
                     MATCH (callee:Function {snapshot_id: $sid, name: e.callee})
                     WHERE e.callee_file IS NULL OR callee.file_path = e.callee_file
-                    CREATE (caller)-[:CALLS {
-                        call_type: e.call_type,
-                        confidence: e.confidence,
-                        backend: e.backend
-                    }]->(callee)
+                    MERGE (caller)-[r:CALLS]->(callee)
+                    ON CREATE SET
+                        r.call_type = e.call_type,
+                        r.confidence = e.confidence,
+                        r.backend = e.backend
+                    ON MATCH SET
+                        r.call_type = CASE WHEN r.confidence < e.confidence
+                                           THEN e.call_type ELSE r.call_type END,
+                        r.confidence = CASE WHEN e.confidence > r.confidence
+                                            THEN e.confidence ELSE r.confidence END
                     RETURN count(*) AS cnt
                     """,
                     sid=snapshot_id,
@@ -266,9 +271,6 @@ class GraphStore:
                             file_path: $main_file
                         })
                         MATCH (lib:Function {snapshot_id: $sid, name: lib_name})
-                        WHERE $main_file IS NULL
-                              OR lib.file_path IS NULL
-                              OR lib.file_path <> $main_file
                         MERGE (entry)-[r:CALLS {call_type: 'direct', backend: 'fuzzer_parser'}]->(lib)
                         ON CREATE SET r.confidence = 1.0
                         """,
@@ -311,34 +313,44 @@ class GraphStore:
         return count
 
     def delete_snapshot(self, snapshot_id: str) -> None:
-        """Delete entire snapshot subgraph including any orphan nodes."""
+        """Delete entire snapshot subgraph including any orphan nodes.
+
+        All deletions run in a single explicit transaction so that a
+        partial failure does not leave inconsistent state.
+        """
         with self._session() as session:
-            # Delete snapshot node and all nodes connected via :CONTAINS
-            session.run(
-                """
-                MATCH (s:Snapshot {id: $sid})-[:CONTAINS]->(n)
-                DETACH DELETE s, n
-                """,
-                sid=snapshot_id,
-            )
-            # Delete Snapshot node even if it has no CONTAINS children
-            session.run(
-                """
-                MATCH (s:Snapshot {id: $sid})
-                DETACH DELETE s
-                """,
-                sid=snapshot_id,
-            )
-            # Also clean up any orphan Function/Fuzzer nodes with this snapshot_id
-            # (e.g., from partial imports that weren't connected via :CONTAINS)
-            session.run(
-                """
-                MATCH (n {snapshot_id: $sid})
-                WHERE n:Function OR n:Fuzzer
-                DETACH DELETE n
-                """,
-                sid=snapshot_id,
-            )
+            tx = session.begin_transaction()
+            try:
+                # Delete snapshot node and all nodes connected via :CONTAINS
+                tx.run(
+                    """
+                    MATCH (s:Snapshot {id: $sid})-[:CONTAINS]->(n)
+                    DETACH DELETE s, n
+                    """,
+                    sid=snapshot_id,
+                )
+                # Delete Snapshot node even if it has no CONTAINS children
+                tx.run(
+                    """
+                    MATCH (s:Snapshot {id: $sid})
+                    DETACH DELETE s
+                    """,
+                    sid=snapshot_id,
+                )
+                # Also clean up any orphan Function/Fuzzer nodes with this snapshot_id
+                # (e.g., from partial imports that weren't connected via :CONTAINS)
+                tx.run(
+                    """
+                    MATCH (n {snapshot_id: $sid})
+                    WHERE n:Function OR n:Fuzzer
+                    DETACH DELETE n
+                    """,
+                    sid=snapshot_id,
+                )
+                tx.commit()
+            except Exception:
+                tx.rollback()
+                raise
 
     # ── Query — Single Function ──
 

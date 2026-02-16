@@ -35,7 +35,7 @@ z-analyze create-work -o work.json
 | `version` | Y | str | tag 或 commit hash |
 | `path` | N | str | 本地项目路径，不传则自动 clone |
 | `build_script` | N | str | 构建脚本路径，不传则自动检测/LLM 推断 |
-| `backend` | N | str | 分析后端，默认 `"svf"` |
+| `backend` | N | str | 分析后端，默认 `"auto"` |
 | `fuzzer_sources` | Y | dict | fuzzer 名 → 源文件列表（list[str]） |
 | `diff_files` | N | list[str] | 增量分析的变更文件 |
 | `ai_refine` | N | bool | 启用 AI 精化（v1 预留） |
@@ -45,63 +45,68 @@ z-analyze create-work -o work.json
 **执行分析：**
 ```bash
 # 使用工单 JSON 执行分析
-z-analyze run work.json
+z-analyze run work.json --neo4j-uri bolt://localhost:7687 --mongo-uri mongodb://localhost:27017
 
 # 查询已有数据
-z-query --repo-url https://github.com/curl/curl \
+z-query shortest-path --repo-url https://github.com/curl/curl \
            --version curl-8_5_0 \
-           --shortest-path LLVMFuzzerTestOneInput dict_do
+           LLVMFuzzerTestOneInput dict_do
+
+z-query search --repo-url https://github.com/curl/curl \
+           --version curl-8_5_0 "dict_*"
 
 # 列出所有已有 Snapshot
 z-snapshots list
 z-snapshots list --repo-url https://github.com/curl/curl
 ```
 
-**CLI 实现：**
+**CLI 实现（基于 Click）：**
 ```python
 # z_code_analyzer/cli.py
 
+import click
+
+@click.group()
 def main():
-    parser = argparse.ArgumentParser(description="Z-Code Analyzer Station")
-    subparsers = parser.add_subparsers(dest="command")
+    """Z-Code Analyzer Station"""
 
-    # z-analyze create-work
-    create_parser = subparsers.add_parser("create-work", help="创建工单模板")
-    create_parser.add_argument("-o", "--output", default="work.json", help="输出文件路径")
+@main.command("create-work")
+@click.option("-o", "--output", default="work.json", help="输出文件路径")
+def create_work(output):
+    """创建工单模板"""
+    create_work_template(output)
 
-    # z-analyze run
-    run_parser = subparsers.add_parser("run", help="执行分析")
-    run_parser.add_argument("work_file", help="工单 JSON 文件路径")
-    run_parser.add_argument("--neo4j-uri", default="bolt://localhost:7687")
+@main.command("run")
+@click.argument("work_file")
+@click.option("--neo4j-uri", default="bolt://localhost:7687")
+@click.option("--mongo-uri", default="mongodb://localhost:27017")
+def run_analysis(work_file, neo4j_uri, mongo_uri):
+    """执行分析"""
+    work = json.loads(Path(work_file).read_text())
+    graph = GraphStore(neo4j_uri=neo4j_uri, auth=neo4j_auth)
+    sm = SnapshotManager(mongo_uri=mongo_uri, graph_store=graph)
+    orchestrator = StaticAnalysisOrchestrator(
+        snapshot_manager=sm, graph_store=graph
+    )
 
-    args = parser.parse_args()
+    project_path = work.get("path")
+    if not project_path:
+        project_path = auto_clone(work["repo_url"], work["version"])
 
-    if args.command == "create-work":
-        create_work_template(args.output)
-    elif args.command == "run":
-        work = json.loads(Path(args.work_file).read_text())
-        graph = GraphStore(neo4j_uri=args.neo4j_uri)
-        orchestrator = StaticAnalysisOrchestrator(graph_store=graph)
+    result = asyncio.run(orchestrator.analyze(
+        project_path=project_path,
+        repo_url=work["repo_url"],
+        version=work["version"],
+        build_script=work.get("build_script"),
+        fuzzer_sources=work["fuzzer_sources"],
+        backend=work.get("backend"),
+        diff_files=work.get("diff_files"),
+    ))
 
-        # 无本地路径 → 自动 clone 到临时目录
-        project_path = work.get("path")
-        if not project_path:
-            project_path = auto_clone(work["repo_url"], work["version"])
-
-        result = asyncio.run(orchestrator.analyze(
-            project_path=project_path,
-            repo_url=work["repo_url"],
-            version=work["version"],
-            build_script=work.get("build_script"),
-            fuzzer_sources=work["fuzzer_sources"],
-            backend=work.get("backend"),
-            diff_files=work.get("diff_files"),
-        ))
-
-        print(f"Snapshot: {result.snapshot_id}")
-        print(f"Functions: {result.function_count}, Edges: {result.edge_count}")
-        print(f"Fuzzers: {result.fuzzer_names}")
-        print(f"Backend: {result.backend}")
+    click.echo(f"Snapshot: {result.snapshot_id}")
+    click.echo(f"Functions: {result.function_count}, Edges: {result.edge_count}")
+    click.echo(f"Fuzzers: {result.fuzzer_names}")
+    click.echo(f"Backend: {result.backend}")
 ```
 
 ### 9.2 REST API

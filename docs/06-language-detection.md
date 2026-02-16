@@ -1,29 +1,32 @@
 ## 6. 语言检测与工具链自动选择
 
-### 6.1 LanguageDetector
+### 6.1 ProjectProbe（语言检测 + 构建系统识别）
 
-自动检测项目的主要编程语言和语言分布。
+> **v1 实现**: `LanguageDetector` 和 `ToolchainSelector` 设计合并为 `ProjectProbe` 类。
+> 文件: `z_code_analyzer/probe.py`
+
+自动检测项目的主要编程语言和构建系统。
 
 ```python
-# analysis/backends/language_detector.py
+# z_code_analyzer/probe.py
 
 @dataclass
 class LanguageProfile:
     """项目的语言分布"""
-    primary_language: str                    # 主要语言
-    language_distribution: Dict[str, float]  # {语言: 占比}，如 {"c": 0.7, "cpp": 0.3}
-    build_system: Optional[str]              # 检测到的构建系统
-    detected_features: List[str]             # 特征列表
+    primary_language: str                         # 主要语言
+    file_counts: dict[str, int] = field(default_factory=dict)  # {语言: 文件数}，如 {"c": 70, "cpp": 30}
+    confidence: float = 1.0                       # 检测置信度
+    detected_features: list[str] = field(default_factory=list)  # 特征列表
 
 
-class LanguageDetector:
+class ProjectProbe:
     """
-    项目语言检测器。
+    项目探测器：语言检测 + 构建系统识别。
     三层检测策略，按优先级递减：
     """
 
     # 层 1：扩展名统计
-    EXTENSION_MAP = {
+    _EXTENSION_TO_LANGUAGE = {
         ".c": "c", ".h": "c",
         ".cc": "cpp", ".cpp": "cpp", ".cxx": "cpp",
         ".hh": "cpp", ".hpp": "cpp", ".hxx": "cpp",
@@ -35,17 +38,21 @@ class LanguageDetector:
     }
 
     # 层 2：构建系统推断
-    BUILD_SYSTEM_INDICATORS = {
-        "CMakeLists.txt": ("cmake", {"c", "cpp"}),
-        "Makefile": ("make", {"c", "cpp"}),         # 需进一步检查
-        "configure.ac": ("autotools", {"c", "cpp"}),
-        "meson.build": ("meson", {"c", "cpp"}),
-        "build.gradle": ("gradle", {"java"}),
-        "pom.xml": ("maven", {"java"}),
-        "go.mod": ("go_modules", {"go"}),
-        "Cargo.toml": ("cargo", {"rust"}),
-        "package.json": ("npm", {"javascript", "typescript"}),
-    }
+    # 注: .h 文件若有更多 .cpp 源文件会被重新归类为 cpp
+    _BUILD_SYSTEM_MARKERS = [
+        ("CMakeLists.txt", "cmake"),
+        ("configure.ac", "autotools"),
+        ("configure.in", "autotools"),
+        ("configure", "autotools"),
+        ("meson.build", "meson"),
+        ("build.sh", "custom"),
+        ("Makefile", "make"),
+        ("build.gradle", "gradle"),
+        ("pom.xml", "maven"),
+        ("go.mod", "go_modules"),
+        ("Cargo.toml", "cargo"),
+        ("package.json", "npm"),
+    ]
 
     # 层 3：特征文件检测
     FEATURE_INDICATORS = {
@@ -54,25 +61,29 @@ class LanguageDetector:
         "compile_flags.txt": "has_compile_flags",
     }
 
-    def detect(self, project_path: str) -> LanguageProfile:
+    def probe(self, project_path: str, diff_files: list[str] | None = None) -> ProjectInfo:
         """
-        执行语言检测。
+        执行项目探测。
 
+        返回 ProjectInfo（含 language_profile, build_system, source_files）。
         步骤：
         1. 遍历所有源文件，按扩展名统计语言分布
         2. 检测构建系统文件，交叉验证
         3. 检测特征文件
-        4. 确定主要语言（占比最高的）
+        4. 确定主要语言（文件数最多的）
         5. 排除 vendor/、third_party/、build/、.git/ 等目录
         """
 ```
 
-### 6.2 ToolchainSelector
+### 6.2 ToolchainSelector（v2 设计，未实现）
+
+> **v1 状态**: 后端选择在 `orchestrator.py` 中内联处理（v1 硬编码 SVF）。
+> 以下为 v2 预留设计。
 
 根据语言检测结果和运行环境，自动选择最优后端组合。
 
 ```python
-# analysis/backends/toolchain_selector.py
+# analysis/backends/toolchain_selector.py  （v2 计划）
 
 @dataclass
 class ToolchainDecision:

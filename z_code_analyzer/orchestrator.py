@@ -66,12 +66,11 @@ class StaticAnalysisOrchestrator:
         if not self.log_store or not self._snapshot_id_for_log:
             return
         try:
-            writer = self.log_store.get_writer(self._snapshot_id_for_log, phase.phase)
-            duration_str = f" ({phase.duration}s)" if phase.duration is not None else ""
-            detail_str = f" — {phase.detail}" if phase.detail else ""
-            error_str = f" ERROR: {phase.error}" if phase.error else ""
-            writer.write(f"[{phase.status}]{duration_str}{detail_str}{error_str}\n")
-            writer.close()
+            with self.log_store.get_writer(self._snapshot_id_for_log, phase.phase) as writer:
+                duration_str = f" ({phase.duration}s)" if phase.duration is not None else ""
+                detail_str = f" — {phase.detail}" if phase.detail else ""
+                error_str = f" ERROR: {phase.error}" if phase.error else ""
+                writer.write(f"[{phase.status}]{duration_str}{detail_str}{error_str}\n")
         except Exception:
             logger.debug("Failed to write phase log for %s", phase.phase, exc_info=True)
 
@@ -223,6 +222,8 @@ class StaticAnalysisOrchestrator:
 
             # Phase 6: Neo4j import + REACHES computation
             self.progress.start_phase("import")
+            # Clean slate: remove any partial data from previous failed attempts
+            self.graph_store.delete_snapshot(snapshot_id)
             self.graph_store.create_snapshot_node(
                 snapshot_id, repo_url, version, result.backend
             )
@@ -302,6 +303,8 @@ class StaticAnalysisOrchestrator:
             )
 
             # Phase 6: Neo4j import
+            # Clean slate: remove any partial data from previous failed attempts
+            self.graph_store.delete_snapshot(snapshot_id)
             self.graph_store.create_snapshot_node(snapshot_id, repo_url, version, result.backend)
             func_count = self.graph_store.import_functions(snapshot_id, result.functions)
             edge_count = self.graph_store.import_edges(snapshot_id, result.edges)
@@ -422,6 +425,9 @@ class StaticAnalysisOrchestrator:
                     f'MATCH path = (entry:Function {{snapshot_id: $sid, '
                     f'name: "LLVMFuzzerTestOneInput"}})'
                 )
+            params: dict[str, Any] = {"sid": snapshot_id}
+            if main_file:
+                params["fpath"] = main_file
             bfs_result = self.graph_store.raw_query(
                 f"""
                 {entry_match}
@@ -429,7 +435,7 @@ class StaticAnalysisOrchestrator:
                 WITH f.name AS func_name, f.file_path AS file_path, min(length(path)) AS depth
                 RETURN func_name, file_path, depth
                 """,
-                {"sid": snapshot_id, "fpath": main_file},
+                params,
             )
             for row in bfs_result:
                 reaches.append(

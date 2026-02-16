@@ -199,7 +199,8 @@ class FunctionMeta:
     original_name: str           # 源码中的原始名字（init）
     file_path: str               # 源文件路径（lib/ftp.c）
     line: int                    # 起始行号
-    content: str                 # 从源文件读取的函数源码
+    end_line: int = 0            # 结束行号（从源文件大括号计数得出）
+    content: str = ""            # 从源文件读取的函数源码
 
 
 @dataclass

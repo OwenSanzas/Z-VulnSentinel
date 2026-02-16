@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -80,4 +83,4 @@ class ProgressTracker:
             try:
                 cb(p)
             except Exception:
-                pass
+                logger.debug("Progress callback error for phase %s", p.phase, exc_info=True)

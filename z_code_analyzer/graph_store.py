@@ -28,12 +28,18 @@ class GraphStore:
     All queries are scoped by snapshot_id to isolate different versions.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        neo4j_uri: str | None = None,
+        auth: tuple[str, str] | None = None,
+    ) -> None:
         self._driver = None
+        if neo4j_uri:
+            self.connect(neo4j_uri, auth)
 
     # ── Connection Management ──
 
-    def connect(self, uri: str, auth: tuple[str, str]) -> None:
+    def connect(self, uri: str, auth: tuple[str, str] | None = None) -> None:
         self._driver = GraphDatabase.driver(uri, auth=auth)
         self._ensure_indexes()
 

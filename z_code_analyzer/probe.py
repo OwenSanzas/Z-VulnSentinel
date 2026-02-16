@@ -41,6 +41,13 @@ _BUILD_SYSTEM_MARKERS: list[tuple[str, str]] = [
     ("build.sh", "custom"),
 ]
 
+# Feature indicator files (doc §6.1)
+_FEATURE_INDICATORS: dict[str, str] = {
+    "compile_commands.json": "has_compile_commands",
+    ".clang-format": "uses_clang_tools",
+    "compile_flags.txt": "has_compile_flags",
+}
+
 # Directories to skip during scanning
 _SKIP_DIRS = {
     ".git",
@@ -76,6 +83,9 @@ class ProjectProbe:
 
         # Language detection
         language_profile = self._detect_language(source_files)
+
+        # Feature indicators (compile_commands.json, .clang-format, etc.)
+        language_profile.detected_features = self._detect_features(root)
 
         # Build system
         build_system = self._detect_build_system(root)
@@ -147,6 +157,14 @@ class ProjectProbe:
             file_counts=dict(ext_counter),
             confidence=round(confidence, 2),
         )
+
+    def _detect_features(self, root: Path) -> list[str]:
+        """Detect feature indicator files (doc §6.1)."""
+        features = []
+        for filename, feature_name in _FEATURE_INDICATORS.items():
+            if (root / filename).exists():
+                features.append(feature_name)
+        return features
 
     def _detect_build_system(self, root: Path) -> str:
         """Detect build system from marker files."""

@@ -12,6 +12,7 @@ class LanguageProfile:
     primary_language: str  # "c", "cpp", "java", "go", "rust", ...
     file_counts: dict[str, int] = field(default_factory=dict)  # {".c": 150, ".h": 80, ...}
     confidence: float = 1.0
+    detected_features: list[str] = field(default_factory=list)  # e.g. ["has_compile_commands"]
 
 
 @dataclass

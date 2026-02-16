@@ -16,10 +16,17 @@ from z_code_analyzer.exceptions import AmbiguousFunctionError
 from z_code_analyzer.graph_store import GraphStore
 
 NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
-NEO4J_AUTH = (
-    os.environ.get("NEO4J_USER", "neo4j"),
-    os.environ.get("NEO4J_PASSWORD", "testpassword"),
-)
+# Default: no auth (matches docker-compose.yml NEO4J_AUTH=none)
+_neo4j_auth_env = os.environ.get("NEO4J_AUTH", "none")
+if _neo4j_auth_env.lower() == "none":
+    NEO4J_AUTH = None
+elif ":" in _neo4j_auth_env:
+    NEO4J_AUTH = tuple(_neo4j_auth_env.split(":", 1))
+else:
+    NEO4J_AUTH = (
+        os.environ.get("NEO4J_USER", "neo4j"),
+        os.environ.get("NEO4J_PASSWORD", "neo4j"),
+    )
 
 needs_neo4j = pytest.mark.skipif(
     os.environ.get("SKIP_NEO4J", "0") == "1",

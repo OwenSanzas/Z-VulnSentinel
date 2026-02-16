@@ -89,9 +89,16 @@ class StaticAnalysisOrchestrator:
         """Full analysis pipeline entry point."""
         snapshot_id: str | None = None
 
+        # v1: only SVF backend is supported
+        if backend and backend not in ("svf", "auto"):
+            logger.warning(
+                "Backend '%s' not supported in v1, falling back to 'svf'", backend
+            )
+        actual_backend = "svf"
+
         # Check snapshot cache
         snapshot_doc = await self.snapshot_manager.acquire_or_wait(
-            repo_url, version, backend or "svf"
+            repo_url, version, actual_backend
         )
 
         if snapshot_doc and snapshot_doc["status"] == "completed":
@@ -244,10 +251,8 @@ class StaticAnalysisOrchestrator:
                 f"reaches={len(reaches)}, fuzzers={len(fuzzer_names)}",
             )
 
-            # Evict old snapshots for this repo (keep MAX_VERSIONS_PER_REPO)
-            evicted = self.snapshot_manager.evict_by_version_limit(repo_url)
-            if evicted:
-                logger.info("Evicted %d old snapshot(s) for %s", evicted, repo_url)
+            # Eviction: priority order per doc §1.7.4
+            self._run_eviction(repo_url)
 
             return AnalysisOutput(
                 snapshot_id=snapshot_id,
@@ -306,10 +311,8 @@ class StaticAnalysisOrchestrator:
             language=result.language,
         )
 
-        # Evict old snapshots for this repo (keep MAX_VERSIONS_PER_REPO)
-        evicted = self.snapshot_manager.evict_by_version_limit(repo_url)
-        if evicted:
-            logger.info("Evicted %d old snapshot(s) for %s", evicted, repo_url)
+        # Eviction: priority order per doc §1.7.4
+        self._run_eviction(repo_url)
 
         return AnalysisOutput(
             snapshot_id=snapshot_id,
@@ -356,6 +359,23 @@ class StaticAnalysisOrchestrator:
                 )
             )
         return infos
+
+    def _run_eviction(self, repo_url: str) -> None:
+        """Run eviction strategies in priority order (doc §1.7.4)."""
+        # 1. Disk pressure (highest priority)
+        evicted = self.snapshot_manager.evict_by_disk_pressure()
+        if evicted:
+            logger.info("Evicted %d snapshot(s) due to disk pressure", evicted)
+
+        # 2. Version limit per repo
+        evicted = self.snapshot_manager.evict_by_version_limit(repo_url)
+        if evicted:
+            logger.info("Evicted %d old snapshot(s) for %s", evicted, repo_url)
+
+        # 3. TTL expiry
+        evicted = self.snapshot_manager.evict_by_ttl()
+        if evicted:
+            logger.info("Evicted %d expired snapshot(s)", evicted)
 
     def _compute_reaches(
         self,

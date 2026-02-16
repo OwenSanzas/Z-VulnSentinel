@@ -178,7 +178,8 @@ class ProjectProbe:
         total = 0
         for f in source_files[:1000]:  # Cap at 1000 files for speed
             try:
-                total += sum(1 for _ in f.open())
+                with f.open() as fh:
+                    total += sum(1 for _ in fh)
             except (OSError, UnicodeDecodeError):
                 pass
         return total

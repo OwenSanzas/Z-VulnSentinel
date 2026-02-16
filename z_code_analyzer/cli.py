@@ -40,6 +40,9 @@ def _parse_neo4j_auth() -> tuple[str, str] | None:
             user, password = neo4j_auth.split(":", 1)
             return (user, password)
         # Malformed — treat as no-auth with a warning
+        logging.getLogger(__name__).warning(
+            "NEO4J_AUTH has unrecognized format (expected 'none' or 'user:password'), treating as no-auth"
+        )
         return None
     # Fallback: separate env vars (backward compat)
     user = os.environ.get("NEO4J_USER")
@@ -62,6 +65,11 @@ def _auto_clone(repo_url: str, version: str) -> str | None:
         return tmpdir
     except subprocess.CalledProcessError:
         # --branch may fail for commit hashes; try full clone + checkout
+        # First remove the partially-created directory contents
+        import shutil
+
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        os.makedirs(tmpdir, exist_ok=True)
         try:
             subprocess.run(
                 ["git", "clone", repo_url, tmpdir],

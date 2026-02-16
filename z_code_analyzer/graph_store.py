@@ -85,14 +85,13 @@ class GraphStore:
         with self._session() as session:
             session.run(
                 """
-                CREATE (s:Snapshot {
-                    id: $sid,
-                    repo_name: $repo_name,
-                    repo_url: $repo_url,
-                    version: $version,
-                    backend: $backend,
-                    created_at: $created_at
-                })
+                MERGE (s:Snapshot {id: $sid})
+                ON CREATE SET
+                    s.repo_name = $repo_name,
+                    s.repo_url = $repo_url,
+                    s.version = $version,
+                    s.backend = $backend,
+                    s.created_at = $created_at
                 """,
                 sid=snapshot_id,
                 repo_name=repo_name,
@@ -225,29 +224,28 @@ class GraphStore:
                 session.run(
                     """
                     MATCH (s:Snapshot {id: $sid})
-                    CREATE (fz:Fuzzer {
-                        name: $name,
-                        snapshot_id: $sid,
-                        entry_function: $entry_function,
-                        focus: $focus,
-                        files: $files_json
-                    })
+                    MERGE (fz:Fuzzer {snapshot_id: $sid, name: $name})
+                    ON CREATE SET
+                        fz.entry_function = $entry_function,
+                        fz.focus = $focus,
+                        fz.files = $files_json
                     CREATE (s)-[:CONTAINS]->(fz)
-                    CREATE (entry:Function {
-                        name: $entry_function,
+                    MERGE (entry:Function {
                         snapshot_id: $sid,
-                        file_path: $main_file,
-                        start_line: 0,
-                        end_line: 0,
-                        content: '',
-                        language: 'c',
-                        cyclomatic_complexity: 0,
-                        return_type: 'int',
-                        parameters: ['const uint8_t *data', 'size_t size'],
-                        is_external: false
+                        name: $entry_function,
+                        file_path: $main_file
                     })
-                    CREATE (s)-[:CONTAINS]->(entry)
-                    CREATE (fz)-[:ENTRY]->(entry)
+                    ON CREATE SET
+                        entry.start_line = 0,
+                        entry.end_line = 0,
+                        entry.content = '',
+                        entry.language = 'c',
+                        entry.cyclomatic_complexity = 0,
+                        entry.return_type = 'int',
+                        entry.parameters = ['const uint8_t *data', 'size_t size'],
+                        entry.is_external = false
+                    MERGE (s)-[:CONTAINS]->(entry)
+                    MERGE (fz)-[:ENTRY]->(entry)
                     """,
                     sid=snapshot_id,
                     name=fz.name,
@@ -268,8 +266,7 @@ class GraphStore:
                             file_path: $main_file
                         })
                         MATCH (lib:Function {snapshot_id: $sid, name: lib_name})
-                        WHERE $main_file IS NULL
-                              OR lib.file_path IS NULL
+                        WHERE lib.file_path IS NULL
                               OR lib.file_path <> $main_file
                         CREATE (entry)-[:CALLS {call_type: 'direct', confidence: 1.0, backend: 'fuzzer_parser'}]->(lib)
                         """,
@@ -319,6 +316,14 @@ class GraphStore:
                 """
                 MATCH (s:Snapshot {id: $sid})-[:CONTAINS]->(n)
                 DETACH DELETE s, n
+                """,
+                sid=snapshot_id,
+            )
+            # Delete Snapshot node even if it has no CONTAINS children
+            session.run(
+                """
+                MATCH (s:Snapshot {id: $sid})
+                DETACH DELETE s
                 """,
                 sid=snapshot_id,
             )

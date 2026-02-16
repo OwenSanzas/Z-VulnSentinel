@@ -251,8 +251,11 @@ class StaticAnalysisOrchestrator:
                 f"reaches={len(reaches)}, fuzzers={len(fuzzer_names)}",
             )
 
-            # Eviction: priority order per doc §1.7.4
-            self._run_eviction(repo_url)
+            # Eviction runs after mark_completed — failures must not affect the result
+            try:
+                self._run_eviction(repo_url)
+            except Exception:
+                logger.warning("Eviction failed (non-fatal)", exc_info=True)
 
             return AnalysisOutput(
                 snapshot_id=snapshot_id,
@@ -311,8 +314,11 @@ class StaticAnalysisOrchestrator:
             language=result.language,
         )
 
-        # Eviction: priority order per doc §1.7.4
-        self._run_eviction(repo_url)
+        # Eviction runs after mark_completed — failures must not affect the result
+        try:
+            self._run_eviction(repo_url)
+        except Exception:
+            logger.warning("Eviction failed (non-fatal)", exc_info=True)
 
         return AnalysisOutput(
             snapshot_id=snapshot_id,
@@ -386,7 +392,7 @@ class StaticAnalysisOrchestrator:
         reaches = []
         max_reach_depth = 50  # upper bound to prevent Neo4j memory exhaustion
         for fuzzer in fuzzer_infos:
-            main_file = fuzzer.files[0]["path"] if fuzzer.files else None
+            main_file = fuzzer.files[0]["path"] if fuzzer.files else ""
             bfs_result = self.graph_store.raw_query(
                 f"""
                 MATCH path = (entry:Function {{snapshot_id: $sid,

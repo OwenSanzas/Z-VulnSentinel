@@ -126,6 +126,8 @@ class SnapshotManager:
                         {"_id": snap["_id"]},
                         {"$set": {"status": "failed", "error": "timeout: analyzer process died"}},
                     )
+                    # Update local copy so the failed check below can delete it
+                    snap["status"] = "failed"
                 else:
                     return await self._wait_for_ready(repo_url, version, backend)
 

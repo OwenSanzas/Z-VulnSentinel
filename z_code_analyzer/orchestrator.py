@@ -423,7 +423,11 @@ class StaticAnalysisOrchestrator:
         snapshot_id: str,
         fuzzer_infos: list[FuzzerInfo],
     ) -> list[dict]:
-        """BFS from each fuzzer's entry to compute REACHES edges + depth."""
+        """BFS from each fuzzer's entry to compute REACHES edges + depth.
+
+        Uses shortestPath (BFS-optimized) instead of enumerating all paths,
+        which would be O(exponential) on large call graphs.
+        """
         reaches = []
         max_reach_depth = 50  # upper bound to prevent Neo4j memory exhaustion
         for fuzzer in fuzzer_infos:
@@ -431,13 +435,13 @@ class StaticAnalysisOrchestrator:
             # Neo4j null != "" — use different queries depending on whether file_path is known
             if main_file:
                 entry_match = (
-                    f'MATCH path = (entry:Function {{snapshot_id: $sid, '
-                    f'name: "LLVMFuzzerTestOneInput", file_path: $fpath}})'
+                    'MATCH (entry:Function {snapshot_id: $sid, '
+                    'name: "LLVMFuzzerTestOneInput", file_path: $fpath})'
                 )
             else:
                 entry_match = (
-                    f'MATCH path = (entry:Function {{snapshot_id: $sid, '
-                    f'name: "LLVMFuzzerTestOneInput"}})'
+                    'MATCH (entry:Function {snapshot_id: $sid, '
+                    'name: "LLVMFuzzerTestOneInput"})'
                 )
             params: dict[str, Any] = {"sid": snapshot_id}
             if main_file:
@@ -445,9 +449,10 @@ class StaticAnalysisOrchestrator:
             bfs_result = self.graph_store.raw_query(
                 f"""
                 {entry_match}
-                             -[:CALLS*1..{max_reach_depth}]->(f:Function {{snapshot_id: $sid}})
-                WITH f.name AS func_name, f.file_path AS file_path, min(length(path)) AS depth
-                RETURN func_name, file_path, depth
+                MATCH (f:Function {{snapshot_id: $sid}})
+                WHERE f <> entry
+                MATCH p = shortestPath((entry)-[:CALLS*..{max_reach_depth}]->(f))
+                RETURN f.name AS func_name, f.file_path AS file_path, length(p) AS depth
                 """,
                 params,
             )

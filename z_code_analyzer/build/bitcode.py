@@ -190,9 +190,23 @@ class BitcodeGenerator:
             function_metas=function_metas,
         )
 
+    # Maximum .ll file size to read into memory (500 MB).
+    # Larger files (e.g., full Chromium) need a streaming parser.
+    _MAX_LL_SIZE = 500 * 1024 * 1024
+
     @staticmethod
     def _parse_ll_debug_info(ll_path: Path, project_path: str) -> list[FunctionMeta]:
         """Parse LLVM IR .ll file to extract DISubprogram metadata."""
+        file_size = ll_path.stat().st_size
+        if file_size > BitcodeGenerator._MAX_LL_SIZE:
+            logger.warning(
+                "Skipping .ll parsing: %s is %d MB (limit %d MB). "
+                "Function metadata will be unavailable.",
+                ll_path.name,
+                file_size // (1024 * 1024),
+                BitcodeGenerator._MAX_LL_SIZE // (1024 * 1024),
+            )
+            return []
         content = ll_path.read_text(errors="replace")
 
         # First pass: build file reference table

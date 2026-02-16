@@ -268,6 +268,7 @@ class SnapshotManager:
         """Evict LRU snapshots when disk usage exceeds DISK_THRESHOLD.
 
         Keeps evicting until usage drops below DISK_TARGET or no snapshots remain.
+        Stops early if Neo4j deletion fails (disk space won't be freed).
         """
         evicted = 0
         while True:
@@ -289,8 +290,17 @@ class SnapshotManager:
                 logger.warning("Disk pressure at %.0f%% but no snapshots to evict", ratio * 100)
                 break
 
-            self._delete_snapshot(oldest)
+            neo4j_ok = self._delete_snapshot(oldest)
             evicted += 1
+
+            if not neo4j_ok:
+                # Neo4j delete failed — disk space wasn't freed, stop to avoid
+                # deleting all MongoDB records while Neo4j data persists.
+                logger.error(
+                    "Stopping disk pressure eviction: Neo4j delete failed, "
+                    "further evictions won't free disk space"
+                )
+                break
 
             # Re-check against target
             try:
@@ -304,12 +314,16 @@ class SnapshotManager:
             logger.info("Evicted %d snapshot(s) due to disk pressure", evicted)
         return evicted
 
-    def _delete_snapshot(self, snap: dict) -> None:
+    def _delete_snapshot(self, snap: dict) -> bool:
         """Delete snapshot from MongoDB, Neo4j, and logs.
 
         MongoDB is deleted first to eliminate zombie reference risk — if Neo4j
         cleanup fails later, the orphaned graph data is less harmful than a
         MongoDB reference pointing to missing Neo4j data.
+
+        Returns:
+            True if Neo4j data was successfully deleted (disk space freed),
+            False if Neo4j delete failed (disk pressure may persist).
         """
         sid = str(snap["_id"])
         logger.info("Evicting snapshot %s (%s %s)", sid, snap.get("repo_url"), snap.get("version"))
@@ -319,16 +333,20 @@ class SnapshotManager:
             self._snapshots.delete_one({"_id": snap["_id"]})
         except Exception as e:
             logger.error("Failed to delete MongoDB snapshot %s: %s", sid, e)
-            return  # Don't delete Neo4j/logs if we can't remove the reference
+            return False  # Don't delete Neo4j/logs if we can't remove the reference
 
+        neo4j_ok = True
         if self._graph_store:
             try:
                 self._graph_store.delete_snapshot(sid)
             except Exception as e:
                 logger.error("Failed to delete Neo4j snapshot %s: %s", sid, e)
+                neo4j_ok = False
 
         if self._log_store:
             try:
                 self._log_store.delete_logs(sid)
             except Exception as e:
                 logger.error("Failed to delete logs for snapshot %s: %s", sid, e)
+
+        return neo4j_ok

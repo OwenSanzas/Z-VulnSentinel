@@ -102,7 +102,11 @@ class GraphStore:
             )
 
     def import_functions(self, snapshot_id: str, functions: list[FunctionRecord]) -> int:
-        """Batch create :Function nodes + (:Snapshot)-[:CONTAINS]->(:Function) edges."""
+        """Batch import :Function nodes + (:Snapshot)-[:CONTAINS]->(:Function) edges.
+
+        Uses MERGE on (snapshot_id, name, file_path) to prevent duplicates
+        if called more than once for the same snapshot.
+        """
         if not functions:
             return 0
 
@@ -116,7 +120,11 @@ class GraphStore:
                     params.append(
                         {
                             "name": f.name,
-                            "file_path": f.file_path or None,
+                            # Keep empty string for externals — do NOT convert to
+                            # None/null, because null properties are IGNORED in
+                            # MERGE key matching, which would cause external
+                            # functions to merge with same-named library functions.
+                            "file_path": f.file_path,
                             "start_line": f.start_line,
                             "end_line": f.end_line,
                             "content": f.content,
@@ -128,24 +136,38 @@ class GraphStore:
                         }
                     )
 
+                # MERGE key: (snapshot_id, name, file_path) — handles both
+                # re-import safety and same-name functions in different files.
+                # file_path=null case: functions without file info merge on
+                # (snapshot_id, name) only, which is acceptable for externals.
                 result = session.run(
                     """
                     UNWIND $funcs AS f
                     MATCH (s:Snapshot {id: $sid})
-                    CREATE (fn:Function {
-                        name: f.name,
+                    MERGE (fn:Function {
                         snapshot_id: $sid,
-                        file_path: f.file_path,
-                        start_line: f.start_line,
-                        end_line: f.end_line,
-                        content: f.content,
-                        language: f.language,
-                        cyclomatic_complexity: f.cyclomatic_complexity,
-                        return_type: f.return_type,
-                        parameters: f.parameters,
-                        is_external: f.is_external
+                        name: f.name,
+                        file_path: f.file_path
                     })
-                    CREATE (s)-[:CONTAINS]->(fn)
+                    ON CREATE SET
+                        fn.start_line = f.start_line,
+                        fn.end_line = f.end_line,
+                        fn.content = f.content,
+                        fn.language = f.language,
+                        fn.cyclomatic_complexity = f.cyclomatic_complexity,
+                        fn.return_type = f.return_type,
+                        fn.parameters = f.parameters,
+                        fn.is_external = f.is_external
+                    ON MATCH SET
+                        fn.start_line = f.start_line,
+                        fn.end_line = f.end_line,
+                        fn.content = f.content,
+                        fn.language = f.language,
+                        fn.cyclomatic_complexity = f.cyclomatic_complexity,
+                        fn.return_type = f.return_type,
+                        fn.parameters = f.parameters,
+                        fn.is_external = f.is_external
+                    MERGE (s)-[:CONTAINS]->(fn)
                     WITH fn, f
                     FOREACH (_ IN CASE WHEN f.is_external THEN [1] ELSE [] END |
                         SET fn:External
@@ -291,7 +313,9 @@ class GraphStore:
         return len(fuzzers)
 
     def import_reaches(self, snapshot_id: str, reaches: list[dict]) -> int:
-        """Batch create (:Fuzzer)-[:REACHES {depth}]->(:Function) edges.
+        """Batch import (:Fuzzer)-[:REACHES {depth}]->(:Function) edges.
+
+        Uses MERGE to prevent duplicates on re-import.
 
         Each reach dict must have: fuzzer_name, function_name, depth.
         Optional: file_path — used for disambiguation when multiple functions share the same name.
@@ -309,7 +333,10 @@ class GraphStore:
                     MATCH (fz:Fuzzer {snapshot_id: $sid, name: r.fuzzer_name})
                     MATCH (f:Function {snapshot_id: $sid, name: r.function_name})
                     WHERE r.file_path IS NULL OR f.file_path = r.file_path
-                    CREATE (fz)-[:REACHES {depth: r.depth}]->(f)
+                    MERGE (fz)-[rel:REACHES]->(f)
+                    ON CREATE SET rel.depth = r.depth
+                    ON MATCH SET rel.depth = CASE WHEN r.depth < rel.depth
+                                                  THEN r.depth ELSE rel.depth END
                     RETURN count(*) AS cnt
                     """,
                     sid=snapshot_id,
@@ -346,13 +373,15 @@ class GraphStore:
                     sid=snapshot_id,
                 )
                 # Also clean up any orphan Function/Fuzzer nodes with this snapshot_id
-                # (e.g., from partial imports that weren't connected via :CONTAINS)
+                # (e.g., from partial imports that weren't connected via :CONTAINS).
+                # Use label-specific queries so Neo4j can use the
+                # Function(snapshot_id) and Fuzzer(snapshot_id) indexes.
                 tx.run(
-                    """
-                    MATCH (n {snapshot_id: $sid})
-                    WHERE n:Function OR n:Fuzzer
-                    DETACH DELETE n
-                    """,
+                    "MATCH (n:Function {snapshot_id: $sid}) DETACH DELETE n",
+                    sid=snapshot_id,
+                )
+                tx.run(
+                    "MATCH (n:Fuzzer {snapshot_id: $sid}) DETACH DELETE n",
                     sid=snapshot_id,
                 )
                 tx.commit()
@@ -538,6 +567,9 @@ class GraphStore:
                 to_match += ", file_path: $to_fp"
             to_match += "})"
 
+            # Normalize: negative → unlimited (0), 0 = invalid depth
+            if max_results < 0:
+                max_results = 0
             # -1 = unlimited (capped at safety limit), 0 = invalid, >0 = exact
             if max_depth == 0:
                 return None
@@ -629,6 +661,9 @@ class GraphStore:
                 to_match += ", file_path: $to_fp"
             to_match += "})"
 
+            # Normalize: negative → unlimited (0)
+            if max_results < 0:
+                max_results = 0
             # -1 = unlimited (capped at safety limit), 0 = invalid, >0 = exact
             if max_depth == 0:
                 return None
@@ -699,9 +734,12 @@ class GraphStore:
                 root_match += ", file_path: $fp"
             root_match += "})"
 
+            # Cap depth to prevent Neo4j OOM on dense graphs
+            effective_depth = min(max(depth, 0), _MAX_PATH_DEPTH)
+
             cypher = f"""
                 {root_match}
-                MATCH path = (root)-[:CALLS*0..{depth}]->(f:Function {{snapshot_id: $sid}})
+                MATCH path = (root)-[:CALLS*0..{effective_depth}]->(f:Function {{snapshot_id: $sid}})
                 UNWIND nodes(path) AS n
                 WITH DISTINCT n
                 RETURN collect(DISTINCT {{
@@ -945,6 +983,23 @@ class GraphStore:
     # ── Extension ──
 
     def raw_query(self, cypher: str, params: dict[str, Any] | None = None) -> list[dict]:
+        """Execute raw Cypher query. Internal use only.
+
+        WARNING: This method accepts arbitrary Cypher without access control.
+        Do NOT expose to external callers (RPC, REST, CLI) without
+        input validation, as it allows destructive operations like
+        DETACH DELETE on the entire database.
+        """
+        # Block obviously destructive write operations when called without params
+        # (a sign of ad-hoc/debugging usage rather than parameterized internal calls)
+        _upper = cypher.upper()
+        if params is None and any(
+            kw in _upper for kw in ("DELETE", "REMOVE", "DROP", "CREATE", "MERGE", "SET ")
+        ):
+            raise ValueError(
+                "raw_query without parameters cannot contain write operations. "
+                "Use parameterized queries for internal write operations."
+            )
         with self._session() as session:
             result = session.run(cypher, **(params or {}))
             return [dict(r) for r in result]

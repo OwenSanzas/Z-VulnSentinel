@@ -199,19 +199,31 @@ class SVFBackend(AnalysisBackend):
         bc_dir = str(Path(bc_path).parent)
         bc_name = Path(bc_path).name
 
+        # Validate bc_name to prevent command injection via malicious filenames.
+        # Only allow alphanumeric, dots, hyphens, underscores.
+        import re as _re
+
+        if not _re.fullmatch(r"[\w.\-]+", bc_name):
+            raise SVFError(f"Invalid bitcode filename (contains special characters): {bc_name}")
+
         with tempfile.TemporaryDirectory() as tmpdir:
+            # Use --workdir instead of 'bash -c "cd ... && ..."' to avoid
+            # shell interpolation of bc_name entirely.
             cmd = [
                 "docker",
                 "run",
                 "--rm",
+                "--workdir",
+                "/output",
                 "-v",
                 f"{bc_dir}:/input:ro",
                 "-v",
                 f"{tmpdir}:/output",
                 self._docker_image,
-                "bash",
-                "-c",
-                f"cd /output && wpa -ander -dump-callgraph /input/{bc_name} 2>&1",
+                "wpa",
+                "-ander",
+                "-dump-callgraph",
+                f"/input/{bc_name}",
             ]
 
             logger.info("Running SVF: %s", " ".join(cmd))

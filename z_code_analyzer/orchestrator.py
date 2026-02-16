@@ -431,30 +431,17 @@ class StaticAnalysisOrchestrator:
         reaches = []
         max_reach_depth = 50  # upper bound to prevent Neo4j memory exhaustion
         for fuzzer in fuzzer_infos:
-            main_file = fuzzer.files[0]["path"] if fuzzer.files else None
-            # Neo4j null != "" — use different queries depending on whether file_path is known
-            if main_file:
-                entry_match = (
-                    'MATCH (entry:Function {snapshot_id: $sid, '
-                    'name: "LLVMFuzzerTestOneInput", file_path: $fpath})'
-                )
-            else:
-                entry_match = (
-                    'MATCH (entry:Function {snapshot_id: $sid, '
-                    'name: "LLVMFuzzerTestOneInput"})'
-                )
-            params: dict[str, Any] = {"sid": snapshot_id}
-            if main_file:
-                params["fpath"] = main_file
+            main_file = fuzzer.files[0]["path"] if fuzzer.files else ""
             bfs_result = self.graph_store.raw_query(
                 f"""
-                {entry_match}
+                MATCH (entry:Function {{snapshot_id: $sid,
+                    name: "LLVMFuzzerTestOneInput", file_path: $fpath}})
                 MATCH (f:Function {{snapshot_id: $sid}})
                 WHERE f <> entry
                 MATCH p = shortestPath((entry)-[:CALLS*..{max_reach_depth}]->(f))
                 RETURN f.name AS func_name, f.file_path AS file_path, length(p) AS depth
                 """,
-                params,
+                {"sid": snapshot_id, "fpath": main_file},
             )
             for row in bfs_result:
                 reaches.append(

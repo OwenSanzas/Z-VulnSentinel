@@ -195,8 +195,10 @@ class GraphStore:
                     {
                         "caller": e.caller,
                         "callee": e.callee,
-                        "caller_file": e.caller_file or None,
-                        "callee_file": e.callee_file or None,
+                        # Keep empty string — consistent with import_functions
+                        # storing file_path="" for externals.
+                        "caller_file": e.caller_file,
+                        "callee_file": e.callee_file,
                         "call_type": e.call_type.value,
                         "confidence": e.confidence,
                         "backend": e.source_backend,
@@ -246,7 +248,7 @@ class GraphStore:
 
         with self._session() as session:
             for fz in fuzzers:
-                main_file = fz.files[0]["path"] if fz.files else None
+                main_file = fz.files[0]["path"] if fz.files else ""
                 # Step 1-3: Create Fuzzer + Entry function + edges
                 session.run(
                     """
@@ -284,24 +286,16 @@ class GraphStore:
 
                 # Step 4: Connect entry to library functions
                 if fz.called_library_functions:
-                    # Use file_path matching only when available;
-                    # Neo4j null comparison (= null) always yields null (falsy),
-                    # so we must use IS NULL to handle the no-file case.
-                    entry_where = (
-                        "WHERE entry.file_path = $main_file"
-                        if main_file
-                        else "WHERE entry.file_path IS NULL OR true"
-                    )
                     session.run(
-                        f"""
+                        """
                         UNWIND $lib_funcs AS lib_name
-                        MATCH (entry:Function {{
+                        MATCH (entry:Function {
                             snapshot_id: $sid,
-                            name: $entry_function
-                        }})
-                        {entry_where}
-                        MATCH (lib:Function {{snapshot_id: $sid, name: lib_name}})
-                        MERGE (entry)-[r:CALLS {{call_type: 'direct', backend: 'fuzzer_parser'}}]->(lib)
+                            name: $entry_function,
+                            file_path: $main_file
+                        })
+                        MATCH (lib:Function {snapshot_id: $sid, name: lib_name})
+                        MERGE (entry)-[r:CALLS {call_type: 'direct', backend: 'fuzzer_parser'}]->(lib)
                         ON CREATE SET r.confidence = 1.0
                         """,
                         sid=snapshot_id,

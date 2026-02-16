@@ -25,7 +25,7 @@ elif ":" in _neo4j_auth_env:
 else:
     NEO4J_AUTH = (
         os.environ.get("NEO4J_USER", "neo4j"),
-        os.environ.get("NEO4J_PASSWORD", "neo4j"),
+        os.environ.get("NEO4J_PASSWORD", "testpassword"),
     )
 
 needs_neo4j = pytest.mark.skipif(

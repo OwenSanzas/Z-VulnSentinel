@@ -1,0 +1,3 @@
+#!/bin/bash
+# z-wllvm++ — thin wrapper that always appends -g for debug info
+exec wllvm++ -g "$@"

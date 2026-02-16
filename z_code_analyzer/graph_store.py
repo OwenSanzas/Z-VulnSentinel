@@ -511,6 +511,9 @@ class GraphStore:
                 to_match += ", file_path: $to_fp"
             to_match += "})"
 
+            # -1 = unlimited (capped at safety limit), 0 = invalid, >0 = exact
+            if max_depth == 0:
+                return None
             effective_depth = max_depth if max_depth > 0 else _MAX_PATH_DEPTH
             depth_clause = f"*1..{effective_depth}"
 
@@ -599,6 +602,9 @@ class GraphStore:
                 to_match += ", file_path: $to_fp"
             to_match += "})"
 
+            # -1 = unlimited (capped at safety limit), 0 = invalid, >0 = exact
+            if max_depth == 0:
+                return None
             effective_depth = max_depth if max_depth > 0 else _MAX_PATH_DEPTH
             depth_clause = f"*1..{effective_depth}"
             limit_clause = f"LIMIT {max_results}" if max_results > 0 else ""
@@ -682,17 +688,27 @@ class GraphStore:
             record = result.single()
             nodes = record["nodes"] if record else []
 
-            # Get edges between the collected nodes
-            node_names = [n["name"] for n in nodes]
+            # Get edges between the collected nodes, using (name, file_path)
+            # pairs to avoid false matches on same-named static functions
+            node_keys = [
+                {"name": n["name"], "fp": n.get("file_path", "")}
+                for n in nodes
+            ]
             edge_result = session.run(
                 """
+                UNWIND $node_keys AS nk
+                WITH collect(nk) AS keys
                 MATCH (a:Function {snapshot_id: $sid})-[r:CALLS]->(b:Function {snapshot_id: $sid})
-                WHERE a.name IN $names AND b.name IN $names
+                WHERE any(k IN keys WHERE k.name = a.name
+                          AND (k.fp = '' OR k.fp = a.file_path))
+                  AND any(k IN keys WHERE k.name = b.name
+                          AND (k.fp = '' OR k.fp = b.file_path))
                 RETURN DISTINCT a.name AS from_name, b.name AS to_name,
+                       a.file_path AS from_file, b.file_path AS to_file,
                        r.call_type AS call_type
                 """,
                 sid=snapshot_id,
-                names=node_names,
+                node_keys=node_keys,
             )
             edges = [
                 {"from": r["from_name"], "to": r["to_name"], "call_type": r["call_type"]}
@@ -874,6 +890,7 @@ class GraphStore:
                 """
                 MATCH (s:Snapshot {id: $sid})-[:CONTAINS]->(f:Function)
                 WHERE NOT (f)<-[:REACHES]-(:Fuzzer {snapshot_id: $sid})
+                  AND NOT f:External
                   AND f.name <> 'LLVMFuzzerTestOneInput'
                 RETURN count(f) AS cnt
                 """,

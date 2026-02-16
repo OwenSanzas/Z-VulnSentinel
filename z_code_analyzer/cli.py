@@ -163,8 +163,7 @@ def run(
 
     auth = _resolve_auth(neo4j_auth)
 
-    graph_store = GraphStore()
-    graph_store.connect(neo4j_uri, auth)
+    graph_store = GraphStore(neo4j_uri, auth)
 
     snapshot_mgr = SnapshotManager(mongo_uri=mongo_uri, graph_store=graph_store)
 

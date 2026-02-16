@@ -90,10 +90,11 @@ class BuildCommandDetector:
         ("Makefile",        "make",      "make"),
     ]
 
-    def detect(self, project_path: str) -> Optional[BuildCommand]:
+    def detect(self, project_path: str, build_script: str | None = None) -> BuildCommand | None:
         """
-        按优先级检测构建系统，返回构建命令。
-        未检测到返回 None → 降级到层 3。
+        层 1: build_script 非空 → 直接用。
+        层 2: 自动检测构建系统标记文件。
+        未检测到返回 None → 降级到层 3（v2）。
         """
 ```
 
@@ -438,17 +439,24 @@ def _compute_reaches(
     reaches = []
     for fuzzer in fuzzer_infos:
         # BFS from this fuzzer's LLVMFuzzerTestOneInput (identified by file_path)
-        fuzzer_main_file = fuzzer.files[0]["path"]  # 主源文件区分同名节点
+        main_file = fuzzer.files[0]["path"] if fuzzer.files else None
+        # Neo4j null != "" — 根据 file_path 是否已知使用不同查询
+        if main_file:
+            entry_match = 'MATCH path = (entry:Function {snapshot_id: $sid, ' \
+                          'name: "LLVMFuzzerTestOneInput", file_path: $fpath})'
+            params = {"sid": snapshot_id, "fpath": main_file}
+        else:
+            entry_match = 'MATCH path = (entry:Function {snapshot_id: $sid, ' \
+                          'name: "LLVMFuzzerTestOneInput"})'
+            params = {"sid": snapshot_id}
         bfs_result = self.graph_store.raw_query(
-            """
-            MATCH path = (entry:Function {snapshot_id: $sid,
-                                          name: "LLVMFuzzerTestOneInput",
-                                          file_path: $fpath})
-                         -[:CALLS*1..50]->(f:Function {snapshot_id: $sid})
+            f"""
+            {entry_match}
+                         -[:CALLS*1..50]->(f:Function {{snapshot_id: $sid}})
             WITH f.name AS func_name, f.file_path AS file_path, min(length(path)) AS depth
             RETURN func_name, file_path, depth
             """,
-            {"sid": snapshot_id, "fpath": fuzzer_main_file}
+            params
         )
         for row in bfs_result:
             reaches.append({
@@ -474,7 +482,7 @@ RETURN func.name, collect(DISTINCT fz.name) AS reached_by
 编排器是分析管道的统一入口。
 
 ```python
-# analysis/orchestrator.py
+# z_code_analyzer/orchestrator.py
 
 @dataclass
 class AnalysisOutput:
@@ -498,13 +506,11 @@ class StaticAnalysisOrchestrator:
         self,
         snapshot_manager: SnapshotManager,
         graph_store: GraphStore,
-        registry: Optional[BackendRegistry] = None,
-        ai_config: Optional[AIRefinerConfig] = None,
+        log_store: LogStore | None = None,
     ):
         self.snapshot_manager = snapshot_manager
         self.graph_store = graph_store
-        self.registry = registry or BackendRegistry()
-        self.ai_config = ai_config or AIRefinerConfig()
+        self.log_store = log_store
         self.progress = ProgressTracker()
 
     async def analyze(
@@ -560,8 +566,8 @@ class StaticAnalysisOrchestrator:
 
             # Phase 2: 构建命令提取（三层降级）
             self.progress.start_phase("build_cmd")
-            build_cmd = BuildCommandDetector().detect_or_infer(
-                project_path, info, build_script=build_script
+            build_cmd = BuildCommandDetector().detect(
+                project_path, build_script=build_script
             )
             self.progress.complete_phase("build_cmd",
                 detail=f"{build_cmd.build_system} (source: {build_cmd.source})")
@@ -597,8 +603,9 @@ class StaticAnalysisOrchestrator:
                 result = await AIRefiner(self.ai_config).refine(result)
                 self.progress.complete_phase("ai_refine")
 
-            # Phase 6: 写入 Neo4j + 更新 MongoDB 目录
+            # Phase 6: 写入 Neo4j + 更新 MongoDB 目录（clean slate: 先删除可能的残留数据）
             self.progress.start_phase("import")
+            self.graph_store.delete_snapshot(snapshot_id)  # 防止重试时数据重复
             self.graph_store.create_snapshot_node(snapshot_id, repo_url, version, "svf")
             func_count = self.graph_store.import_functions(snapshot_id, result.functions)
             edge_count = self.graph_store.import_edges(snapshot_id, result.edges)

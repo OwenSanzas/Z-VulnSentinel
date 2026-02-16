@@ -5,7 +5,7 @@
 插件式后端注册中心，所有后端通过注册表发现和管理。
 
 ```python
-# analysis/backends/registry.py
+# z_code_analyzer/backends/registry.py
 
 class BackendCapability(Enum):
     """分析能力枚举"""
@@ -65,12 +65,34 @@ class BackendRegistry:
             if not backend.check_prerequisites(project_path):
                 return backend
         return None
+
+
+def create_default_registry() -> BackendRegistry:
+    """创建默认注册表，注册 SVF 后端（v1 默认）。"""
+    from z_code_analyzer.backends.svf_backend import SVFBackend
+
+    registry = BackendRegistry()
+    registry.register(BackendDescriptor(
+        name="svf",
+        supported_languages={"c", "cpp"},
+        capabilities={
+            BackendCapability.FUNCTION_EXTRACTION,
+            BackendCapability.DIRECT_CALLS,
+            BackendCapability.VIRTUAL_DISPATCH,
+            BackendCapability.FUNCTION_POINTERS,
+        },
+        precision_score=0.98,
+        speed_score=0.60,
+        prerequisites=["Docker", "svftools/svf image"],
+        factory=SVFBackend,
+    ))
+    return registry
 ```
 
 ### 3.2 核心接口
 
 ```python
-# analysis/backends/base.py
+# z_code_analyzer/backends/base.py
 
 class CallType(Enum):
     """函数调用类型（v1 只有 DIRECT 和 FPTR，其余为未来扩展预留）"""
@@ -130,6 +152,16 @@ class AnalysisResult:
     analysis_duration_seconds: float = 0.0
     warnings: List[str] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)  # 后端特有元数据
+
+
+@dataclass
+class FuzzerInfo:
+    """完整的 fuzzer 信息，用于写入 Neo4j :Fuzzer 节点。"""
+    name: str
+    entry_function: str = "LLVMFuzzerTestOneInput"
+    files: List[Dict[str, str]] = field(default_factory=list)   # [{path, source}]
+    called_library_functions: List[str] = field(default_factory=list)
+    focus: Optional[str] = None
 
 
 class AnalysisBackend(ABC):

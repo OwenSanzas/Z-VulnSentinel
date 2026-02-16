@@ -54,23 +54,24 @@ export AI_REFINE_BUDGET=1.0
 ```yaml
 services:
   neo4j:
-    image: neo4j:community
+    image: neo4j:5-community
     ports:
       - "7474:7474"   # Web UI
       - "7687:7687"   # Bolt 协议
-    volumes:
-      - neo4j-data:/data
     environment:
-      - NEO4J_AUTH=none
+      NEO4J_AUTH: none
+      NEO4J_PLUGINS: '["apoc"]'
+    volumes:
+      - neo4j_data:/data
 
-  mongo:
+  mongodb:
     image: mongo:7
     ports:
       - "27017:27017"
     volumes:
-      - mongo-data:/data/db
+      - mongo_data:/data/db
 
 volumes:
-  neo4j-data:
-  mongo-data:
+  neo4j_data:
+  mongo_data:
 ```

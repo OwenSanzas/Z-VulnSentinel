@@ -9,7 +9,7 @@
 ### 4.1 ResultMerger
 
 ```python
-# analysis/backends/merger.py
+# z_code_analyzer/backends/merger.py
 
 class ResultMerger:
     """

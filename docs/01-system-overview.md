@@ -96,7 +96,7 @@
                                  │
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  独立入口                                                               │
-│  ├── CLI: fuzzingbrain-analyze /path/to/project                        │
+│  ├── CLI: z-analyze run work.json                                      │
 │  ├── REST API: POST /api/analyze                                       │
 │  └── Python API: StaticAnalysisOrchestrator.analyze()                  │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -138,7 +138,10 @@
   │                     end_line: 210,
   │                     content: "void dict_do(...) { ... }",
   │                     cyclomatic_complexity: 15,
-  │                     language: "c"
+  │                     return_type: "void",
+  │                     parameters: ["struct Curl_easy *data"],
+  │                     language: "c",
+  │                     is_external: false
   │                 })
   │                     │
   │                     ├──[:CALLS {call_type: "direct", confidence: 1.0, backend: "svf"}]──→ (:Function)
@@ -164,7 +167,7 @@
 | 标签 | 属性 | 说明 |
 |------|------|------|
 | `:Snapshot` | `id`, `repo_name`, `repo_url`, `version`, `backend`, `created_at` | 一次分析快照，`id` = MongoDB snapshot `_id`，唯一约束: `(repo_url, version, backend)` |
-| `:Function` | `name`, `snapshot_id`, `file_path`, `start_line`, `end_line`, `content`, `cyclomatic_complexity`, `language` | 用户代码函数，`snapshot_id` 冗余便于索引 |
+| `:Function` | `name`, `snapshot_id`, `file_path`, `start_line`, `end_line`, `content`, `cyclomatic_complexity`, `return_type`, `parameters`, `language`, `is_external` | 用户代码函数，`snapshot_id` 冗余便于索引 |
 | `:Function:External` | `name`, `snapshot_id` | 外部函数（`malloc`, `printf` 等），SVF 无法分析内部，作为叶节点 |
 | `:Fuzzer` | `name`, `snapshot_id`, `entry_function`, `focus`, `files` | Fuzzer 入口，`files` = [{path, source}]，source 为 "user" 或 "auto_detect" |
 
@@ -192,7 +195,7 @@ CREATE INDEX FOR (s:Snapshot) ON (s.id)
 // 最短路径：从函数 A 到函数 B（同一 Snapshot 内）
 MATCH path = shortestPath(
   (a:Function {snapshot_id: $sid, name: "LLVMFuzzerTestOneInput"})
-  -[:CALLS*]->
+  -[:CALLS*1..50]->
   (b:Function {snapshot_id: $sid, name: "dict_do"})
 )
 WHERE ALL(n IN nodes(path) WHERE n.snapshot_id = $sid)
@@ -211,9 +214,11 @@ MATCH (fz:Fuzzer {snapshot_id: $sid, name: "curl_fuzzer"})-[r:REACHES]->(f)
 WHERE r.depth <= 3
 RETURN f.name, r.depth ORDER BY r.depth
 
-// 未被任何 fuzzer 覆盖的函数
+// 未被任何 fuzzer 覆盖的函数（排除外部函数和入口函数）
 MATCH (s:Snapshot {id: $sid})-[:CONTAINS]->(f:Function)
 WHERE NOT (f)<-[:REACHES]-(:Fuzzer {snapshot_id: $sid})
+  AND NOT f:External
+  AND f.name <> 'LLVMFuzzerTestOneInput'
 RETURN f.name, f.file_path
 
 // 某函数的所有 callers / callees
@@ -329,7 +334,7 @@ class GraphStore:
     def import_edges(
         self, snapshot_id: str, edges: list[CallEdge]
     ) -> int:
-        """批量创建 (:Function)-[:CALLS]->(:Function) 边。返回写入数量。"""
+        """批量 MERGE (:Function)-[:CALLS]->(:Function) 边（重复边按 confidence 更新）。返回写入数量。"""
 
     def import_fuzzers(
         self, snapshot_id: str, fuzzers: list[FuzzerInfo]
@@ -422,16 +427,21 @@ class GraphStore:
     ) -> list[dict]:
         """某 fuzzer 可达的函数列表，附带 depth，按 depth 升序"""
 
-    def unreached_functions_by_all_fuzzers(self, snapshot_id: str) -> list[dict]:
-        """未被任何 fuzzer 覆盖的函数列表"""
+    def unreached_functions_by_all_fuzzers(
+        self, snapshot_id: str, include_external: bool = False
+    ) -> list[dict]:
+        """未被任何 fuzzer 覆盖的函数列表（默认排除外部函数）"""
 
     # ── 查询 — 概览 ──
 
     def list_fuzzer_info_no_code(self, snapshot_id: str) -> list[dict]:
         """获取所有 fuzzer 信息（不含源码）"""
 
-    def get_fuzzer_metadata(self, snapshot_id: str, fuzzer_name: str) -> dict | None:
-        """获取单个 fuzzer 完整元信息（含源码）"""
+    def get_fuzzer_metadata(
+        self, snapshot_id: str, fuzzer_name: str,
+        project_path: str | None = None,
+    ) -> dict | None:
+        """获取单个 fuzzer 完整元信息（传 project_path 时附带源码 code 字段）"""
 
     def list_external_function_names(self, snapshot_id: str) -> list[str]:
         """获取外部函数名列表（malloc、printf 等叶节点）"""
@@ -468,6 +478,7 @@ MongoDB 作为 Neo4j 的**元数据索引**，存储所有 Snapshot 的概览信
 | `language` | str | 主要语言 |
 | `analysis_duration_sec` | float | 分析耗时 |
 | `status` | str | `"building"` → `"completed"` / `"failed"` |
+| `error` | str | 失败时的错误信息（status="failed" 时写入） |
 | `created_at` | datetime | 创建时间 |
 | `last_accessed_at` | datetime | 最后被 task 引用的时间 |
 | `access_count` | int | 被 task 引用的总次数 |
@@ -551,7 +562,7 @@ async def acquire_or_wait(self, repo_url: str, version: str, backend: str) -> Sn
             return snap
         if snap["status"] == "building":
             # 超时保护：analyzing 超过 30 分钟 → 视为进程异常死亡
-            if (datetime.now() - snap["created_at"]) > timedelta(minutes=30):
+            if (datetime.now(timezone.utc) - snap["created_at"]) > timedelta(minutes=30):
                 db.snapshots.update_one(
                     {"_id": snap["_id"]},
                     {"$set": {"status": "failed", "error": "timeout: analyzer process died"}}
@@ -564,8 +575,14 @@ async def acquire_or_wait(self, repo_url: str, version: str, backend: str) -> Sn
     # 占位
     try:
         result = db.snapshots.insert_one({
-            "repo_url": repo_url, "version": version, "backend": backend,
-            "status": "building", "created_at": datetime.now(),
+            "repo_url": repo_url, "repo_name": repo_name,
+            "version": version, "backend": backend,
+            "status": "building",
+            "created_at": datetime.now(timezone.utc),
+            "last_accessed_at": datetime.now(timezone.utc),
+            "access_count": 0,
+            "node_count": 0, "edge_count": 0,
+            "fuzzer_names": [],
         })
         snap = db.snapshots.find_one({"_id": result.inserted_id})
         return snap  # status="building", 调用方检查 status 后开始分析
@@ -575,8 +592,8 @@ async def acquire_or_wait(self, repo_url: str, version: str, backend: str) -> Sn
 
 async def _wait_for_ready(self, repo_url, version, backend, timeout=1800):
     """轮询等待 Snapshot 就绪，每 5 秒查一次 MongoDB"""
-    deadline = time.time() + timeout
-    while time.time() < deadline:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
         snap = db.snapshots.find_one({
             "repo_url": repo_url, "version": version, "backend": backend
         })

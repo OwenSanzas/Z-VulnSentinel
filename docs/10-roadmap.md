@@ -30,7 +30,7 @@
 | 创建 `backends/joern_backend.py` | Joern CPG 构建 + 调用图提取 |
 | CPG 查询脚本 | 函数提取 + 调用边提取的 Scala/CPGQL 脚本 |
 | 降级链集成 | SVF 失败 → 自动切换 Joern |
-| CLI 入口 | `z-analyze run work.json` — 工单驱动的独立使用（见 §9.1） |
+| CLI 入口 | `z-analyze /path/to/project` — 独立使用 |
 | 精度对比 | 与 SVF 基线对比，量化差距 |
 
 ### 阶段 4：FBv2 集成（~1 周）

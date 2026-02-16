@@ -41,12 +41,12 @@ class ProjectProbe:
     # 注: .h 文件若有更多 .cpp 源文件会被重新归类为 cpp
     _BUILD_SYSTEM_MARKERS = [
         ("CMakeLists.txt", "cmake"),
-        ("configure", "autotools"),
         ("configure.ac", "autotools"),
         ("configure.in", "autotools"),
+        ("configure", "autotools"),
         ("meson.build", "meson"),
-        ("Makefile", "make"),
         ("build.sh", "custom"),
+        ("Makefile", "make"),
         ("build.gradle", "gradle"),
         ("pom.xml", "maven"),
         ("go.mod", "go_modules"),
@@ -55,7 +55,7 @@ class ProjectProbe:
     ]
 
     # 层 3：特征文件检测
-    _FEATURE_INDICATORS = {
+    FEATURE_INDICATORS = {
         "compile_commands.json": "has_compile_commands",
         ".clang-format": "uses_clang_tools",
         "compile_flags.txt": "has_compile_flags",

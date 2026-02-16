@@ -164,7 +164,7 @@
 | 标签 | 属性 | 说明 |
 |------|------|------|
 | `:Snapshot` | `id`, `repo_name`, `repo_url`, `version`, `backend`, `created_at` | 一次分析快照，`id` = MongoDB snapshot `_id`，唯一约束: `(repo_url, version, backend)` |
-| `:Function` | `name`, `snapshot_id`, `file_path`, `start_line`, `end_line`, `content`, `cyclomatic_complexity`, `return_type`, `parameters`, `language`, `is_external` | 用户代码函数，`snapshot_id` 冗余便于索引 |
+| `:Function` | `name`, `snapshot_id`, `file_path`, `start_line`, `end_line`, `content`, `cyclomatic_complexity`, `language` | 用户代码函数，`snapshot_id` 冗余便于索引 |
 | `:Function:External` | `name`, `snapshot_id` | 外部函数（`malloc`, `printf` 等），SVF 无法分析内部，作为叶节点 |
 | `:Fuzzer` | `name`, `snapshot_id`, `entry_function`, `focus`, `files` | Fuzzer 入口，`files` = [{path, source}]，source 为 "user" 或 "auto_detect" |
 
@@ -422,9 +422,7 @@ class GraphStore:
     ) -> list[dict]:
         """某 fuzzer 可达的函数列表，附带 depth，按 depth 升序"""
 
-    def unreached_functions_by_all_fuzzers(
-        self, snapshot_id: str, include_external: bool = False
-    ) -> list[dict]:
+    def unreached_functions_by_all_fuzzers(self, snapshot_id: str) -> list[dict]:
         """未被任何 fuzzer 覆盖的函数列表"""
 
     # ── 查询 — 概览 ──
@@ -432,16 +430,14 @@ class GraphStore:
     def list_fuzzer_info_no_code(self, snapshot_id: str) -> list[dict]:
         """获取所有 fuzzer 信息（不含源码）"""
 
-    def get_fuzzer_metadata(
-        self, snapshot_id: str, fuzzer_name: str, project_path: str | None = None
-    ) -> dict | None:
-        """获取单个 fuzzer 完整元信息（含源码，需提供 project_path）"""
+    def get_fuzzer_metadata(self, snapshot_id: str, fuzzer_name: str) -> dict | None:
+        """获取单个 fuzzer 完整元信息（含源码）"""
 
     def list_external_function_names(self, snapshot_id: str) -> list[str]:
         """获取外部函数名列表（malloc、printf 等叶节点）"""
 
     def get_snapshot_statistics(self, snapshot_id: str) -> dict:
-        """快速概览：节点数、边数、fuzzer 数、reach_count、平均/最大 depth、unreached_count 等"""
+        """快速概览：节点数、边数、fuzzer 数、平均/最大 depth 等"""
 
     # ── 扩展 ──
 

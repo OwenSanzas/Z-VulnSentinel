@@ -199,7 +199,7 @@ WHERE ALL(n IN nodes(path) WHERE n.snapshot_id = $sid)
 RETURN [n IN nodes(path) | n.name] AS path_names
 
 // 某函数被哪些 fuzzer 可达（通过 REACHES 边直接查，O(1)）
-MATCH (fz:Fuzzer)-[r:REACHES]->(f:Function {snapshot_id: $sid, name: "dict_do"})
+MATCH (fz:Fuzzer {snapshot_id: $sid})-[r:REACHES]->(f:Function {snapshot_id: $sid, name: "dict_do"})
 RETURN fz.name, r.depth
 
 // fuzzer 直接调用的库函数（depth=1，即 LLVMFuzzerTestOneInput 的直接 callee）
@@ -213,7 +213,7 @@ RETURN f.name, r.depth ORDER BY r.depth
 
 // 未被任何 fuzzer 覆盖的函数
 MATCH (s:Snapshot {id: $sid})-[:CONTAINS]->(f:Function)
-WHERE NOT (f)<-[:REACHES]-(:Fuzzer)
+WHERE NOT (f)<-[:REACHES]-(:Fuzzer {snapshot_id: $sid})
 RETURN f.name, f.file_path
 
 // 某函数的所有 callers / callees
@@ -695,11 +695,13 @@ def evict_by_ttl(self):
 def _delete_snapshot(self, snap: dict):
     """
     删除一个 Snapshot：
-    1. Neo4j: 删除该 Snapshot 下所有节点和边
+    1. MongoDB: 先删目录记录（防止僵尸引用——MongoDB 指向已删的 Neo4j 数据）
+       db.snapshots.delete_one({"_id": snap["_id"]})
+    2. Neo4j: 删除该 Snapshot 下所有节点和边
        MATCH (s:Snapshot {id: $sid})-[:CONTAINS]->(n)
        DETACH DELETE s, n
-    2. MongoDB: 删除目录记录
-       db.snapshots.delete_one({"_id": snap["_id"]})
+    3. Neo4j: 清理可能的孤儿节点（部分导入残留）
+       MATCH (n {snapshot_id: $sid}) WHERE n:Function OR n:Fuzzer DETACH DELETE n
     """
 ```
 

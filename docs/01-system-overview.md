@@ -96,8 +96,8 @@
                                  │
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  独立入口                                                               │
-│  ├── CLI: fuzzingbrain-analyze /path/to/project                        │
-│  ├── REST API: POST /api/analyze                                       │
+│  ├── CLI: z-analyze run work.json                                      │
+│  ├── REST API: POST /api/analyze（v2 计划）                             │
 │  └── Python API: StaticAnalysisOrchestrator.analyze()                  │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -138,7 +138,10 @@
   │                     end_line: 210,
   │                     content: "void dict_do(...) { ... }",
   │                     cyclomatic_complexity: 15,
-  │                     language: "c"
+  │                     return_type: "void",
+  │                     parameters: ["..."],
+  │                     language: "c",
+  │                     is_external: false
   │                 })
   │                     │
   │                     ├──[:CALLS {call_type: "direct", confidence: 1.0, backend: "svf"}]──→ (:Function)
@@ -189,10 +192,10 @@ CREATE INDEX FOR (s:Snapshot) ON (s.id)
 #### 1.5.4 关键查询示例
 
 ```cypher
-// 最短路径：从函数 A 到函数 B（同一 Snapshot 内）
+// 最短路径：从函数 A 到函数 B（同一 Snapshot 内，深度上限 50）
 MATCH path = shortestPath(
   (a:Function {snapshot_id: $sid, name: "LLVMFuzzerTestOneInput"})
-  -[:CALLS*]->
+  -[:CALLS*1..50]->
   (b:Function {snapshot_id: $sid, name: "dict_do"})
 )
 WHERE ALL(n IN nodes(path) WHERE n.snapshot_id = $sid)
@@ -211,9 +214,11 @@ MATCH (fz:Fuzzer {snapshot_id: $sid, name: "curl_fuzzer"})-[r:REACHES]->(f)
 WHERE r.depth <= 3
 RETURN f.name, r.depth ORDER BY r.depth
 
-// 未被任何 fuzzer 覆盖的函数
+// 未被任何 fuzzer 覆盖的函数（排除外部函数和 entry 自身）
 MATCH (s:Snapshot {id: $sid})-[:CONTAINS]->(f:Function)
 WHERE NOT (f)<-[:REACHES]-(:Fuzzer {snapshot_id: $sid})
+  AND NOT f:External
+  AND f.name <> 'LLVMFuzzerTestOneInput'
 RETURN f.name, f.file_path
 
 // 某函数的所有 callers / callees
@@ -329,7 +334,7 @@ class GraphStore:
     def import_edges(
         self, snapshot_id: str, edges: list[CallEdge]
     ) -> int:
-        """批量创建 (:Function)-[:CALLS]->(:Function) 边。返回写入数量。"""
+        """批量 MERGE (:Function)-[:CALLS]->(:Function) 边（重复边按 confidence 更新）。返回写入数量。"""
 
     def import_fuzzers(
         self, snapshot_id: str, fuzzers: list[FuzzerInfo]
@@ -463,19 +468,20 @@ MongoDB 作为 Neo4j 的**元数据索引**，存储所有 Snapshot 的概览信
 |------|------|------|
 | `_id` | ObjectId | 自动生成，`str(_id)` 即为全局唯一的 `snapshot_id`，Neo4j 和所有 API 统一使用此字符串 |
 | `repo_url` | str | 仓库地址 |
-| `repo_name` | str | 仓库名（便于展示） |
+| `repo_name` | str | 仓库名（`acquire_or_wait` 时从 `repo_url` 自动提取，便于展示） |
 | `version` | str | tag / commit hash（不允许 branch name） |
 | `backend` | str | 产出后端（`"svf"` / `"joern"` / `"introspector"` / `"prebuild"`） |
-| `node_count` | int | 函数节点数 |
-| `edge_count` | int | 调用边数 |
-| `fuzzer_names` | list[str] | 包含的 Fuzzer 列表 |
-| `language` | str | 主要语言 |
-| `analysis_duration_sec` | float | 分析耗时 |
+| `node_count` | int | 函数节点数（`mark_completed` 时写入） |
+| `edge_count` | int | 调用边数（`mark_completed` 时写入） |
+| `fuzzer_names` | list[str] | 包含的 Fuzzer 列表（`mark_completed` 时写入） |
+| `language` | str | 主要语言（`mark_completed` 时写入） |
+| `analysis_duration_sec` | float | 分析耗时（`mark_completed` 时写入） |
 | `status` | str | `"building"` → `"completed"` / `"failed"` |
-| `created_at` | datetime | 创建时间 |
-| `last_accessed_at` | datetime | 最后被 task 引用的时间 |
+| `error` | str? | 失败原因（`mark_failed` 时写入，成功时不存在） |
+| `created_at` | datetime | 创建时间（UTC） |
+| `last_accessed_at` | datetime | 最后被 task 引用的时间（UTC） |
 | `access_count` | int | 被 task 引用的总次数 |
-| `size_bytes` | int | 预估 Neo4j 存储大小 |
+| `size_bytes` | int | 预估 Neo4j 存储大小（`mark_completed` 时自动估算：节点×1200 + 边×150） |
 
 **唯一索引：** `(repo_url, version, backend)`
 
@@ -532,60 +538,71 @@ Task 启动 (repo_url, version)
 **方案：** MongoDB 唯一索引作为分布式锁，占位即加锁。
 
 ```python
-async def acquire_or_wait(self, repo_url: str, version: str, backend: str) -> SnapshotMeta:
+async def acquire_or_wait(self, repo_url: str, version: str, backend: str) -> dict | None:
     """
     获取或等待 Snapshot。
 
+    返回:
+      dict(status="completed") — 缓存命中
+      dict(status="building") — 拿到锁，调用方应开始分析
+      None — 之前的尝试失败，调用方可重试
+
     1. 查 MongoDB 是否已有
        - status="completed" → 直接返回
-       - status="building" → 轮询等待
+       - status="building" → 检查超时 → 轮询等待
        - status="failed" → 删除旧记录，重新占位
     2. 无记录 → 插入占位 (status="building")
        - 成功 → 我来分析
        - DuplicateKeyError → 别人抢先了，转等待
     """
-    # 检查已有记录
     snap = db.snapshots.find_one({
         "repo_url": repo_url, "version": version, "backend": backend
     })
 
     if snap:
         if snap["status"] == "completed":
-            self.on_snapshot_accessed(snap["_id"])
+            self.on_snapshot_accessed(str(snap["_id"]))
             return snap
         if snap["status"] == "building":
-            # 超时保护：analyzing 超过 30 分钟 → 视为进程异常死亡
-            if (datetime.now() - snap["created_at"]) > timedelta(minutes=30):
+            # 超时保护：building 超过 30 分钟 → 视为进程异常死亡
+            age = datetime.now(timezone.utc) - snap["created_at"].replace(tzinfo=timezone.utc)
+            if age > timedelta(minutes=30):
                 db.snapshots.update_one(
                     {"_id": snap["_id"]},
                     {"$set": {"status": "failed", "error": "timeout: analyzer process died"}}
                 )
+                snap["status"] = "failed"  # fall through to failed handler
             else:
                 return await self._wait_for_ready(repo_url, version, backend)
         if snap["status"] == "failed":
             db.snapshots.delete_one({"_id": snap["_id"]})
 
-    # 占位
+    # 占位（写入完整初始字段）
+    repo_name = repo_url.rstrip("/").rsplit("/", 1)[-1]
     try:
         result = db.snapshots.insert_one({
-            "repo_url": repo_url, "version": version, "backend": backend,
-            "status": "building", "created_at": datetime.now(),
+            "repo_url": repo_url, "repo_name": repo_name,
+            "version": version, "backend": backend,
+            "status": "building",
+            "created_at": datetime.now(timezone.utc),
+            "last_accessed_at": datetime.now(timezone.utc),
+            "access_count": 0, "node_count": 0, "edge_count": 0,
+            "fuzzer_names": [],
         })
-        snap = db.snapshots.find_one({"_id": result.inserted_id})
-        return snap  # status="building", 调用方检查 status 后开始分析
+        return db.snapshots.find_one({"_id": result.inserted_id})
     except DuplicateKeyError:
         return await self._wait_for_ready(repo_url, version, backend)
 
 
 async def _wait_for_ready(self, repo_url, version, backend, timeout=1800):
     """轮询等待 Snapshot 就绪，每 5 秒查一次 MongoDB"""
-    deadline = time.time() + timeout
-    while time.time() < deadline:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
         snap = db.snapshots.find_one({
             "repo_url": repo_url, "version": version, "backend": backend
         })
         if snap and snap["status"] == "completed":
-            self.on_snapshot_accessed(snap["_id"])
+            self.on_snapshot_accessed(str(snap["_id"]))
             return snap
         if not snap or snap["status"] == "failed":
             return None  # 失败了，调用方可重试

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from neo4j import GraphDatabase
@@ -235,7 +236,8 @@ class GraphStore:
                         content: '',
                         language: 'c',
                         cyclomatic_complexity: 0,
-                        return_type: '',
+                        return_type: 'int',
+                        parameters: ['const uint8_t *data', 'size_t size'],
                         is_external: false
                     })
                     CREATE (s)-[:CONTAINS]->(entry)
@@ -758,9 +760,32 @@ class GraphStore:
                 """,
                 sid=snapshot_id,
             )
-            return [dict(r) for r in result]
+            rows = []
+            for r in result:
+                row = dict(r)
+                # Neo4j stores files as JSON string (can't store list-of-maps natively)
+                if isinstance(row.get("files"), str):
+                    row["files"] = json.loads(row["files"])
+                rows.append(row)
+            return rows
 
-    def get_fuzzer_metadata(self, snapshot_id: str, fuzzer_name: str) -> dict | None:
+    def get_fuzzer_metadata(
+        self,
+        snapshot_id: str,
+        fuzzer_name: str,
+        project_path: str | None = None,
+    ) -> dict | None:
+        """Get full fuzzer metadata including file content (code field).
+
+        Unlike list_fuzzer_info_no_code, this returns the full source code
+        of each fuzzer file in the 'code' field.
+
+        Args:
+            snapshot_id: Snapshot identifier.
+            fuzzer_name: Fuzzer name.
+            project_path: Project root path for reading fuzzer source files.
+                If None, code field will be empty.
+        """
         with self._session() as session:
             result = session.run(
                 """
@@ -772,7 +797,28 @@ class GraphStore:
                 fname=fuzzer_name,
             )
             record = result.single()
-            return dict(record) if record else None
+            if not record:
+                return None
+
+            row = dict(record)
+            # Parse files JSON string
+            if isinstance(row.get("files"), str):
+                row["files"] = json.loads(row["files"])
+
+            # Enrich with file content (code field) if project_path is available
+            if project_path and row.get("files"):
+                root = Path(project_path)
+                for f in row["files"]:
+                    src_path = root / f.get("path", "")
+                    if src_path.is_file():
+                        try:
+                            f["code"] = src_path.read_text(errors="replace")
+                        except OSError:
+                            f["code"] = ""
+                    else:
+                        f["code"] = ""
+
+            return row
 
     def list_external_function_names(self, snapshot_id: str) -> list[str]:
         with self._session() as session:

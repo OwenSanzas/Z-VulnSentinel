@@ -236,6 +236,7 @@ class StaticAnalysisOrchestrator:
                 edge_count,
                 fuzzer_names,
                 analysis_duration_sec=result.analysis_duration_seconds,
+                language=detected_lang,
             )
             self.progress.complete_phase(
                 "import",
@@ -297,6 +298,7 @@ class StaticAnalysisOrchestrator:
             edge_count,
             fuzzer_names,
             analysis_duration_sec=result.analysis_duration_seconds,
+            language=result.language,
         )
 
         return AnalysisOutput(

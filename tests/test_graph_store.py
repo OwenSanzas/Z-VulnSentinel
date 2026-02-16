@@ -262,6 +262,12 @@ class TestFuzzer:
         fuzzers = store.list_fuzzer_info_no_code(snapshot_id)
         assert len(fuzzers) == 1
         assert fuzzers[0]["name"] == "test_fuzzer"
+        # files must be a parsed list of dicts, not a JSON string
+        files = fuzzers[0]["files"]
+        assert isinstance(files, list), f"files should be list, got {type(files)}"
+        assert len(files) == 1
+        assert isinstance(files[0], dict)
+        assert files[0]["path"] == "fuzz/fuzz_test.c"
 
     def test_get_fuzzer_metadata(self, store: GraphStore, snapshot_id: str):
         _populate(store, snapshot_id)
@@ -269,6 +275,20 @@ class TestFuzzer:
         assert meta is not None
         assert meta["name"] == "test_fuzzer"
         assert meta["entry_function"] == "LLVMFuzzerTestOneInput"
+        # files must be a parsed list of dicts, not a JSON string
+        files = meta["files"]
+        assert isinstance(files, list), f"files should be list, got {type(files)}"
+
+    def test_entry_function_has_parameters(self, store: GraphStore, snapshot_id: str):
+        """LLVMFuzzerTestOneInput nodes created by import_fuzzers should have parameters."""
+        _populate(store, snapshot_id)
+        meta = store.get_function_metadata(
+            snapshot_id, "LLVMFuzzerTestOneInput", file_path="fuzz/fuzz_test.c"
+        )
+        assert meta is not None
+        assert meta["return_type"] == "int"
+        assert isinstance(meta["parameters"], list)
+        assert len(meta["parameters"]) == 2
 
     def test_reachable_functions(self, store: GraphStore, snapshot_id: str):
         _populate(store, snapshot_id)

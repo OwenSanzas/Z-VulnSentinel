@@ -180,6 +180,7 @@ class SnapshotManager:
         edge_count: int,
         fuzzer_names: list[str],
         analysis_duration_sec: float = 0.0,
+        language: str = "",
     ) -> None:
         from bson import ObjectId
 
@@ -192,6 +193,7 @@ class SnapshotManager:
                     "edge_count": edge_count,
                     "fuzzer_names": fuzzer_names,
                     "analysis_duration_sec": analysis_duration_sec,
+                    "language": language,
                     "last_accessed_at": datetime.now(timezone.utc),
                 }
             },

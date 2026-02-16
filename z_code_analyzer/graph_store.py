@@ -206,15 +206,17 @@ class GraphStore:
                     for e in batch
                 ]
 
-                # Use file_path matching when available to avoid Cartesian product
-                # on duplicate function names (e.g., static functions in different files)
+                # Match by name + file_path to avoid Cartesian product
+                # on duplicate function names (e.g., static functions in different files).
+                # Both caller_file and callee_file are always strings ("" for externals),
+                # matching the import_functions file_path="" convention.
                 result = session.run(
                     """
                     UNWIND $edges AS e
-                    MATCH (caller:Function {snapshot_id: $sid, name: e.caller})
-                    WHERE e.caller_file IS NULL OR caller.file_path = e.caller_file
-                    MATCH (callee:Function {snapshot_id: $sid, name: e.callee})
-                    WHERE e.callee_file IS NULL OR callee.file_path = e.callee_file
+                    MATCH (caller:Function {snapshot_id: $sid, name: e.caller,
+                                            file_path: e.caller_file})
+                    MATCH (callee:Function {snapshot_id: $sid, name: e.callee,
+                                            file_path: e.callee_file})
                     MERGE (caller)-[r:CALLS]->(callee)
                     ON CREATE SET
                         r.call_type = e.call_type,

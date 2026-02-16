@@ -30,14 +30,14 @@ def parse_svf_dot(content: str) -> tuple[dict[str, str], dict[str, set[str]]]:
     # SVF node format:
     # Node0x5632abc [shape=record,shape=Mrecord,
     #   label="{CallGraphNode ID: 42 \{fun: function_name\}|{<s0>...}}"];
-    for m in re.finditer(r"(Node0x[0-9a-f]+)\s*\[.*?fun:\s*(\S+?)\\", content):
+    for m in re.finditer(r"(Node0x[0-9a-fA-F]+)\s*\[.*?fun:\s*(\S+?)\\", content, re.DOTALL):
         nodes[m.group(1)] = m.group(2)
 
     # SVF edge format:
     # Node0x5632abc:s0 -> Node0x5632def
     adj: dict[str, set[str]] = defaultdict(set)
     for m in re.finditer(
-        r"(Node0x[0-9a-f]+)(?::s\d+)?\s*->\s*(Node0x[0-9a-f]+)", content
+        r"(Node0x[0-9a-fA-F]+)(?::s\d+)?\s*->\s*(Node0x[0-9a-fA-F]+)", content
     ):
         src_id = m.group(1)
         dst_id = m.group(2)

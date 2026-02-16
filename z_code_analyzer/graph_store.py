@@ -266,9 +266,11 @@ class GraphStore:
                             file_path: $main_file
                         })
                         MATCH (lib:Function {snapshot_id: $sid, name: lib_name})
-                        WHERE lib.file_path IS NULL
+                        WHERE $main_file IS NULL
+                              OR lib.file_path IS NULL
                               OR lib.file_path <> $main_file
-                        CREATE (entry)-[:CALLS {call_type: 'direct', confidence: 1.0, backend: 'fuzzer_parser'}]->(lib)
+                        MERGE (entry)-[r:CALLS {call_type: 'direct', backend: 'fuzzer_parser'}]->(lib)
+                        ON CREATE SET r.confidence = 1.0
                         """,
                         sid=snapshot_id,
                         entry_function=fz.entry_function,

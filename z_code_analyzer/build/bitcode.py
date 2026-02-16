@@ -17,16 +17,31 @@ from z_code_analyzer.models.build import BitcodeOutput, BuildCommand, FunctionMe
 
 logger = logging.getLogger(__name__)
 
-# Regex to extract a complete DISubprogram(...) entry (may span lines due to LLVM formatting)
-# Note: DISubprogram entries may contain nested parens (e.g., type: !DISubroutineType(...))
-# so we match up to the closing paren at depth 0.
-_DI_SUBPROGRAM_ENTRY_RE = re.compile(r'!DISubprogram\([^)]+\)', re.DOTALL)
-
 # Field extractors applied within a single DISubprogram entry
 _DI_NAME_RE = re.compile(r'name:\s*"([^"]+)"')
 _DI_LINK_RE = re.compile(r'linkageName:\s*"([^"]+)"')
 _DI_FILE_REF_RE = re.compile(r'file:\s*!(\d+)')
 _DI_LINE_RE = re.compile(r'(?<![a-zA-Z])line:\s*(\d+)')
+
+# Marker for entry boundary
+_DI_SUBPROGRAM_START_RE = re.compile(r'!DISubprogram\(')
+
+
+def _extract_di_subprogram_entries(content: str) -> list[str]:
+    """Extract complete DISubprogram(...) entries, handling nested parens."""
+    entries = []
+    for m in _DI_SUBPROGRAM_START_RE.finditer(content):
+        depth = 1
+        i = m.end()
+        while i < len(content) and depth > 0:
+            if content[i] == '(':
+                depth += 1
+            elif content[i] == ')':
+                depth -= 1
+            i += 1
+        entries.append(content[m.start():i])
+    return entries
+
 
 # Regex to extract DIFile
 # Example: !56 = !DIFile(filename: "lib/ftp.c", directory: "/src/curl")
@@ -184,10 +199,9 @@ class BitcodeGenerator:
         for m in _DI_FILE_RE.finditer(content):
             file_refs[m.group(1)] = (m.group(2), m.group(3) or "")
 
-        # Second pass: extract DISubprogram entries (two-step to avoid cross-entry matching)
+        # Second pass: extract DISubprogram entries (depth-aware paren matching)
         metas = []
-        for entry_m in _DI_SUBPROGRAM_ENTRY_RE.finditer(content):
-            entry = entry_m.group(0)
+        for entry in _extract_di_subprogram_entries(content):
             name_m = _DI_NAME_RE.search(entry)
             if not name_m:
                 continue

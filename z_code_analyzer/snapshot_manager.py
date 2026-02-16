@@ -296,9 +296,21 @@ class SnapshotManager:
         return evicted
 
     def _delete_snapshot(self, snap: dict) -> None:
-        """Delete snapshot from Neo4j, logs, and MongoDB."""
+        """Delete snapshot from MongoDB, Neo4j, and logs.
+
+        MongoDB is deleted first to eliminate zombie reference risk — if Neo4j
+        cleanup fails later, the orphaned graph data is less harmful than a
+        MongoDB reference pointing to missing Neo4j data.
+        """
         sid = str(snap["_id"])
         logger.info("Evicting snapshot %s (%s %s)", sid, snap.get("repo_url"), snap.get("version"))
+
+        # Delete MongoDB reference first
+        try:
+            self._snapshots.delete_one({"_id": snap["_id"]})
+        except Exception as e:
+            logger.error("Failed to delete MongoDB snapshot %s: %s", sid, e)
+            return  # Don't delete Neo4j/logs if we can't remove the reference
 
         if self._graph_store:
             try:
@@ -311,5 +323,3 @@ class SnapshotManager:
                 self._log_store.delete_logs(sid)
             except Exception as e:
                 logger.error("Failed to delete logs for snapshot %s: %s", sid, e)
-
-        self._snapshots.delete_one({"_id": snap["_id"]})

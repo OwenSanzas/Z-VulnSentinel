@@ -370,7 +370,8 @@ def _resolve_auth(neo4j_auth: str | None) -> tuple[str, str] | None:
         if neo4j_auth.lower() == "none":
             return None
         if ":" in neo4j_auth:
-            return tuple(neo4j_auth.split(":", 1))
+            user, password = neo4j_auth.split(":", 1)
+            return (user, password)
         return None
     return _parse_neo4j_auth()
 

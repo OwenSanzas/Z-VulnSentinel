@@ -88,6 +88,7 @@ class StaticAnalysisOrchestrator:
     ) -> AnalysisOutput:
         """Full analysis pipeline entry point."""
         snapshot_id: str | None = None
+        analysis_committed = False
 
         # v1: only SVF backend is supported
         if backend and backend not in ("svf", "auto"):
@@ -245,6 +246,7 @@ class StaticAnalysisOrchestrator:
                 analysis_duration_sec=result.analysis_duration_seconds,
                 language=detected_lang,
             )
+            analysis_committed = True
             self.progress.complete_phase(
                 "import",
                 detail=f"functions={func_count}, edges={edge_count}, "
@@ -269,7 +271,7 @@ class StaticAnalysisOrchestrator:
             )
 
         except Exception as e:
-            if snapshot_id:
+            if snapshot_id and not analysis_committed:
                 self.snapshot_manager.mark_failed(snapshot_id, str(e))
                 try:
                     self.graph_store.delete_snapshot(snapshot_id)
@@ -291,6 +293,7 @@ class StaticAnalysisOrchestrator:
         Used when SVF has already been run externally.
         """
         self._snapshot_id_for_log = snapshot_id
+        analysis_committed = False
         try:
             # Phase 4b: Fuzzer entry parsing
             library_func_names = {f.name for f in result.functions}
@@ -318,6 +321,7 @@ class StaticAnalysisOrchestrator:
                 analysis_duration_sec=result.analysis_duration_seconds,
                 language=result.language,
             )
+            analysis_committed = True
 
             # Eviction runs after mark_completed — failures must not affect the result
             try:
@@ -337,11 +341,12 @@ class StaticAnalysisOrchestrator:
             )
 
         except Exception as e:
-            self.snapshot_manager.mark_failed(snapshot_id, str(e))
-            try:
-                self.graph_store.delete_snapshot(snapshot_id)
-            except Exception:
-                logger.warning("Failed to clean up partial Neo4j data for %s", snapshot_id, exc_info=True)
+            if not analysis_committed:
+                self.snapshot_manager.mark_failed(snapshot_id, str(e))
+                try:
+                    self.graph_store.delete_snapshot(snapshot_id)
+                except Exception:
+                    logger.warning("Failed to clean up partial Neo4j data for %s", snapshot_id, exc_info=True)
             raise
 
     @staticmethod
@@ -420,7 +425,7 @@ class StaticAnalysisOrchestrator:
             bfs_result = self.graph_store.raw_query(
                 f"""
                 {entry_match}
-                             -[:CALLS*0..{max_reach_depth}]->(f:Function {{snapshot_id: $sid}})
+                             -[:CALLS*1..{max_reach_depth}]->(f:Function {{snapshot_id: $sid}})
                 WITH f.name AS func_name, f.file_path AS file_path, min(length(path)) AS depth
                 RETURN func_name, file_path, depth
                 """,

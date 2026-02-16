@@ -33,7 +33,7 @@ async def _analysis_phase(self):
     # 新路径：用 StaticAnalysisOrchestrator
     graph_store = GraphStore(neo4j_uri=config.neo4j_uri)
     orchestrator = StaticAnalysisOrchestrator(
-        snapshot_manager=SnapshotManager(graph_store=graph_store),
+        snapshot_manager=SnapshotManager(mongo_uri=config.mongo_uri, graph_store=graph_store),
         graph_store=graph_store,
     )
 

@@ -55,6 +55,7 @@ z-code-analyzer/                            # 独立 GitHub 仓库
 │       └── callgraph.py                # CallEdge, CallType（re-export from backends.base）
 │
 └── tests/
+    ├── __init__.py
     ├── conftest.py                     # 共享 fixtures（Neo4j/MongoDB 连接）
     ├── test_graph_store.py
     ├── test_svf_backend.py

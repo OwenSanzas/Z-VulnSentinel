@@ -3,11 +3,23 @@
 > **函数标识约定**: 所有接受函数参数的方法，`name` 必传，`file_path` 可选。
 > 若 `name` 在 snapshot 内唯一，无需 `file_path`；若有同名函数，必须传 `file_path` 消歧，否则抛 `AmbiguousFunctionError`。
 
+### 构造
+
+#### `GraphStore(neo4j_uri?, auth?)`
+```
+输入:
+  neo4j_uri: str | None = None  — 传入时自动调用 connect()
+  auth: tuple[str, str] | None = None
+输出: GraphStore 实例
+```
+
+---
+
 ### 连接管理
 
 #### `connect(uri, auth)`
 ```
-输入: uri: str, auth: tuple[str, str]
+输入: uri: str, auth: tuple[str, str] | None = None
 输出: None
 ```
 
@@ -52,7 +64,7 @@
   snapshot_id: str
   edges: list[CallEdge]
 输出: int — 写入数量
-说明: 批量创建 (:Function)-[:CALLS]->(:Function) 边
+说明: 批量 MERGE (:Function)-[:CALLS]->(:Function) 边（重复边按 confidence 更新）
 ```
 
 #### `import_fuzzers(snapshot_id, fuzzers) -> int`
@@ -105,6 +117,8 @@
     "end_line": 210,
     "content": "void dict_do(...) { ... }",
     "cyclomatic_complexity": 15,
+    "return_type": "void",
+    "parameters": ["..."],
     "language": "c",
     "is_external": false
   }
@@ -298,8 +312,8 @@
       {"name": "malloc", "file_path": null, "is_external": true}
     ],
     "edges": [
-      {"from": "dict_do", "to": "dict_init", "call_type": "direct"},
-      {"from": "dict_do", "to": "malloc", "call_type": "direct"}
+      {"from": "dict_do", "to": "dict_init", "from_file": "lib/dict.c", "to_file": "lib/dict.c", "call_type": "direct"},
+      {"from": "dict_do", "to": "malloc", "from_file": "lib/dict.c", "to_file": null, "call_type": "direct"}
     ]
   }
 说明: 局部调用图，用于可视化。从指定函数出发向下 depth 层。
@@ -413,6 +427,7 @@
     "external_function_count": 128,
     "edge_count": 18540,
     "fuzzer_count": 10,
+    "reach_count": 1200,
     "avg_depth": 3.2,
     "max_depth": 12,
     "unreached_count": 456

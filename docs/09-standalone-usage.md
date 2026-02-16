@@ -77,28 +77,30 @@ def create_work(output):
     create_work_template(output)
 
 @main.command("run")
-@click.argument("work_file")
+@click.argument("work_file", type=click.Path(exists=True))
 @click.option("--neo4j-uri", default="bolt://localhost:7687")
+@click.option("--neo4j-auth", default=None, help="Neo4j auth ('none' or 'user:password')")
 @click.option("--mongo-uri", default="mongodb://localhost:27017")
-def run_analysis(work_file, neo4j_uri, mongo_uri):
+def run(work_file, neo4j_uri, neo4j_auth, mongo_uri):
     """执行分析"""
     work = json.loads(Path(work_file).read_text())
-    graph = GraphStore(neo4j_uri=neo4j_uri, auth=neo4j_auth)
+    auth = _resolve_auth(neo4j_auth)
+    graph = GraphStore(neo4j_uri, auth)
     sm = SnapshotManager(mongo_uri=mongo_uri, graph_store=graph)
     orchestrator = StaticAnalysisOrchestrator(
         snapshot_manager=sm, graph_store=graph
     )
 
     project_path = work.get("path")
-    if not project_path:
-        project_path = auto_clone(work["repo_url"], work["version"])
+    if not project_path or not Path(project_path).is_dir():
+        project_path = _auto_clone(work["repo_url"], work["version"])
 
     result = asyncio.run(orchestrator.analyze(
         project_path=project_path,
         repo_url=work["repo_url"],
         version=work["version"],
-        build_script=work.get("build_script"),
         fuzzer_sources=work["fuzzer_sources"],
+        build_script=work.get("build_script"),
         backend=work.get("backend"),
         diff_files=work.get("diff_files"),
     ))

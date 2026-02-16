@@ -122,7 +122,7 @@ class AnalysisBackend(ABC):
         """
         ...
 
-    def get_descriptor(self) -> Any:
+    def get_descriptor(self) -> Any | None:
         """
         Return this backend's capability descriptor (BackendDescriptor).
         Subclasses should override to return their registered descriptor.

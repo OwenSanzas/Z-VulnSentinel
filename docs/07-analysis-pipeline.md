@@ -229,12 +229,12 @@ library.bc → llvm-dis → library.ll → 解析 DISubprogram → {ir_name, ori
 输出中**不含** `LLVMFuzzerTestOneInput`（因为 fuzzer 源文件已排除）。
 
 ```python
-class SVFAnalyzer:
+class SVFBackend(AnalysisBackend):
     """
     library.bc → SVF Andersen 分析 → DOT 调用图 → AnalysisResult（仅库代码）
     """
 
-    def analyze(self, bitcode_output: BitcodeOutput) -> AnalysisResult:
+    def analyze(self, project_path: str, language: str, *, bc_path: str, function_metas: list[dict]) -> AnalysisResult:
         """
         步骤：
         1. wpa -ander -dump-callgraph library.bc → callgraph DOT
@@ -431,7 +431,8 @@ def _compute_reaches(
     - 所有库函数的 :Function 节点 + :CALLS 边（Phase 4a SVF 输出）
     - 每个 fuzzer 的 LLVMFuzzerTestOneInput 节点 + 到库函数的 :CALLS 边（Phase 4b 输出）
 
-    返回: [{fuzzer_name, function_name, depth}, ...]
+    返回: [{fuzzer_name, function_name, file_path, depth}, ...]
+    depth=1 是 LLVMFuzzerTestOneInput 的直接 callee，不含 entry 自身。
     """
     reaches = []
     for fuzzer in fuzzer_infos:
@@ -442,9 +443,9 @@ def _compute_reaches(
             MATCH path = (entry:Function {snapshot_id: $sid,
                                           name: "LLVMFuzzerTestOneInput",
                                           file_path: $fpath})
-                         -[:CALLS*0..]->(f:Function {snapshot_id: $sid})
-            WITH f.name AS func_name, min(length(path)) AS depth
-            RETURN func_name, depth
+                         -[:CALLS*1..50]->(f:Function {snapshot_id: $sid})
+            WITH f.name AS func_name, f.file_path AS file_path, min(length(path)) AS depth
+            RETURN func_name, file_path, depth
             """,
             {"sid": snapshot_id, "fpath": fuzzer_main_file}
         )
@@ -575,7 +576,8 @@ class StaticAnalysisOrchestrator:
 
             # Phase 4a: SVF 分析（库代码调用图，不含 fuzzer）
             self.progress.start_phase("svf")
-            result = SVFAnalyzer().analyze(bitcode_output)
+            result = SVFBackend().analyze(project_path, detected_lang,
+                bc_path=bitcode_output.bc_path, function_metas=[...])
             self.progress.complete_phase("svf",
                 detail=f"{len(result.functions)} functions, {len(result.edges)} edges")
 

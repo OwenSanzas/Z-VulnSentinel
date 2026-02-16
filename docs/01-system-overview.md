@@ -206,7 +206,7 @@ RETURN fz.name, r.depth
 MATCH (fz:Fuzzer {snapshot_id: $sid, name: "curl_fuzzer"})-[r:REACHES {depth: 1}]->(f)
 RETURN f.name
 
-// fuzzer 可达的 depth ≤ 3 的函数（depth=0 是 LLVMFuzzerTestOneInput 自身）
+// fuzzer 可达的 depth ≤ 3 的函数（depth=1 是直接 callee，不含 entry 自身）
 MATCH (fz:Fuzzer {snapshot_id: $sid, name: "curl_fuzzer"})-[r:REACHES]->(f)
 WHERE r.depth <= 3
 RETURN f.name, r.depth ORDER BY r.depth
@@ -563,11 +563,12 @@ async def acquire_or_wait(self, repo_url: str, version: str, backend: str) -> Sn
 
     # 占位
     try:
-        db.snapshots.insert_one({
+        result = db.snapshots.insert_one({
             "repo_url": repo_url, "version": version, "backend": backend,
             "status": "building", "created_at": datetime.now(),
         })
-        return None  # 调用方开始分析
+        snap = db.snapshots.find_one({"_id": result.inserted_id})
+        return snap  # status="building", 调用方检查 status 后开始分析
     except DuplicateKeyError:
         return await self._wait_for_ready(repo_url, version, backend)
 

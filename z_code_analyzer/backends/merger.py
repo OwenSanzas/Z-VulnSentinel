@@ -12,8 +12,18 @@ class ResultMerger:
     v2: will merge SVF + Joern results with conflict resolution.
     """
 
-    def merge(self, results: list[AnalysisResult]) -> AnalysisResult:
-        """Merge multiple AnalysisResults into one."""
+    @staticmethod
+    def merge(
+        results: list[AnalysisResult],
+        priority_order: list[str] | None = None,
+    ) -> AnalysisResult:
+        """Merge multiple AnalysisResults into one.
+
+        Args:
+            results: Analysis results to merge.
+            priority_order: Backend priority (highest precision first).
+                v1 ignores this (single backend passthrough).
+        """
         if not results:
             raise ValueError("No results to merge")
 

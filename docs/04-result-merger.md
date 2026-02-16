@@ -1,6 +1,7 @@
 ## 4. 结果合并策略
 
-> **v1 不实现 ResultMerger。** 以下为 v2 多后端合并策略的设计参考。
+> **v1 的 ResultMerger 是 passthrough**：单后端直接返回，不做合并。
+> 以下为 v2 多后端合并策略的设计参考。
 > v1 只有 SVF 单后端，`call_type` 只有 `DIRECT` 和 `FPTR`。下文中的 `INDIRECT`、`VIRTUAL`、`FUNCTION_POINTER` 等类型为 v2 扩展。
 
 当使用串行增强或并行融合模式时，需要将多个后端的 `AnalysisResult` 合并为一个。

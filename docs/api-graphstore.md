@@ -74,7 +74,7 @@
 ```
 输入:
   snapshot_id: str
-  reaches: list[dict]  — [{fuzzer_name: str, function_name: str, depth: int}, ...]
+  reaches: list[dict]  — [{fuzzer_name: str, function_name: str, file_path: str?, depth: int}, ...]
 输出: int — 写入数量
 说明: 批量创建 (:Fuzzer)-[:REACHES {depth}]->(:Function) 边。导入时 BFS 一次性计算。
 ```

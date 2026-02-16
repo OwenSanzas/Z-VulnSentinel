@@ -33,33 +33,38 @@ class BackendDescriptor:
 
 
 class BackendRegistry:
-    """后端注册中心"""
-    _backends: Dict[str, BackendDescriptor] = {}
+    """后端注册中心（实例化使用，避免全局状态，方便测试）"""
 
-    @classmethod
-    def register(cls, descriptor: BackendDescriptor):
-        cls._backends[descriptor.name] = descriptor
+    def __init__(self):
+        self._backends: Dict[str, BackendDescriptor] = {}
 
-    @classmethod
-    def get(cls, name: str) -> Optional[BackendDescriptor]:
-        return cls._backends.get(name)
+    def register(self, descriptor: BackendDescriptor):
+        self._backends[descriptor.name] = descriptor
 
-    @classmethod
-    def list_all(cls) -> List[BackendDescriptor]:
-        return list(cls._backends.values())
+    def get(self, name: str) -> Optional[BackendDescriptor]:
+        return self._backends.get(name)
 
-    @classmethod
-    def find_by_language(cls, language: str) -> List[BackendDescriptor]:
+    def list_all(self) -> List[BackendDescriptor]:
+        return list(self._backends.values())
+
+    def find_by_language(self, language: str) -> List[BackendDescriptor]:
         """按语言过滤，按 precision_score 降序排列"""
         return sorted(
-            [d for d in cls._backends.values() if language in d.supported_languages],
+            [d for d in self._backends.values() if language in d.supported_languages],
             key=lambda d: d.precision_score,
             reverse=True,
         )
 
-    @classmethod
-    def find_by_capability(cls, cap: BackendCapability) -> List[BackendDescriptor]:
-        return [d for d in cls._backends.values() if cap in d.capabilities]
+    def find_by_capability(self, cap: BackendCapability) -> List[BackendDescriptor]:
+        return [d for d in self._backends.values() if cap in d.capabilities]
+
+    def find_best_backend(self, language: str, project_path: str) -> Optional[AnalysisBackend]:
+        """按精度降序尝试后端，检查前置条件，返回第一个可用的。"""
+        for desc in self.find_by_language(language):
+            backend = desc.factory()
+            if not backend.check_prerequisites(project_path):
+                return backend
+        return None
 ```
 
 ### 3.2 核心接口
@@ -105,6 +110,8 @@ class CallEdge:
     call_type: CallType = CallType.DIRECT    # SVF 标记为 DIRECT 或 FPTR
     call_site_file: str = ""    # 调用发生的文件
     call_site_line: int = 0     # 调用发生的行号
+    caller_file: str = ""       # caller 所在文件（消歧用）
+    callee_file: str = ""       # callee 所在文件（消歧用）
     confidence: float = 1.0     # 可信度 0.0-1.0
     source_backend: str = ""    # 产出此边的后端名
 
@@ -176,9 +183,9 @@ class AnalysisBackend(ABC):
         """
         return []
 
-    def get_descriptor(self) -> BackendDescriptor:
-        """返回本后端的能力声明描述符"""
-        ...
+    def get_descriptor(self) -> Optional[BackendDescriptor]:
+        """返回本后端的能力声明描述符。未注册时返回 None。"""
+        return None
 ```
 
 ### 3.3 后端能力矩阵

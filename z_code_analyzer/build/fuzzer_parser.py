@@ -232,12 +232,43 @@ class FuzzerEntryParser:
             brace_pos = content.find("{", m.start())
             if brace_pos == -1:
                 continue
-            # Count braces to find matching closing brace
+            # Count braces, skipping comments and string literals
             depth = 1
             pos = brace_pos + 1
             limit = len(content)
+            in_block_comment = False
             while pos < limit and depth > 0:
                 ch = content[pos]
+                if in_block_comment:
+                    if ch == "*" and pos + 1 < limit and content[pos + 1] == "/":
+                        in_block_comment = False
+                        pos += 2
+                        continue
+                    pos += 1
+                    continue
+                if ch == "/" and pos + 1 < limit:
+                    next_ch = content[pos + 1]
+                    if next_ch == "*":
+                        in_block_comment = True
+                        pos += 2
+                        continue
+                    if next_ch == "/":
+                        # Skip to end of line
+                        nl = content.find("\n", pos)
+                        pos = nl + 1 if nl != -1 else limit
+                        continue
+                if ch in ('"', "'"):
+                    # Skip string/char literal
+                    pos += 1
+                    while pos < limit:
+                        if content[pos] == "\\" and pos + 1 < limit:
+                            pos += 2
+                            continue
+                        if content[pos] == ch:
+                            break
+                        pos += 1
+                    pos += 1
+                    continue
                 if ch == "{":
                     depth += 1
                 elif ch == "}":

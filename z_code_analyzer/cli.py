@@ -180,6 +180,10 @@ def run(
         graph_store=graph_store,
     )
 
+    cloned_dir = None  # Track if we auto-cloned, for cleanup
+    if project_path != work.get("path"):
+        cloned_dir = project_path
+
     try:
         result = asyncio.run(
             orchestrator.analyze(
@@ -219,6 +223,10 @@ def run(
     finally:
         graph_store.close()
         snapshot_mgr.close()
+        # Clean up auto-cloned repo
+        if cloned_dir:
+            import shutil
+            shutil.rmtree(cloned_dir, ignore_errors=True)
 
 
 @main.command("probe")
@@ -343,10 +351,7 @@ def snapshots_list(repo_url: str | None, mongo_uri: str) -> None:
 
     sm = SnapshotManager(mongo_uri=mongo_uri)
     try:
-        query: dict = {"status": "completed"}
-        if repo_url:
-            query["repo_url"] = repo_url
-        snaps = list(sm._snapshots.find(query).sort("last_accessed_at", -1))
+        snaps = sm.list_snapshots(repo_url=repo_url)
         if not snaps:
             click.echo("No snapshots found.")
             return

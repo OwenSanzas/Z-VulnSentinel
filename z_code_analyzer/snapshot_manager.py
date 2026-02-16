@@ -54,6 +54,15 @@ class SnapshotManager:
     def close(self) -> None:
         self._client.close()
 
+    def list_snapshots(
+        self, repo_url: str | None = None, status: str = "completed"
+    ) -> list[dict]:
+        """List snapshots, optionally filtered by repo_url."""
+        query: dict = {"status": status}
+        if repo_url:
+            query["repo_url"] = repo_url
+        return list(self._snapshots.find(query).sort("last_accessed_at", -1))
+
     def find_snapshot(
         self,
         repo_url: str,

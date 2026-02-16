@@ -85,7 +85,12 @@ class StaticAnalysisOrchestrator:
         backend: str | None = None,
         diff_files: list[str] | None = None,
     ) -> AnalysisOutput:
-        """Full analysis pipeline entry point."""
+        """Full analysis pipeline entry point.
+
+        Note: Only acquire_or_wait is truly async. Phases 1-6 run synchronously
+        and will block the event loop. For web contexts, run in a thread pool
+        via asyncio.to_thread() or use ProcessPoolExecutor.
+        """
         snapshot_id: str | None = None
         analysis_committed = False
 
@@ -121,6 +126,7 @@ class StaticAnalysisOrchestrator:
         snapshot_id = str(snapshot_doc["_id"])
         self._snapshot_id_for_log = snapshot_id
 
+        output_dir_obj = None
         try:
             # Phase 1: Project probe
             self.progress.start_phase("probe")
@@ -148,7 +154,8 @@ class StaticAnalysisOrchestrator:
             self.progress.start_phase("bitcode")
             all_fuzzer_files = [f for files in fuzzer_sources.values() for f in files]
             bitcode_gen = BitcodeGenerator()
-            output_dir = tempfile.mkdtemp(prefix="z-analyze-")
+            output_dir_obj = tempfile.TemporaryDirectory(prefix="z-analyze-")
+            output_dir = output_dir_obj.name
 
             # Determine case config from build system
             case_config = self._resolve_case_config(
@@ -279,6 +286,13 @@ class StaticAnalysisOrchestrator:
                 except Exception:
                     logger.warning("Failed to clean up partial Neo4j data for %s", snapshot_id, exc_info=True)
             raise
+        finally:
+            # Clean up temp directory (bitcode, DOT files, etc.)
+            if output_dir_obj is not None:
+                try:
+                    output_dir_obj.cleanup()
+                except Exception:
+                    logger.debug("Failed to clean up temp dir", exc_info=True)
 
     def analyze_full(
         self,

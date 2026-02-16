@@ -211,9 +211,7 @@ class SVFBackend(AnalysisBackend):
                 self._docker_image,
                 "bash",
                 "-c",
-                f"cd /output && wpa -ander -dump-callgraph /input/{bc_name} 2>&1; "
-                f"cp callgraph_final.dot /output/ 2>/dev/null || true; "
-                f"cp callgraph_initial.dot /output/ 2>/dev/null || true",
+                f"cd /output && wpa -ander -dump-callgraph /input/{bc_name} 2>&1",
             ]
 
             logger.info("Running SVF: %s", " ".join(cmd))

@@ -298,21 +298,53 @@ class BitcodeGenerator:
         Starts scanning from start_idx. Once the first '{' is found,
         counts braces until depth returns to 0.
 
+        Skips braces inside // comments, /* */ block comments, and string
+        literals to avoid miscounting.
+
         Returns the 0-based line index of the closing '}'.
         Falls back to start_idx if no braces found within 2000 lines.
         """
         depth = 0
         found_open = False
+        in_block_comment = False
         max_scan = min(start_idx + 2000, len(lines))
 
         for i in range(start_idx, max_scan):
             line = lines[i]
-            # Skip single-line comments and string literals for accuracy
-            # (simplified: just count braces outside // comments)
-            comment_pos = line.find("//")
-            effective = line[:comment_pos] if comment_pos >= 0 else line
+            j = 0
+            while j < len(line):
+                # Inside block comment — look for */
+                if in_block_comment:
+                    close = line.find("*/", j)
+                    if close == -1:
+                        break  # rest of line is comment
+                    j = close + 2
+                    in_block_comment = False
+                    continue
 
-            for ch in effective:
+                ch = line[j]
+                # Start of block comment
+                if ch == "/" and j + 1 < len(line) and line[j + 1] == "*":
+                    in_block_comment = True
+                    j += 2
+                    continue
+                # Line comment — skip rest of line
+                if ch == "/" and j + 1 < len(line) and line[j + 1] == "/":
+                    break
+                # String literal — skip to closing quote
+                if ch in ('"', "'"):
+                    quote = ch
+                    j += 1
+                    while j < len(line):
+                        if line[j] == "\\" and j + 1 < len(line):
+                            j += 2  # skip escaped char
+                            continue
+                        if line[j] == quote:
+                            break
+                        j += 1
+                    j += 1
+                    continue
+                # Count braces
                 if ch == "{":
                     depth += 1
                     found_open = True
@@ -320,6 +352,7 @@ class BitcodeGenerator:
                     depth -= 1
                     if found_open and depth == 0:
                         return i
+                j += 1
 
         # Fallback: couldn't find matching brace, return start
         return start_idx

@@ -750,9 +750,11 @@ class GraphStore:
             nodes = record["nodes"] if record else []
 
             # Get edges between the collected nodes, using (name, file_path)
-            # pairs to avoid false matches on same-named static functions
+            # pairs for exact matching — file_path is always a string
+            # ("" for externals), so exact equality is safe and avoids
+            # false matches between external and library functions.
             node_keys = [
-                {"name": n["name"], "fp": n.get("file_path") or ""}
+                {"name": n["name"], "fp": n.get("file_path", "")}
                 for n in nodes
             ]
             edge_result = session.run(
@@ -760,10 +762,8 @@ class GraphStore:
                 UNWIND $node_keys AS nk
                 WITH collect(nk) AS keys
                 MATCH (a:Function {snapshot_id: $sid})-[r:CALLS]->(b:Function {snapshot_id: $sid})
-                WHERE any(k IN keys WHERE k.name = a.name
-                          AND (k.fp = '' OR k.fp = a.file_path))
-                  AND any(k IN keys WHERE k.name = b.name
-                          AND (k.fp = '' OR k.fp = b.file_path))
+                WHERE any(k IN keys WHERE k.name = a.name AND k.fp = a.file_path)
+                  AND any(k IN keys WHERE k.name = b.name AND k.fp = b.file_path)
                 RETURN DISTINCT a.name AS from_name, b.name AS to_name,
                        a.file_path AS from_file, b.file_path AS to_file,
                        r.call_type AS call_type

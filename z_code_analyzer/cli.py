@@ -1,82 +1,100 @@
-"""CLI entry point for standalone usage: z-analyze."""
+"""CLI entry point for standalone usage: z-analyze.
+
+Subcommands:
+    z-analyze create-work -o work.json    # Generate work order template
+    z-analyze run work.json               # Execute analysis from work order
+    z-analyze probe /path/to/project      # Quick project probe (Phase 1 only)
+"""
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import os
 import sys
+from pathlib import Path
 
 import click
 
+# Default connection strings (overridable via env vars)
+_DEFAULT_NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
+_DEFAULT_NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
+_DEFAULT_NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "neo4j")
+_DEFAULT_MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017")
 
-@click.command()
-@click.argument("project_path", type=click.Path(exists=True))
-@click.option("--repo-url", required=True, help="Repository URL")
-@click.option("--version", required=True, help="Version tag or commit hash")
-@click.option(
-    "--fuzzer-sources",
-    required=True,
-    help='JSON: {"fuzzer_name": ["file1.c", "file2.c"]}',
-)
-@click.option("--build-script", default=None, help="Path to build script")
-@click.option("--language", default=None, help="Override language detection")
-@click.option("--backend", default=None, help="Override backend selection")
-@click.option("--neo4j-uri", default="bolt://localhost:7687", help="Neo4j URI")
-@click.option("--neo4j-user", default="neo4j", help="Neo4j user")
-@click.option("--neo4j-password", default="neo4j", help="Neo4j password")
-@click.option("--mongo-uri", default="mongodb://localhost:27017", help="MongoDB URI")
-@click.option("--probe-only", is_flag=True, help="Only run project probe (Phase 1)")
+# Work order template
+_WORK_ORDER_TEMPLATE = {
+    "repo_url": "https://github.com/user/project",
+    "version": "v1.0",
+    "path": "./project-src",
+    "build_script": None,
+    "backend": "svf",
+    "fuzzer_sources": {
+        "fuzz_example": ["fuzz/fuzz_example.c"],
+    },
+    "diff_files": None,
+    "ai_refine": False,
+}
+
+
+@click.group()
 @click.option("-v", "--verbose", is_flag=True, help="Verbose logging")
-def main(
-    project_path: str,
-    repo_url: str,
-    version: str,
-    fuzzer_sources: str,
-    build_script: str | None,
-    language: str | None,
-    backend: str | None,
-    neo4j_uri: str,
-    neo4j_user: str,
-    neo4j_password: str,
-    mongo_uri: str,
-    probe_only: bool,
-    verbose: bool,
-) -> None:
-    """Z-Code-Analyzer: Static analysis engine for call graph extraction.
-
-    Analyzes a C/C++ project, extracts call graphs using SVF,
-    and stores results in Neo4j for querying.
-    """
+def main(verbose: bool) -> None:
+    """Z-Code-Analyzer: Static analysis engine for call graph extraction."""
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
-    # Parse fuzzer sources JSON
+
+@main.command("create-work")
+@click.option("-o", "--output", default="work.json", help="Output file path")
+def create_work(output: str) -> None:
+    """Generate a work order template JSON file."""
+    Path(output).write_text(json.dumps(_WORK_ORDER_TEMPLATE, indent=2) + "\n")
+    click.echo(f"Work order template written to {output}")
+    click.echo("Edit the file, then run: z-analyze run " + output)
+
+
+@main.command("run")
+@click.argument("work_file", type=click.Path(exists=True))
+@click.option("--neo4j-uri", default=_DEFAULT_NEO4J_URI, help="Neo4j URI")
+@click.option("--neo4j-user", default=_DEFAULT_NEO4J_USER, help="Neo4j user")
+@click.option("--neo4j-password", default=_DEFAULT_NEO4J_PASSWORD, help="Neo4j password")
+@click.option("--mongo-uri", default=_DEFAULT_MONGO_URI, help="MongoDB URI")
+def run(
+    work_file: str,
+    neo4j_uri: str,
+    neo4j_user: str,
+    neo4j_password: str,
+    mongo_uri: str,
+) -> None:
+    """Execute analysis from a work order JSON file."""
+    # Load and validate work order
     try:
-        fuzz_src = json.loads(fuzzer_sources)
+        work = json.loads(Path(work_file).read_text())
     except json.JSONDecodeError as e:
-        click.echo(f"Error: Invalid JSON for --fuzzer-sources: {e}", err=True)
+        click.echo(f"Error: Invalid JSON in {work_file}: {e}", err=True)
         sys.exit(1)
 
-    if not isinstance(fuzz_src, dict):
-        click.echo("Error: --fuzzer-sources must be a JSON object", err=True)
+    # Validate required fields
+    for field in ("repo_url", "version", "fuzzer_sources"):
+        if field not in work:
+            click.echo(f"Error: Missing required field '{field}' in work order", err=True)
+            sys.exit(1)
+
+    if not isinstance(work["fuzzer_sources"], dict):
+        click.echo("Error: 'fuzzer_sources' must be a JSON object", err=True)
         sys.exit(1)
 
-    # Probe-only mode
-    if probe_only:
-        from z_code_analyzer.probe import ProjectProbe
+    project_path = work.get("path")
+    if not project_path or not Path(project_path).is_dir():
+        click.echo(f"Error: Project path not found: {project_path}", err=True)
+        click.echo("Set 'path' in the work order to a valid local directory.", err=True)
+        sys.exit(1)
 
-        info = ProjectProbe().probe(project_path)
-        click.echo(f"Language: {info.language_profile.primary_language}")
-        click.echo(f"Build system: {info.build_system}")
-        click.echo(f"Source files: {len(info.source_files)}")
-        click.echo(f"Estimated LOC: {info.estimated_loc}")
-        return
-
-    # Full analysis
-    import asyncio
-
+    # Run analysis
     from z_code_analyzer.graph_store import GraphStore
     from z_code_analyzer.orchestrator import StaticAnalysisOrchestrator
     from z_code_analyzer.snapshot_manager import SnapshotManager
@@ -95,12 +113,13 @@ def main(
         result = asyncio.run(
             orchestrator.analyze(
                 project_path=project_path,
-                repo_url=repo_url,
-                version=version,
-                fuzzer_sources=fuzz_src,
-                build_script=build_script,
-                language=language,
-                backend=backend,
+                repo_url=work["repo_url"],
+                version=work["version"],
+                fuzzer_sources=work["fuzzer_sources"],
+                build_script=work.get("build_script"),
+                language=work.get("language"),
+                backend=work.get("backend"),
+                diff_files=work.get("diff_files"),
             )
         )
 
@@ -123,12 +142,31 @@ def main(
                 "pending": ".",
             }.get(p["status"], "?")
             duration = f" ({p['duration']}s)" if p["duration"] else ""
-            detail = f" — {p['detail']}" if p["detail"] else ""
+            detail = f" - {p['detail']}" if p["detail"] else ""
             click.echo(f"  [{status_icon}] {p['phase']}{duration}{detail}")
 
     finally:
         graph_store.close()
         snapshot_mgr.close()
+
+
+@main.command("probe")
+@click.argument("project_path", type=click.Path(exists=True))
+def probe(project_path: str) -> None:
+    """Quick project probe: detect language, build system, source files."""
+    from z_code_analyzer.probe import ProjectProbe
+
+    info = ProjectProbe().probe(project_path)
+    click.echo(f"Language: {info.language_profile.primary_language} "
+               f"(confidence: {info.language_profile.confidence})")
+    click.echo(f"Build system: {info.build_system}")
+    click.echo(f"Source files: {len(info.source_files)}")
+    click.echo(f"Estimated LOC: {info.estimated_loc}")
+    if info.git_root:
+        click.echo(f"Git root: {info.git_root}")
+    click.echo(f"\nFile counts:")
+    for ext, count in sorted(info.language_profile.file_counts.items()):
+        click.echo(f"  {ext}: {count}")
 
 
 if __name__ == "__main__":

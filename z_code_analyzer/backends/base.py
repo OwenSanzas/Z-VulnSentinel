@@ -122,6 +122,14 @@ class AnalysisBackend(ABC):
         """
         ...
 
+    def get_descriptor(self) -> Any:
+        """
+        Return this backend's capability descriptor (BackendDescriptor).
+        Subclasses should override to return their registered descriptor.
+        Default returns None for backends not yet registered.
+        """
+        return None
+
     def check_prerequisites(self, project_path: str) -> list[str]:
         """
         Check prerequisites.

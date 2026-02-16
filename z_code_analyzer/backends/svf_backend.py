@@ -54,6 +54,28 @@ class SVFBackend(AnalysisBackend):
     def supported_languages(self) -> set[str]:
         return {"c", "cpp"}
 
+    def get_descriptor(self):
+        """Return SVF backend descriptor."""
+        from z_code_analyzer.backends.registry import (
+            BackendCapability,
+            BackendDescriptor,
+        )
+
+        return BackendDescriptor(
+            name="svf",
+            supported_languages={"c", "cpp"},
+            capabilities={
+                BackendCapability.FUNCTION_EXTRACTION,
+                BackendCapability.DIRECT_CALLS,
+                BackendCapability.VIRTUAL_DISPATCH,
+                BackendCapability.FUNCTION_POINTERS,
+            },
+            precision_score=0.98,
+            speed_score=0.60,
+            prerequisites=["Docker", "svftools/svf image"],
+            factory=SVFBackend,
+        )
+
     def analyze(
         self,
         project_path: str,

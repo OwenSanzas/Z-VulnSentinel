@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import logging
+import tempfile
 from dataclasses import dataclass, field
 from typing import Any
 
 from z_code_analyzer.backends.base import FuzzerInfo
+from z_code_analyzer.build.bitcode import BitcodeGenerator
 from z_code_analyzer.build.detector import BuildCommandDetector
 from z_code_analyzer.build.fuzzer_parser import FuzzerEntryParser
 from z_code_analyzer.graph_store import GraphStore
+from z_code_analyzer.logging.base import LogStore
 from z_code_analyzer.probe import ProjectProbe
-from z_code_analyzer.progress import ProgressTracker
+from z_code_analyzer.progress import PhaseProgress, ProgressTracker
 from z_code_analyzer.snapshot_manager import SnapshotManager
 
 logger = logging.getLogger(__name__)
@@ -48,10 +51,29 @@ class StaticAnalysisOrchestrator:
         self,
         snapshot_manager: SnapshotManager,
         graph_store: GraphStore,
+        log_store: LogStore | None = None,
     ) -> None:
         self.snapshot_manager = snapshot_manager
         self.graph_store = graph_store
+        self.log_store = log_store
         self.progress = ProgressTracker()
+        self._snapshot_id_for_log: str | None = None
+        if log_store:
+            self.progress.callbacks.append(self._log_phase_callback)
+
+    def _log_phase_callback(self, phase: PhaseProgress) -> None:
+        """Write phase status transitions to LogStore."""
+        if not self.log_store or not self._snapshot_id_for_log:
+            return
+        try:
+            writer = self.log_store.get_writer(self._snapshot_id_for_log, phase.phase)
+            duration_str = f" ({phase.duration}s)" if phase.duration else ""
+            detail_str = f" — {phase.detail}" if phase.detail else ""
+            error_str = f" ERROR: {phase.error}" if phase.error else ""
+            writer.write(f"[{phase.status}]{duration_str}{detail_str}{error_str}\n")
+            writer.close()
+        except Exception:
+            logger.debug("Failed to write phase log for %s", phase.phase, exc_info=True)
 
     async def analyze(
         self,
@@ -65,6 +87,7 @@ class StaticAnalysisOrchestrator:
         diff_files: list[str] | None = None,
     ) -> AnalysisOutput:
         """Full analysis pipeline entry point."""
+        snapshot_id: str | None = None
 
         # Check snapshot cache
         snapshot_doc = await self.snapshot_manager.acquire_or_wait(
@@ -89,6 +112,7 @@ class StaticAnalysisOrchestrator:
                 f"({repo_url}@{version})"
             )
         snapshot_id = str(snapshot_doc["_id"])
+        self._snapshot_id_for_log = snapshot_id
 
         try:
             # Phase 1: Project probe
@@ -115,12 +139,35 @@ class StaticAnalysisOrchestrator:
 
             # Phase 3: Bitcode generation (in Docker via svf-pipeline.sh)
             self.progress.start_phase("bitcode")
-            # In production, this calls BitcodeGenerator.generate_via_docker()
-            # For now, we note that the bitcode step requires Docker
             all_fuzzer_files = [f for files in fuzzer_sources.values() for f in files]
+            bitcode_gen = BitcodeGenerator()
+            output_dir = tempfile.mkdtemp(prefix="z-analyze-")
+
+            # Determine case config from build system
+            case_config = self._resolve_case_config(
+                build_cmd.build_system, project_path
+            )
+
+            if case_config:
+                # Full Docker pipeline: build + extract bitcode
+                bc_output = bitcode_gen.generate_via_docker(
+                    project_path=project_path,
+                    case_config=case_config,
+                    fuzzer_source_files=all_fuzzer_files,
+                    output_dir=output_dir,
+                )
+            else:
+                # No case config — try to use pre-existing bitcode
+                bc_output = bitcode_gen.generate(
+                    project_path=project_path,
+                    build_cmd=build_cmd,
+                    fuzzer_source_files=all_fuzzer_files,
+                    output_dir=output_dir,
+                )
             self.progress.complete_phase(
                 "bitcode",
-                detail=f"fuzzer_files_excluded={len(all_fuzzer_files)}",
+                detail=f"bc={bc_output.bc_path}, metas={len(bc_output.function_metas)}, "
+                f"excluded={len(all_fuzzer_files)}",
             )
 
             # Phase 4a: SVF analysis
@@ -128,44 +175,82 @@ class StaticAnalysisOrchestrator:
             from z_code_analyzer.backends.svf_backend import SVFBackend
 
             svf = SVFBackend()
-            # In production: result = svf.analyze(project_path, detected_lang, bc_path=..., function_metas=...)
-            # For now this is a placeholder that will be wired up when Docker is available
-            self.progress.complete_phase("svf")
+            function_metas_dicts = [
+                {
+                    "ir_name": m.ir_name,
+                    "original_name": m.original_name,
+                    "file_path": m.file_path,
+                    "line": m.line,
+                    "end_line": m.end_line,
+                    "content": m.content,
+                }
+                for m in bc_output.function_metas
+            ]
+            result = svf.analyze(
+                project_path,
+                detected_lang,
+                bc_path=bc_output.bc_path,
+                function_metas=function_metas_dicts,
+            )
+            self.progress.complete_phase(
+                "svf",
+                detail=f"functions={len(result.functions)}, edges={len(result.edges)}, "
+                f"fptr={result.metadata.get('fptr_edge_count', 0)}",
+            )
 
             # Phase 4b: Fuzzer entry parsing
             self.progress.start_phase("fuzzer_parse")
-            # library_func_names = {f.name for f in result.functions}
-            # fuzzer_calls = FuzzerEntryParser().parse(fuzzer_sources, library_func_names, project_path)
+            library_func_names = {f.name for f in result.functions}
+            fuzzer_calls = FuzzerEntryParser().parse(
+                fuzzer_sources, library_func_names, project_path
+            )
             self.progress.complete_phase(
                 "fuzzer_parse",
-                detail=f"{len(fuzzer_sources)} fuzzers",
+                detail=f"{len(fuzzer_sources)} fuzzers, "
+                f"lib_calls={sum(len(v) for v in fuzzer_calls.values())}",
             )
 
             # Phase 5: AI refinement (skipped in v1)
             self.progress.skip_phase("ai_refine", "v1: not implemented")
 
-            # Phase 6: Neo4j import
+            # Phase 6: Neo4j import + REACHES computation
             self.progress.start_phase("import")
-            # self.graph_store.create_snapshot_node(snapshot_id, repo_url, version, "svf")
-            # func_count = self.graph_store.import_functions(snapshot_id, result.functions)
-            # edge_count = self.graph_store.import_edges(snapshot_id, result.edges)
-            # fuzzer_infos = self._assemble_fuzzer_infos(fuzzer_sources, fuzzer_calls)
-            # self.graph_store.import_fuzzers(snapshot_id, fuzzer_infos)
-            # reaches = self._compute_reaches(snapshot_id, fuzzer_infos)
-            # self.graph_store.import_reaches(snapshot_id, reaches)
-            # fuzzer_names = [f.name for f in fuzzer_infos]
-            # self.snapshot_manager.mark_completed(snapshot_id, func_count, edge_count, fuzzer_names)
-            self.progress.complete_phase("import")
+            self.graph_store.create_snapshot_node(
+                snapshot_id, repo_url, version, result.backend
+            )
+            func_count = self.graph_store.import_functions(
+                snapshot_id, result.functions
+            )
+            edge_count = self.graph_store.import_edges(snapshot_id, result.edges)
 
-            # Placeholder return until full pipeline is wired
+            fuzzer_infos = self._assemble_fuzzer_infos(fuzzer_sources, fuzzer_calls)
+            self.graph_store.import_fuzzers(snapshot_id, fuzzer_infos)
+
+            reaches = self._compute_reaches(snapshot_id, fuzzer_infos)
+            self.graph_store.import_reaches(snapshot_id, reaches)
+
+            fuzzer_names = [f.name for f in fuzzer_infos]
+            self.snapshot_manager.mark_completed(
+                snapshot_id,
+                func_count,
+                edge_count,
+                fuzzer_names,
+                analysis_duration_sec=result.analysis_duration_seconds,
+            )
+            self.progress.complete_phase(
+                "import",
+                detail=f"functions={func_count}, edges={edge_count}, "
+                f"reaches={len(reaches)}, fuzzers={len(fuzzer_names)}",
+            )
+
             return AnalysisOutput(
                 snapshot_id=snapshot_id,
                 repo_url=repo_url,
                 version=version,
-                backend="svf",
-                function_count=0,
-                edge_count=0,
-                fuzzer_names=list(fuzzer_sources.keys()),
+                backend=result.backend,
+                function_count=func_count,
+                edge_count=edge_count,
+                fuzzer_names=fuzzer_names,
                 cached=False,
             )
 
@@ -187,6 +272,7 @@ class StaticAnalysisOrchestrator:
         Run Phase 4b + Phase 6 with an already-computed AnalysisResult.
         Used when SVF has already been run externally.
         """
+        self._snapshot_id_for_log = snapshot_id
         # Phase 4b: Fuzzer entry parsing
         library_func_names = {f.name for f in result.functions}
         fuzzer_calls = FuzzerEntryParser().parse(
@@ -223,6 +309,23 @@ class StaticAnalysisOrchestrator:
             fuzzer_names=fuzzer_names,
             cached=False,
         )
+
+    @staticmethod
+    def _resolve_case_config(build_system: str, project_path: str) -> str | None:
+        """Find a matching SVF case config for the project, or None."""
+        from pathlib import Path
+
+        cases_dir = Path(__file__).parent / "svf" / "cases"
+        if not cases_dir.is_dir():
+            return None
+
+        # Try project name match first
+        project_name = Path(project_path).name.lower()
+        for case_file in cases_dir.glob("*.sh"):
+            if case_file.stem.lower() == project_name:
+                return str(case_file)
+
+        return None
 
     @staticmethod
     def _assemble_fuzzer_infos(

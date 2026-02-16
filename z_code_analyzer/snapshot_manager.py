@@ -32,11 +32,13 @@ class SnapshotManager:
         mongo_uri: str = "mongodb://localhost:27017",
         db_name: str = "z_code_analyzer",
         graph_store: Any = None,
+        log_store: Any = None,
     ) -> None:
         self._client = MongoClient(mongo_uri)
         self._db = self._client[db_name]
         self._snapshots = self._db["snapshots"]
         self._graph_store = graph_store
+        self._log_store = log_store
         self._ensure_indexes()
 
     def _ensure_indexes(self) -> None:
@@ -241,7 +243,7 @@ class SnapshotManager:
         return len(expired)
 
     def _delete_snapshot(self, snap: dict) -> None:
-        """Delete snapshot from both Neo4j and MongoDB."""
+        """Delete snapshot from Neo4j, logs, and MongoDB."""
         sid = str(snap["_id"])
         logger.info("Evicting snapshot %s (%s %s)", sid, snap.get("repo_url"), snap.get("version"))
 
@@ -250,5 +252,11 @@ class SnapshotManager:
                 self._graph_store.delete_snapshot(sid)
             except Exception as e:
                 logger.error("Failed to delete Neo4j snapshot %s: %s", sid, e)
+
+        if self._log_store:
+            try:
+                self._log_store.delete_logs(sid)
+            except Exception as e:
+                logger.error("Failed to delete logs for snapshot %s: %s", sid, e)
 
         self._snapshots.delete_one({"_id": snap["_id"]})

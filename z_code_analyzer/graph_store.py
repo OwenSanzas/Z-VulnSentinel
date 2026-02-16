@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 # Batch size for UNWIND operations
 _BATCH_SIZE = 500
 
+# Hard safety cap for variable-length path queries to prevent Neo4j OOM
+_MAX_PATH_DEPTH = 50
+
 
 class GraphStore:
     """
@@ -53,7 +56,9 @@ class GraphStore:
             "CREATE INDEX IF NOT EXISTS FOR (s:Snapshot) ON (s.id)",
             "CREATE INDEX IF NOT EXISTS FOR (f:Function) ON (f.snapshot_id)",
             "CREATE INDEX IF NOT EXISTS FOR (f:Function) ON (f.snapshot_id, f.name)",
+            "CREATE INDEX IF NOT EXISTS FOR (f:Function) ON (f.snapshot_id, f.file_path)",
             "CREATE INDEX IF NOT EXISTS FOR (fz:Fuzzer) ON (fz.snapshot_id)",
+            "CREATE INDEX IF NOT EXISTS FOR (fz:Fuzzer) ON (fz.snapshot_id, fz.name)",
         ]
         with self._driver.session() as session:
             for q in queries:
@@ -112,6 +117,7 @@ class GraphStore:
                             "language": f.language,
                             "cyclomatic_complexity": f.cyclomatic_complexity,
                             "return_type": f.return_type,
+                            "parameters": f.parameters,
                             "is_external": is_external,
                         }
                     )
@@ -130,6 +136,7 @@ class GraphStore:
                         language: f.language,
                         cyclomatic_complexity: f.cyclomatic_complexity,
                         return_type: f.return_type,
+                        parameters: f.parameters,
                         is_external: f.is_external
                     })
                     CREATE (s)-[:CONTAINS]->(fn)
@@ -369,6 +376,8 @@ class GraphStore:
                 "end_line": node.get("end_line", 0),
                 "content": node.get("content", ""),
                 "cyclomatic_complexity": node.get("cyclomatic_complexity", 0),
+                "return_type": node.get("return_type", ""),
+                "parameters": node.get("parameters", []),
                 "language": node.get("language", ""),
                 "is_external": node.get("is_external", False),
             }
@@ -421,7 +430,7 @@ class GraphStore:
                 result = session.run(
                     """
                     MATCH (caller:Function {snapshot_id: $sid, name: $name, file_path: $fp})
-                          -[r:CALLS]->(callee:Function)
+                          -[r:CALLS]->(callee:Function {snapshot_id: $sid})
                     RETURN callee.name AS name, callee.file_path AS file_path,
                            r.call_type AS call_type, callee.is_external AS is_external
                     """,
@@ -433,7 +442,7 @@ class GraphStore:
                 result = session.run(
                     """
                     MATCH (caller:Function {snapshot_id: $sid, name: $name})
-                          -[r:CALLS]->(callee:Function)
+                          -[r:CALLS]->(callee:Function {snapshot_id: $sid})
                     RETURN callee.name AS name, callee.file_path AS file_path,
                            r.call_type AS call_type, callee.is_external AS is_external
                     """,
@@ -450,7 +459,7 @@ class GraphStore:
             if file_path:
                 result = session.run(
                     """
-                    MATCH (caller:Function)-[r:CALLS]->
+                    MATCH (caller:Function {snapshot_id: $sid})-[r:CALLS]->
                           (callee:Function {snapshot_id: $sid, name: $name, file_path: $fp})
                     RETURN caller.name AS name, caller.file_path AS file_path,
                            r.call_type AS call_type, caller.is_external AS is_external
@@ -462,7 +471,7 @@ class GraphStore:
             else:
                 result = session.run(
                     """
-                    MATCH (caller:Function)-[r:CALLS]->
+                    MATCH (caller:Function {snapshot_id: $sid})-[r:CALLS]->
                           (callee:Function {snapshot_id: $sid, name: $name})
                     RETURN caller.name AS name, caller.file_path AS file_path,
                            r.call_type AS call_type, caller.is_external AS is_external
@@ -494,7 +503,8 @@ class GraphStore:
                 to_match += ", file_path: $to_fp"
             to_match += "})"
 
-            depth_clause = f"*1..{max_depth}" if max_depth > 0 else "*1.."
+            effective_depth = max_depth if max_depth > 0 else _MAX_PATH_DEPTH
+            depth_clause = f"*1..{effective_depth}"
 
             # First find shortest path length
             cypher = f"""
@@ -581,7 +591,8 @@ class GraphStore:
                 to_match += ", file_path: $to_fp"
             to_match += "})"
 
-            depth_clause = f"*1..{max_depth}" if max_depth > 0 else "*1.."
+            effective_depth = max_depth if max_depth > 0 else _MAX_PATH_DEPTH
+            depth_clause = f"*1..{effective_depth}"
             limit_clause = f"LIMIT {max_results}" if max_results > 0 else ""
 
             cypher = f"""
@@ -702,7 +713,7 @@ class GraphStore:
             result = session.run(
                 f"""
                 MATCH (fz:Fuzzer {{snapshot_id: $sid, name: $fname}})
-                      -[r:REACHES]->(f:Function)
+                      -[r:REACHES]->(f:Function {{snapshot_id: $sid}})
                 {where}
                 RETURN f.name AS name, f.file_path AS file_path,
                        r.depth AS depth, f.is_external AS is_external
@@ -723,7 +734,7 @@ class GraphStore:
             result = session.run(
                 f"""
                 MATCH (s:Snapshot {{id: $sid}})-[:CONTAINS]->(f:Function)
-                WHERE NOT (f)<-[:REACHES]-(:Fuzzer)
+                WHERE NOT (f)<-[:REACHES]-(:Fuzzer {{snapshot_id: $sid}})
                   AND f.name <> 'LLVMFuzzerTestOneInput'
                   {external_filter}
                 RETURN f.name AS name, f.file_path AS file_path,
@@ -788,13 +799,13 @@ class GraphStore:
                 WITH s, func_count, ext_count, count(e) AS edge_count
                 OPTIONAL MATCH (s)-[:CONTAINS]->(fz:Fuzzer)
                 WITH s, func_count, ext_count, edge_count, count(fz) AS fuzzer_count
-                OPTIONAL MATCH (:Fuzzer {snapshot_id: $sid})-[r:REACHES]->(:Function)
+                OPTIONAL MATCH (:Fuzzer {snapshot_id: $sid})-[r:REACHES]->(:Function {snapshot_id: $sid})
                 WITH func_count, ext_count, edge_count, fuzzer_count,
                      CASE WHEN count(r) > 0 THEN avg(r.depth) ELSE 0 END AS avg_depth,
                      CASE WHEN count(r) > 0 THEN max(r.depth) ELSE 0 END AS max_depth,
                      count(r) AS reach_count
                 RETURN func_count, ext_count, edge_count, fuzzer_count,
-                       avg_depth, max_depth
+                       avg_depth, max_depth, reach_count
                 """,
                 sid=snapshot_id,
             )
@@ -810,7 +821,7 @@ class GraphStore:
             unreach_result = session.run(
                 """
                 MATCH (s:Snapshot {id: $sid})-[:CONTAINS]->(f:Function)
-                WHERE NOT (f)<-[:REACHES]-(:Fuzzer)
+                WHERE NOT (f)<-[:REACHES]-(:Fuzzer {snapshot_id: $sid})
                   AND f.name <> 'LLVMFuzzerTestOneInput'
                 RETURN count(f) AS cnt
                 """,
@@ -823,6 +834,7 @@ class GraphStore:
                 "external_function_count": ext_count,
                 "edge_count": record["edge_count"],
                 "fuzzer_count": fuzzer_count,
+                "reach_count": record["reach_count"] or 0,
                 "avg_depth": round(record["avg_depth"], 1) if record["avg_depth"] else 0,
                 "max_depth": record["max_depth"] or 0,
                 "unreached_count": unreached,

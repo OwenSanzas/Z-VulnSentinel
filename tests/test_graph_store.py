@@ -311,6 +311,7 @@ class TestSnapshot:
         assert stats["external_function_count"] == 1
         assert stats["edge_count"] >= 4
         assert stats["fuzzer_count"] == 1
+        assert stats["reach_count"] >= 3  # at least main_func, helper_a, deep_func
         assert stats["max_depth"] == 3
 
     def test_delete_snapshot(self, store: GraphStore, snapshot_id: str):

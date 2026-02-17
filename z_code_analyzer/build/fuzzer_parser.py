@@ -128,9 +128,7 @@ class FuzzerEntryParser:
 
         return lib_calls
 
-    def _extract_functions_and_calls(
-        self, content: str
-    ) -> tuple[list[str], list[set[str]]]:
+    def _extract_functions_and_calls(self, content: str) -> tuple[list[str], list[set[str]]]:
         """
         Extract function definitions and their call sites.
 
@@ -141,9 +139,7 @@ class FuzzerEntryParser:
             return self._extract_with_tree_sitter(content)
         return self._extract_with_regex(content)
 
-    def _extract_with_tree_sitter(
-        self, content: str
-    ) -> tuple[list[str], list[set[str]]]:
+    def _extract_with_tree_sitter(self, content: str) -> tuple[list[str], list[set[str]]]:
         """Use tree-sitter for accurate parsing."""
         parser = Parser(_C_LANGUAGE)
         tree = parser.parse(content.encode())
@@ -212,9 +208,7 @@ class FuzzerEntryParser:
         for child in node.children:
             self._collect_calls(child, calls)
 
-    def _extract_with_regex(
-        self, content: str
-    ) -> tuple[list[str], list[set[str]]]:
+    def _extract_with_regex(self, content: str) -> tuple[list[str], list[set[str]]]:
         """Regex fallback for when tree-sitter is not available."""
         # Find function definitions and their bodies
         func_names: list[str] = []

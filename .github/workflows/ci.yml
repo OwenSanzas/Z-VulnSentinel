@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ruff
+      - run: ruff check .
+      - run: ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]" tree-sitter tree-sitter-c tree-sitter-cpp
+      - name: Run tests (no Neo4j/Docker-dependent tests)
+        run: |
+          pytest tests/ \
+            --ignore=tests/test_graph_store.py \
+            --ignore=tests/test_orchestrator.py \
+            --ignore=tests/test_svf_backend.py \
+            -v --timeout=60
+        env:
+          MONGO_URI: mongodb://localhost:27017

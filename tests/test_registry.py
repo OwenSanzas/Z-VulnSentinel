@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from z_code_analyzer.backends.base import AnalysisResult, CallEdge, FunctionRecord
+from z_code_analyzer.backends.base import AnalysisResult, FunctionRecord
 from z_code_analyzer.backends.merger import ResultMerger
 from z_code_analyzer.backends.registry import (
     BackendCapability,
@@ -92,7 +92,9 @@ class TestResultMerger:
     def test_single_result_passthrough(self):
         result = AnalysisResult(
             functions=[
-                FunctionRecord(name="foo", file_path="a.c", start_line=1, end_line=10, content="", language="c")
+                FunctionRecord(
+                    name="foo", file_path="a.c", start_line=1, end_line=10, content="", language="c"
+                )
             ],
             edges=[],
             language="c",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from z_code_analyzer.backends.base import FuzzerInfo
@@ -96,9 +96,7 @@ class StaticAnalysisOrchestrator:
 
         # v1: only SVF backend is supported
         if backend and backend not in ("svf", "auto"):
-            logger.warning(
-                "Backend '%s' not supported in v1, falling back to 'svf'", backend
-            )
+            logger.warning("Backend '%s' not supported in v1, falling back to 'svf'", backend)
         actual_backend = "svf"
 
         # Check snapshot cache
@@ -158,9 +156,7 @@ class StaticAnalysisOrchestrator:
             output_dir = output_dir_obj.name
 
             # Determine case config from build system
-            case_config = self._resolve_case_config(
-                build_cmd.build_system, project_path
-            )
+            case_config = self._resolve_case_config(build_cmd.build_system, project_path)
 
             if case_config:
                 # Full Docker pipeline: build + extract bitcode
@@ -231,12 +227,8 @@ class StaticAnalysisOrchestrator:
             self.progress.start_phase("import")
             # Clean slate: remove any partial data from previous failed attempts
             self.graph_store.delete_snapshot(snapshot_id)
-            self.graph_store.create_snapshot_node(
-                snapshot_id, repo_url, version, result.backend
-            )
-            func_count = self.graph_store.import_functions(
-                snapshot_id, result.functions
-            )
+            self.graph_store.create_snapshot_node(snapshot_id, repo_url, version, result.backend)
+            func_count = self.graph_store.import_functions(snapshot_id, result.functions)
             edge_count = self.graph_store.import_edges(snapshot_id, result.edges)
 
             fuzzer_infos = self._assemble_fuzzer_infos(fuzzer_sources, fuzzer_calls)
@@ -284,7 +276,9 @@ class StaticAnalysisOrchestrator:
                 try:
                     self.graph_store.delete_snapshot(snapshot_id)
                 except Exception:
-                    logger.warning("Failed to clean up partial Neo4j data for %s", snapshot_id, exc_info=True)
+                    logger.warning(
+                        "Failed to clean up partial Neo4j data for %s", snapshot_id, exc_info=True
+                    )
             raise
         finally:
             # Clean up temp directory (bitcode, DOT files, etc.)
@@ -363,7 +357,9 @@ class StaticAnalysisOrchestrator:
                 try:
                     self.graph_store.delete_snapshot(snapshot_id)
                 except Exception:
-                    logger.warning("Failed to clean up partial Neo4j data for %s", snapshot_id, exc_info=True)
+                    logger.warning(
+                        "Failed to clean up partial Neo4j data for %s", snapshot_id, exc_info=True
+                    )
             raise
 
     @staticmethod

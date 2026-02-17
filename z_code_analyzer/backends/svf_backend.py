@@ -272,7 +272,10 @@ class SVFBackend(AnalysisBackend):
                 timeout=10,
             )
             if result.returncode != 0:
-                missing.append(f"Docker image '{self._docker_image}' not found (docker pull {self._docker_image})")
+                missing.append(
+                    f"Docker image '{self._docker_image}' not found"
+                    f" (docker pull {self._docker_image})"
+                )
         except (subprocess.SubprocessError, FileNotFoundError):
             pass  # Docker not available already reported
 

@@ -40,43 +40,92 @@ def _make_mock_result() -> AnalysisResult:
     return AnalysisResult(
         functions=[
             FunctionRecord(
-                name="main", file_path="src/main.c", start_line=10, end_line=30,
-                content="int main() { parse_input(); }", language="c",
+                name="main",
+                file_path="src/main.c",
+                start_line=10,
+                end_line=30,
+                content="int main() { parse_input(); }",
+                language="c",
             ),
             FunctionRecord(
-                name="parse_input", file_path="src/parser.c", start_line=5, end_line=50,
-                content="void parse_input() { lex(); validate(); }", language="c",
+                name="parse_input",
+                file_path="src/parser.c",
+                start_line=5,
+                end_line=50,
+                content="void parse_input() { lex(); validate(); }",
+                language="c",
             ),
             FunctionRecord(
-                name="lex", file_path="src/lexer.c", start_line=1, end_line=20,
-                content="Token lex() { ... }", language="c",
+                name="lex",
+                file_path="src/lexer.c",
+                start_line=1,
+                end_line=20,
+                content="Token lex() { ... }",
+                language="c",
             ),
             FunctionRecord(
-                name="validate", file_path="src/validator.c", start_line=1, end_line=15,
-                content="bool validate() { ... }", language="c",
+                name="validate",
+                file_path="src/validator.c",
+                start_line=1,
+                end_line=15,
+                content="bool validate() { ... }",
+                language="c",
             ),
             FunctionRecord(
-                name="callback_handler", file_path="src/handler.c", start_line=1, end_line=10,
-                content="void callback_handler() { ... }", language="c",
+                name="callback_handler",
+                file_path="src/handler.c",
+                start_line=1,
+                end_line=10,
+                content="void callback_handler() { ... }",
+                language="c",
             ),
             # External function (no file_path)
             FunctionRecord(
-                name="malloc", file_path="", start_line=0, end_line=0,
-                content="", language="c",
+                name="malloc",
+                file_path="",
+                start_line=0,
+                end_line=0,
+                content="",
+                language="c",
             ),
         ],
         edges=[
-            CallEdge(caller="main", callee="parse_input", call_type=CallType.DIRECT,
-                     caller_file="src/main.c", callee_file="src/parser.c"),
-            CallEdge(caller="parse_input", callee="lex", call_type=CallType.DIRECT,
-                     caller_file="src/parser.c", callee_file="src/lexer.c"),
-            CallEdge(caller="parse_input", callee="validate", call_type=CallType.DIRECT,
-                     caller_file="src/parser.c", callee_file="src/validator.c"),
+            CallEdge(
+                caller="main",
+                callee="parse_input",
+                call_type=CallType.DIRECT,
+                caller_file="src/main.c",
+                callee_file="src/parser.c",
+            ),
+            CallEdge(
+                caller="parse_input",
+                callee="lex",
+                call_type=CallType.DIRECT,
+                caller_file="src/parser.c",
+                callee_file="src/lexer.c",
+            ),
+            CallEdge(
+                caller="parse_input",
+                callee="validate",
+                call_type=CallType.DIRECT,
+                caller_file="src/parser.c",
+                callee_file="src/validator.c",
+            ),
             # Function pointer resolved by SVF
-            CallEdge(caller="parse_input", callee="callback_handler", call_type=CallType.FPTR,
-                     caller_file="src/parser.c", callee_file="src/handler.c"),
-            CallEdge(caller="lex", callee="malloc", call_type=CallType.DIRECT,
-                     caller_file="src/lexer.c", callee_file=""),
+            CallEdge(
+                caller="parse_input",
+                callee="callback_handler",
+                call_type=CallType.FPTR,
+                caller_file="src/parser.c",
+                callee_file="src/handler.c",
+            ),
+            CallEdge(
+                caller="lex",
+                callee="malloc",
+                call_type=CallType.DIRECT,
+                caller_file="src/lexer.c",
+                callee_file="",
+            ),
         ],
         language="c",
         backend="svf",
@@ -94,9 +143,7 @@ class TestOrchestratorAnalyzeFull:
         self.snapshot_id = str(ObjectId())
         self.gs = _make_graph_store(neo4j_uri, neo4j_auth)
         self.sm = SnapshotManager(mongo_uri=mongo_uri, graph_store=self.gs)
-        self.orch = StaticAnalysisOrchestrator(
-            snapshot_manager=self.sm, graph_store=self.gs
-        )
+        self.orch = StaticAnalysisOrchestrator(snapshot_manager=self.sm, graph_store=self.gs)
         yield
         # Cleanup
         self.gs.delete_snapshot(self.snapshot_id)
@@ -112,10 +159,10 @@ class TestOrchestratorAnalyzeFull:
         fuzz_dir.mkdir()
         fuzz_file = fuzz_dir / "fuzz_parse.c"
         fuzz_file.write_text(
-            'int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n'
-            '    parse_input();\n'
-            '    return 0;\n'
-            '}\n'
+            "int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n"
+            "    parse_input();\n"
+            "    return 0;\n"
+            "}\n"
         )
 
         result = _make_mock_result()
@@ -144,10 +191,10 @@ class TestOrchestratorAnalyzeFull:
         fuzz_dir = tmp_path / "fuzz"
         fuzz_dir.mkdir()
         (fuzz_dir / "fuzz_parse.c").write_text(
-            'int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n'
-            '    parse_input();\n'
-            '    return 0;\n'
-            '}\n'
+            "int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n"
+            "    parse_input();\n"
+            "    return 0;\n"
+            "}\n"
         )
 
         self.orch.analyze_full(
@@ -179,10 +226,10 @@ class TestOrchestratorAnalyzeFull:
         fuzz_dir = tmp_path / "fuzz"
         fuzz_dir.mkdir()
         (fuzz_dir / "fuzz_parse.c").write_text(
-            'int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n'
-            '    parse_input();\n'
-            '    return 0;\n'
-            '}\n'
+            "int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n"
+            "    parse_input();\n"
+            "    return 0;\n"
+            "}\n"
         )
 
         self.orch.analyze_full(
@@ -211,10 +258,10 @@ class TestOrchestratorAnalyzeFull:
         fuzz_dir = tmp_path / "fuzz"
         fuzz_dir.mkdir()
         (fuzz_dir / "fuzz_parse.c").write_text(
-            'int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n'
-            '    parse_input();\n'
-            '    return 0;\n'
-            '}\n'
+            "int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n"
+            "    parse_input();\n"
+            "    return 0;\n"
+            "}\n"
         )
 
         self.orch.analyze_full(
@@ -232,9 +279,7 @@ class TestOrchestratorAnalyzeFull:
         assert fz["entry_function"] == "LLVMFuzzerTestOneInput"
 
         # Check REACHES edges
-        reached = self.gs.reachable_functions_by_one_fuzzer(
-            self.snapshot_id, "fuzz_parse"
-        )
+        reached = self.gs.reachable_functions_by_one_fuzzer(self.snapshot_id, "fuzz_parse")
         reached_names = {r["name"] for r in reached}
 
         # LLVMFuzzerTestOneInput calls parse_input (depth 1)
@@ -257,10 +302,10 @@ class TestOrchestratorAnalyzeFull:
         fuzz_dir = tmp_path / "fuzz"
         fuzz_dir.mkdir()
         (fuzz_dir / "fuzz_parse.c").write_text(
-            'int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n'
-            '    parse_input();\n'
-            '    return 0;\n'
-            '}\n'
+            "int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n"
+            "    parse_input();\n"
+            "    return 0;\n"
+            "}\n"
         )
 
         self.orch.analyze_full(
@@ -282,10 +327,10 @@ class TestOrchestratorAnalyzeFull:
         fuzz_dir = tmp_path / "fuzz"
         fuzz_dir.mkdir()
         (fuzz_dir / "fuzz_parse.c").write_text(
-            'int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n'
-            '    parse_input();\n'
-            '    return 0;\n'
-            '}\n'
+            "int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n"
+            "    parse_input();\n"
+            "    return 0;\n"
+            "}\n"
         )
 
         self.orch.analyze_full(

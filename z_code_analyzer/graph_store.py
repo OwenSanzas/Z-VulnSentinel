@@ -297,7 +297,9 @@ class GraphStore:
                             file_path: $main_file
                         })
                         MATCH (lib:Function {snapshot_id: $sid, name: lib_name})
-                        MERGE (entry)-[r:CALLS {call_type: 'direct', backend: 'fuzzer_parser'}]->(lib)
+                        MERGE (entry)-[r:CALLS {
+                            call_type: 'direct', backend: 'fuzzer_parser'
+                        }]->(lib)
                         ON CREATE SET r.confidence = 1.0
                         """,
                         sid=snapshot_id,
@@ -481,9 +483,7 @@ class GraphStore:
 
     # ── Query — Call Relations ──
 
-    def get_callees(
-        self, snapshot_id: str, name: str, file_path: str | None = None
-    ) -> list[dict]:
+    def get_callees(self, snapshot_id: str, name: str, file_path: str | None = None) -> list[dict]:
         with self._session() as session:
             self._resolve_function(session, snapshot_id, name, file_path)  # validate/disambiguate
             if file_path:
@@ -511,9 +511,7 @@ class GraphStore:
                 )
             return [dict(r) for r in result]
 
-    def get_callers(
-        self, snapshot_id: str, name: str, file_path: str | None = None
-    ) -> list[dict]:
+    def get_callers(self, snapshot_id: str, name: str, file_path: str | None = None) -> list[dict]:
         with self._session() as session:
             self._resolve_function(session, snapshot_id, name, file_path)
             if file_path:
@@ -701,9 +699,7 @@ class GraphStore:
                             "call_type": rel.get("call_type", "direct"),
                         }
                     )
-                paths.append(
-                    {"path": nodes_list, "edges": edges_list, "length": record["pathlen"]}
-                )
+                paths.append({"path": nodes_list, "edges": edges_list, "length": record["pathlen"]})
 
             if not paths:
                 return None
@@ -735,7 +731,9 @@ class GraphStore:
 
             cypher = f"""
                 {root_match}
-                MATCH path = (root)-[:CALLS*0..{effective_depth}]->(f:Function {{snapshot_id: $sid}})
+                MATCH path = (root)-[:CALLS*0..{effective_depth}]->(f:Function {{
+                    snapshot_id: $sid
+                }})
                 UNWIND nodes(path) AS n
                 WITH DISTINCT n
                 RETURN collect(DISTINCT {{
@@ -753,10 +751,7 @@ class GraphStore:
             # pairs for exact matching — file_path is always a string
             # ("" for externals), so exact equality is safe and avoids
             # false matches between external and library functions.
-            node_keys = [
-                {"name": n["name"], "fp": n.get("file_path", "")}
-                for n in nodes
-            ]
+            node_keys = [{"name": n["name"], "fp": n.get("file_path", "")} for n in nodes]
             edge_result = session.run(
                 """
                 UNWIND $node_keys AS nk
@@ -930,11 +925,13 @@ class GraphStore:
                 WITH s,
                      count(f) AS func_count,
                      count(CASE WHEN f.is_external THEN 1 END) AS ext_count
-                OPTIONAL MATCH (s)-[:CONTAINS]->(:Function)-[e:CALLS]->(:Function {snapshot_id: $sid})
+                OPTIONAL MATCH (s)-[:CONTAINS]->(:Function)
+                    -[e:CALLS]->(:Function {snapshot_id: $sid})
                 WITH s, func_count, ext_count, count(e) AS edge_count
                 OPTIONAL MATCH (s)-[:CONTAINS]->(fz:Fuzzer)
                 WITH s, func_count, ext_count, edge_count, count(fz) AS fuzzer_count
-                OPTIONAL MATCH (:Fuzzer {snapshot_id: $sid})-[r:REACHES]->(:Function {snapshot_id: $sid})
+                OPTIONAL MATCH (:Fuzzer {snapshot_id: $sid})
+                    -[r:REACHES]->(:Function {snapshot_id: $sid})
                 WITH func_count, ext_count, edge_count, fuzzer_count,
                      CASE WHEN count(r) > 0 THEN avg(r.depth) ELSE 0 END AS avg_depth,
                      CASE WHEN count(r) > 0 THEN max(r.depth) ELSE 0 END AS max_depth,

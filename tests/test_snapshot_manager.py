@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -38,32 +38,57 @@ class TestListAndFind:
 
     def test_list_by_status(self, sm):
         sm._snapshots.insert_one(
-            {"repo_url": "https://r/a", "version": "v1", "backend": "svf",
-             "status": "completed", "last_accessed_at": datetime.now(timezone.utc)}
+            {
+                "repo_url": "https://r/a",
+                "version": "v1",
+                "backend": "svf",
+                "status": "completed",
+                "last_accessed_at": datetime.now(timezone.utc),
+            }
         )
         sm._snapshots.insert_one(
-            {"repo_url": "https://r/b", "version": "v1", "backend": "svf",
-             "status": "failed", "last_accessed_at": datetime.now(timezone.utc)}
+            {
+                "repo_url": "https://r/b",
+                "version": "v1",
+                "backend": "svf",
+                "status": "failed",
+                "last_accessed_at": datetime.now(timezone.utc),
+            }
         )
         assert len(sm.list_snapshots()) == 1
         assert len(sm.list_snapshots(status="failed")) == 1
 
     def test_list_filter_by_repo(self, sm):
         sm._snapshots.insert_one(
-            {"repo_url": "https://r/a", "version": "v1", "backend": "svf",
-             "status": "completed", "last_accessed_at": datetime.now(timezone.utc)}
+            {
+                "repo_url": "https://r/a",
+                "version": "v1",
+                "backend": "svf",
+                "status": "completed",
+                "last_accessed_at": datetime.now(timezone.utc),
+            }
         )
         sm._snapshots.insert_one(
-            {"repo_url": "https://r/b", "version": "v1", "backend": "svf",
-             "status": "completed", "last_accessed_at": datetime.now(timezone.utc)}
+            {
+                "repo_url": "https://r/b",
+                "version": "v1",
+                "backend": "svf",
+                "status": "completed",
+                "last_accessed_at": datetime.now(timezone.utc),
+            }
         )
         assert len(sm.list_snapshots(repo_url="https://r/a")) == 1
 
     def test_find_snapshot_exact_backend(self, sm):
         sm._snapshots.insert_one(
-            {"repo_url": "https://r/a", "version": "v1", "backend": "svf",
-             "status": "completed", "last_accessed_at": datetime.now(timezone.utc),
-             "access_count": 0}
+            {
+                "repo_url": "https://r/a",
+                "version": "v1",
+                "backend": "svf",
+                "status": "completed",
+                "last_accessed_at": datetime.now(timezone.utc),
+                "access_count": 0,
+            }
         )
         snap = sm.find_snapshot("https://r/a", "v1", preferred_backend="svf")
         assert snap is not None
@@ -72,9 +97,14 @@ class TestListAndFind:
     def test_find_snapshot_fallback_order(self, sm):
         """When preferred backend not found, falls back in precision order."""
         sm._snapshots.insert_one(
-            {"repo_url": "https://r/a", "version": "v1", "backend": "joern",
-             "status": "completed", "last_accessed_at": datetime.now(timezone.utc),
-             "access_count": 0}
+            {
+                "repo_url": "https://r/a",
+                "version": "v1",
+                "backend": "joern",
+                "status": "completed",
+                "last_accessed_at": datetime.now(timezone.utc),
+                "access_count": 0,
+            }
         )
         snap = sm.find_snapshot("https://r/a", "v1", preferred_backend="svf")
         assert snap is not None
@@ -97,18 +127,28 @@ class TestAcquireOrWait:
 
     def test_completed_snapshot_returns_cached(self, sm):
         sm._snapshots.insert_one(
-            {"repo_url": "https://r/a", "version": "v1", "backend": "svf",
-             "status": "completed", "last_accessed_at": datetime.now(timezone.utc),
-             "access_count": 0}
+            {
+                "repo_url": "https://r/a",
+                "version": "v1",
+                "backend": "svf",
+                "status": "completed",
+                "last_accessed_at": datetime.now(timezone.utc),
+                "access_count": 0,
+            }
         )
         snap = asyncio.run(sm.acquire_or_wait("https://r/a", "v1", "svf"))
         assert snap["status"] == "completed"
 
     def test_failed_snapshot_deleted_and_retried(self, sm):
         sm._snapshots.insert_one(
-            {"repo_url": "https://r/a", "version": "v1", "backend": "svf",
-             "status": "failed", "error": "build error",
-             "last_accessed_at": datetime.now(timezone.utc)}
+            {
+                "repo_url": "https://r/a",
+                "version": "v1",
+                "backend": "svf",
+                "status": "failed",
+                "error": "build error",
+                "last_accessed_at": datetime.now(timezone.utc),
+            }
         )
         snap = asyncio.run(sm.acquire_or_wait("https://r/a", "v1", "svf"))
         assert snap is not None
@@ -120,9 +160,14 @@ class TestAcquireOrWait:
         """A building snapshot older than BUILDING_TIMEOUT_MINUTES gets marked failed."""
         old_time = datetime.now(timezone.utc) - timedelta(minutes=60)
         sm._snapshots.insert_one(
-            {"repo_url": "https://r/a", "version": "v1", "backend": "svf",
-             "status": "building", "created_at": old_time,
-             "last_accessed_at": old_time}
+            {
+                "repo_url": "https://r/a",
+                "version": "v1",
+                "backend": "svf",
+                "status": "building",
+                "created_at": old_time,
+                "last_accessed_at": old_time,
+            }
         )
         snap = asyncio.run(sm.acquire_or_wait("https://r/a", "v1", "svf"))
         # Should mark the old one as failed, delete it, then create new building
@@ -132,22 +177,30 @@ class TestAcquireOrWait:
     def test_unique_index_prevents_duplicate(self, sm):
         """Two inserts with same (repo_url, version, backend) hit DuplicateKeyError."""
         sm._snapshots.insert_one(
-            {"repo_url": "https://r/a", "version": "v1", "backend": "svf",
-             "status": "completed", "last_accessed_at": datetime.now(timezone.utc),
-             "access_count": 0}
+            {
+                "repo_url": "https://r/a",
+                "version": "v1",
+                "backend": "svf",
+                "status": "completed",
+                "last_accessed_at": datetime.now(timezone.utc),
+                "access_count": 0,
+            }
         )
         from pymongo.errors import DuplicateKeyError
 
         with pytest.raises(DuplicateKeyError):
             sm._snapshots.insert_one(
-                {"repo_url": "https://r/a", "version": "v1", "backend": "svf",
-                 "status": "building", "last_accessed_at": datetime.now(timezone.utc)}
+                {
+                    "repo_url": "https://r/a",
+                    "version": "v1",
+                    "backend": "svf",
+                    "status": "building",
+                    "last_accessed_at": datetime.now(timezone.utc),
+                }
             )
 
     def test_repo_name_extracted(self, sm):
-        snap = asyncio.run(sm.acquire_or_wait(
-            "https://github.com/user/curl", "v8.0", "svf"
-        ))
+        snap = asyncio.run(sm.acquire_or_wait("https://github.com/user/curl", "v8.0", "svf"))
         assert snap["repo_name"] == "curl"
 
 
@@ -159,9 +212,14 @@ class TestMarkStatus:
     def test_mark_completed(self, sm):
         snap = asyncio.run(sm.acquire_or_wait("https://r/a", "v1", "svf"))
         sid = str(snap["_id"])
-        sm.mark_completed(sid, node_count=100, edge_count=200,
-                          fuzzer_names=["fuzz1"], analysis_duration_sec=1.5,
-                          language="c")
+        sm.mark_completed(
+            sid,
+            node_count=100,
+            edge_count=200,
+            fuzzer_names=["fuzz1"],
+            analysis_duration_sec=1.5,
+            language="c",
+        )
         updated = sm._snapshots.find_one({"_id": snap["_id"]})
         assert updated["status"] == "completed"
         assert updated["node_count"] == 100
@@ -173,8 +231,7 @@ class TestMarkStatus:
     def test_mark_completed_estimates_size(self, sm):
         snap = asyncio.run(sm.acquire_or_wait("https://r/a", "v1", "svf"))
         sid = str(snap["_id"])
-        sm.mark_completed(sid, node_count=100, edge_count=200,
-                          fuzzer_names=[])
+        sm.mark_completed(sid, node_count=100, edge_count=200, fuzzer_names=[])
         updated = sm._snapshots.find_one({"_id": snap["_id"]})
         assert updated["size_bytes"] == 100 * 1200 + 200 * 150
 
@@ -217,9 +274,13 @@ class TestEviction:
         try:
             for i in range(4):
                 sm._snapshots.insert_one(
-                    {"repo_url": "https://r/a", "version": f"v{i}",
-                     "backend": "svf", "status": "completed",
-                     "last_accessed_at": datetime.now(timezone.utc) - timedelta(hours=4 - i)}
+                    {
+                        "repo_url": "https://r/a",
+                        "version": f"v{i}",
+                        "backend": "svf",
+                        "status": "completed",
+                        "last_accessed_at": datetime.now(timezone.utc) - timedelta(hours=4 - i),
+                    }
                 )
             evicted = sm.evict_by_version_limit("https://r/a")
             assert evicted == 2
@@ -235,14 +296,22 @@ class TestEviction:
     def test_evict_by_ttl(self, sm):
         now = datetime.now(timezone.utc)
         sm._snapshots.insert_one(
-            {"repo_url": "https://r/a", "version": "old", "backend": "svf",
-             "status": "completed",
-             "last_accessed_at": now - timedelta(days=100)}
+            {
+                "repo_url": "https://r/a",
+                "version": "old",
+                "backend": "svf",
+                "status": "completed",
+                "last_accessed_at": now - timedelta(days=100),
+            }
         )
         sm._snapshots.insert_one(
-            {"repo_url": "https://r/a", "version": "new", "backend": "joern",
-             "status": "completed",
-             "last_accessed_at": now}
+            {
+                "repo_url": "https://r/a",
+                "version": "new",
+                "backend": "joern",
+                "status": "completed",
+                "last_accessed_at": now,
+            }
         )
         evicted = sm.evict_by_ttl()
         assert evicted == 1
@@ -252,9 +321,13 @@ class TestEviction:
 
     def test_evict_by_version_limit_no_eviction_needed(self, sm):
         sm._snapshots.insert_one(
-            {"repo_url": "https://r/a", "version": "v1", "backend": "svf",
-             "status": "completed",
-             "last_accessed_at": datetime.now(timezone.utc)}
+            {
+                "repo_url": "https://r/a",
+                "version": "v1",
+                "backend": "svf",
+                "status": "completed",
+                "last_accessed_at": datetime.now(timezone.utc),
+            }
         )
         evicted = sm.evict_by_version_limit("https://r/a")
         assert evicted == 0
@@ -263,9 +336,13 @@ class TestEviction:
         mock_gs = MagicMock()
         sm._graph_store = mock_gs
         sm._snapshots.insert_one(
-            {"repo_url": "https://r/a", "version": "v1", "backend": "svf",
-             "status": "completed",
-             "last_accessed_at": datetime.now(timezone.utc)}
+            {
+                "repo_url": "https://r/a",
+                "version": "v1",
+                "backend": "svf",
+                "status": "completed",
+                "last_accessed_at": datetime.now(timezone.utc),
+            }
         )
         snap = sm._snapshots.find_one({"status": "completed"})
         ok = sm._delete_snapshot(snap)
@@ -277,9 +354,13 @@ class TestEviction:
         mock_gs.delete_snapshot.side_effect = RuntimeError("neo4j down")
         sm._graph_store = mock_gs
         sm._snapshots.insert_one(
-            {"repo_url": "https://r/a", "version": "v1", "backend": "svf",
-             "status": "completed",
-             "last_accessed_at": datetime.now(timezone.utc)}
+            {
+                "repo_url": "https://r/a",
+                "version": "v1",
+                "backend": "svf",
+                "status": "completed",
+                "last_accessed_at": datetime.now(timezone.utc),
+            }
         )
         snap = sm._snapshots.find_one({"status": "completed"})
         ok = sm._delete_snapshot(snap)

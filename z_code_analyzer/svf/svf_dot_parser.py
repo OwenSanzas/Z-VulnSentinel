@@ -36,9 +36,7 @@ def parse_svf_dot(content: str) -> tuple[dict[str, str], dict[str, set[str]]]:
     # SVF edge format:
     # Node0x5632abc:s0 -> Node0x5632def
     adj: dict[str, set[str]] = defaultdict(set)
-    for m in re.finditer(
-        r"(Node0x[0-9a-fA-F]+)(?::s\d+)?\s*->\s*(Node0x[0-9a-fA-F]+)", content
-    ):
+    for m in re.finditer(r"(Node0x[0-9a-fA-F]+)(?::s\d+)?\s*->\s*(Node0x[0-9a-fA-F]+)", content):
         src_id = m.group(1)
         dst_id = m.group(2)
         src = nodes.get(src_id)

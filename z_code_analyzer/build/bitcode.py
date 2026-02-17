@@ -20,11 +20,11 @@ logger = logging.getLogger(__name__)
 # Field extractors applied within a single DISubprogram entry
 _DI_NAME_RE = re.compile(r'name:\s*"([^"]+)"')
 _DI_LINK_RE = re.compile(r'linkageName:\s*"([^"]+)"')
-_DI_FILE_REF_RE = re.compile(r'file:\s*!(\d+)')
-_DI_LINE_RE = re.compile(r'(?<![a-zA-Z])line:\s*(\d+)')
+_DI_FILE_REF_RE = re.compile(r"file:\s*!(\d+)")
+_DI_LINE_RE = re.compile(r"(?<![a-zA-Z])line:\s*(\d+)")
 
 # Marker for entry boundary
-_DI_SUBPROGRAM_START_RE = re.compile(r'!DISubprogram\(')
+_DI_SUBPROGRAM_START_RE = re.compile(r"!DISubprogram\(")
 
 
 def _extract_di_subprogram_entries(content: str) -> list[str]:
@@ -34,19 +34,19 @@ def _extract_di_subprogram_entries(content: str) -> list[str]:
         depth = 1
         i = m.end()
         while i < len(content) and depth > 0:
-            if content[i] == '(':
+            if content[i] == "(":
                 depth += 1
-            elif content[i] == ')':
+            elif content[i] == ")":
                 depth -= 1
             i += 1
-        entries.append(content[m.start():i])
+        entries.append(content[m.start() : i])
     return entries
 
 
 # Regex to extract DIFile
 # Example: !56 = !DIFile(filename: "lib/ftp.c", directory: "/src/curl")
 _DI_FILE_RE = re.compile(
-    r'!(\d+)\s*=\s*!DIFile\('
+    r"!(\d+)\s*=\s*!DIFile\("
     r'filename:\s*"([^"]+)"'
     r'(?:,\s*directory:\s*"([^"]*)")?'
 )
@@ -151,12 +151,12 @@ class BitcodeGenerator:
             "-v",
             f"{output_dir}:/output",
             "-e",
-            f"SRC=/src",
+            "SRC=/src",
             "-e",
             f"FUZZER_SOURCE_FILES={fuzzer_env}",
             docker_image,
             "bash",
-            f"/pipeline/svf-pipeline.sh",
+            "/pipeline/svf-pipeline.sh",
             f"/pipeline/cases/{Path(case_config).name}",
         ]
 
@@ -168,8 +168,7 @@ class BitcodeGenerator:
 
         if result.returncode != 0:
             raise BitcodeError(
-                f"Bitcode generation failed (rc={result.returncode}): "
-                f"{result.stderr[-1000:]}"
+                f"Bitcode generation failed (rc={result.returncode}): {result.stderr[-1000:]}"
             )
 
         bc_path = Path(output_dir) / "library.bc"
@@ -262,9 +261,7 @@ class BitcodeGenerator:
         return metas
 
     @staticmethod
-    def _enrich_from_source(
-        metas: list[FunctionMeta], project_path: str
-    ) -> None:
+    def _enrich_from_source(metas: list[FunctionMeta], project_path: str) -> None:
         """Read actual source files to populate end_line and content.
 
         Groups metas by file_path to avoid re-reading the same file.
@@ -301,9 +298,7 @@ class BitcodeGenerator:
 
         enriched = sum(1 for m in metas if m.content)
         if metas:
-            logger.info(
-                "Enriched %d/%d functions with source content", enriched, len(metas)
-            )
+            logger.info("Enriched %d/%d functions with source content", enriched, len(metas))
 
     @staticmethod
     def _find_function_end(lines: list[str], start_idx: int) -> int:

@@ -41,7 +41,8 @@ def _parse_neo4j_auth() -> tuple[str, str] | None:
             return (user, password)
         # Malformed — treat as no-auth with a warning
         logging.getLogger(__name__).warning(
-            "NEO4J_AUTH has unrecognized format (expected 'none' or 'user:password'), treating as no-auth"
+            "NEO4J_AUTH has unrecognized format"
+            " (expected 'none' or 'user:password'), treating as no-auth"
         )
         return None
     # Fallback: separate env vars (backward compat)
@@ -226,6 +227,7 @@ def run(
         # Clean up auto-cloned repo
         if cloned_dir:
             import shutil
+
             shutil.rmtree(cloned_dir, ignore_errors=True)
 
 
@@ -236,14 +238,16 @@ def probe(project_path: str) -> None:
     from z_code_analyzer.probe import ProjectProbe
 
     info = ProjectProbe().probe(project_path)
-    click.echo(f"Language: {info.language_profile.primary_language} "
-               f"(confidence: {info.language_profile.confidence})")
+    click.echo(
+        f"Language: {info.language_profile.primary_language} "
+        f"(confidence: {info.language_profile.confidence})"
+    )
     click.echo(f"Build system: {info.build_system}")
     click.echo(f"Source files: {len(info.source_files)}")
     click.echo(f"Estimated LOC: {info.estimated_loc}")
     if info.git_root:
         click.echo(f"Git root: {info.git_root}")
-    click.echo(f"\nFile counts:")
+    click.echo("\nFile counts:")
     for ext, count in sorted(info.language_profile.file_counts.items()):
         click.echo(f"  {ext}: {count}")
 
@@ -270,8 +274,13 @@ def query_main(verbose: bool) -> None:
 @click.argument("from_func")
 @click.argument("to_func")
 def query_shortest_path(
-    repo_url: str, version: str, neo4j_uri: str, neo4j_auth: str | None,
-    mongo_uri: str, from_func: str, to_func: str,
+    repo_url: str,
+    version: str,
+    neo4j_uri: str,
+    neo4j_auth: str | None,
+    mongo_uri: str,
+    from_func: str,
+    to_func: str,
 ) -> None:
     """Find shortest path between two functions."""
     from z_code_analyzer.graph_store import GraphStore
@@ -305,8 +314,12 @@ def query_shortest_path(
 @click.option("--mongo-uri", default=_DEFAULT_MONGO_URI, help="MongoDB URI")
 @click.argument("pattern")
 def query_search(
-    repo_url: str, version: str, neo4j_uri: str, neo4j_auth: str | None,
-    mongo_uri: str, pattern: str,
+    repo_url: str,
+    version: str,
+    neo4j_uri: str,
+    neo4j_auth: str | None,
+    mongo_uri: str,
+    pattern: str,
 ) -> None:
     """Search functions by pattern (e.g. 'parse_*')."""
     from z_code_analyzer.graph_store import GraphStore
@@ -323,7 +336,9 @@ def query_search(
             sys.exit(1)
         results = gs.search_functions(str(snap["_id"]), pattern)
         for func in results:
-            click.echo(f"  {func['name']}  {func.get('file_path', '')}:{func.get('start_line', '')}")
+            click.echo(
+                f"  {func['name']}  {func.get('file_path', '')}:{func.get('start_line', '')}"
+            )
     finally:
         gs.close()
         sm.close()

@@ -90,16 +90,16 @@ class TestEnrichFromSource:
         src_dir.mkdir()
         (src_dir / "foo.c").write_text(
             "// header\n"
-            "int foo(int x) {\n"       # line 2
+            "int foo(int x) {\n"  # line 2
             "    if (x > 0) {\n"
             "        return x;\n"
             "    }\n"
             "    return 0;\n"
-            "}\n"                       # line 7
+            "}\n"  # line 7
             "\n"
-            "void bar() {\n"           # line 9
+            "void bar() {\n"  # line 9
             "    foo(42);\n"
-            "}\n"                       # line 11
+            "}\n"  # line 11
         )
 
         metas = [
@@ -143,37 +143,37 @@ class TestFindFunctionEnd:
 
     def test_simple_function(self):
         lines = [
-            "void f() {",   # 0
+            "void f() {",  # 0
             "    return;",
-            "}",             # 2
+            "}",  # 2
         ]
         assert BitcodeGenerator._find_function_end(lines, 0) == 2
 
     def test_nested_braces(self):
         lines = [
-            "int foo(int x) {",      # 0
+            "int foo(int x) {",  # 0
             "    if (x) {",
             "        return 1;",
             "    }",
             "    return 0;",
-            "}",                      # 5
+            "}",  # 5
         ]
         assert BitcodeGenerator._find_function_end(lines, 0) == 5
 
     def test_brace_in_comment_ignored(self):
         lines = [
-            "void f() {",            # 0
+            "void f() {",  # 0
             "    // { not counted",
             "    return;",
-            "}",                      # 3
+            "}",  # 3
         ]
         assert BitcodeGenerator._find_function_end(lines, 0) == 3
 
     def test_function_signature_on_separate_line(self):
         lines = [
-            "void f()",              # 0
-            "{",                      # 1
+            "void f()",  # 0
+            "{",  # 1
             "    return;",
-            "}",                      # 3
+            "}",  # 3
         ]
         assert BitcodeGenerator._find_function_end(lines, 0) == 3

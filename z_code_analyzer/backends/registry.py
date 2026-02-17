@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Callable
 
@@ -80,7 +80,9 @@ class BackendRegistry:
             backend = desc.factory()
             missing = backend.check_prerequisites(project_path)
             if not missing:
-                logger.info("Selected backend: %s (precision=%.2f)", desc.name, desc.precision_score)
+                logger.info(
+                    "Selected backend: %s (precision=%.2f)", desc.name, desc.precision_score
+                )
                 return backend
             logger.info(
                 "Backend %s prerequisites not met: %s",

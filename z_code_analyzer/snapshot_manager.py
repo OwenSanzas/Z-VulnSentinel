@@ -54,9 +54,7 @@ class SnapshotManager:
     def close(self) -> None:
         self._client.close()
 
-    def list_snapshots(
-        self, repo_url: str | None = None, status: str = "completed"
-    ) -> list[dict]:
+    def list_snapshots(self, repo_url: str | None = None, status: str = "completed") -> list[dict]:
         """List snapshots, optionally filtered by repo_url."""
         query: dict = {"status": status}
         if repo_url:
@@ -256,9 +254,7 @@ class SnapshotManager:
         """Evict snapshots not accessed within TTL."""
         cutoff = datetime.now(timezone.utc) - timedelta(days=SNAPSHOT_TTL_DAYS)
         expired = list(
-            self._snapshots.find(
-                {"status": "completed", "last_accessed_at": {"$lt": cutoff}}
-            )
+            self._snapshots.find({"status": "completed", "last_accessed_at": {"$lt": cutoff}})
         )
         for snap in expired:
             self._delete_snapshot(snap)
@@ -276,7 +272,9 @@ class SnapshotManager:
                 usage = shutil.disk_usage(data_dir)
                 ratio = usage.used / usage.total
             except OSError:
-                logger.warning("Cannot check disk usage for %s, skipping pressure eviction", data_dir)
+                logger.warning(
+                    "Cannot check disk usage for %s, skipping pressure eviction", data_dir
+                )
                 break
 
             if ratio <= DISK_THRESHOLD:

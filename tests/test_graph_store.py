@@ -101,10 +101,18 @@ def _make_functions() -> list[FunctionRecord]:
 
 def _make_edges() -> list[CallEdge]:
     return [
-        CallEdge(caller="main_func", callee="helper_a", call_type=CallType.DIRECT, source_backend="svf"),
-        CallEdge(caller="main_func", callee="helper_b", call_type=CallType.FPTR, source_backend="svf"),
-        CallEdge(caller="helper_a", callee="deep_func", call_type=CallType.DIRECT, source_backend="svf"),
-        CallEdge(caller="helper_b", callee="malloc", call_type=CallType.DIRECT, source_backend="svf"),
+        CallEdge(
+            caller="main_func", callee="helper_a", call_type=CallType.DIRECT, source_backend="svf"
+        ),
+        CallEdge(
+            caller="main_func", callee="helper_b", call_type=CallType.FPTR, source_backend="svf"
+        ),
+        CallEdge(
+            caller="helper_a", callee="deep_func", call_type=CallType.DIRECT, source_backend="svf"
+        ),
+        CallEdge(
+            caller="helper_b", callee="malloc", call_type=CallType.DIRECT, source_backend="svf"
+        ),
     ]
 
 
@@ -319,9 +327,7 @@ class TestFuzzer:
 
     def test_reachable_by_depth(self, store: GraphStore, snapshot_id: str):
         _populate(store, snapshot_id)
-        reachable = store.reachable_functions_by_one_fuzzer(
-            snapshot_id, "test_fuzzer", max_depth=2
-        )
+        reachable = store.reachable_functions_by_one_fuzzer(snapshot_id, "test_fuzzer", max_depth=2)
         names = {r["name"] for r in reachable}
         assert "main_func" in names  # depth 1
         assert "helper_a" in names  # depth 2
@@ -368,16 +374,25 @@ class TestSnapshot:
 @needs_neo4j
 class TestDisambiguation:
     def test_ambiguous_function_error(self, store: GraphStore, snapshot_id: str):
-        """Two functions with the same name in different files should raise error without file_path."""
+        """Two functions with the same name in different files
+        should raise error without file_path."""
         store.create_snapshot_node(snapshot_id, "https://github.com/t/r", "v1", "svf")
         funcs = [
             FunctionRecord(
-                name="init", file_path="src/a.c", start_line=1, end_line=10,
-                content="void init() {}", language="c",
+                name="init",
+                file_path="src/a.c",
+                start_line=1,
+                end_line=10,
+                content="void init() {}",
+                language="c",
             ),
             FunctionRecord(
-                name="init", file_path="src/b.c", start_line=1, end_line=10,
-                content="void init() {}", language="c",
+                name="init",
+                file_path="src/b.c",
+                start_line=1,
+                end_line=10,
+                content="void init() {}",
+                language="c",
             ),
         ]
         store.import_functions(snapshot_id, funcs)
@@ -390,12 +405,20 @@ class TestDisambiguation:
         store.create_snapshot_node(snapshot_id, "https://github.com/t/r", "v1", "svf")
         funcs = [
             FunctionRecord(
-                name="init", file_path="src/a.c", start_line=1, end_line=10,
-                content="void init() { /* a */ }", language="c",
+                name="init",
+                file_path="src/a.c",
+                start_line=1,
+                end_line=10,
+                content="void init() { /* a */ }",
+                language="c",
             ),
             FunctionRecord(
-                name="init", file_path="src/b.c", start_line=1, end_line=10,
-                content="void init() { /* b */ }", language="c",
+                name="init",
+                file_path="src/b.c",
+                start_line=1,
+                end_line=10,
+                content="void init() { /* b */ }",
+                language="c",
             ),
         ]
         store.import_functions(snapshot_id, funcs)

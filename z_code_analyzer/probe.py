@@ -138,9 +138,7 @@ class ProjectProbe:
         if "cpp" in lang_counter and "c" in lang_counter:
             h_count = ext_counter.get(".h", 0)
             if h_count > 0:
-                cpp_source_count = sum(
-                    ext_counter.get(e, 0) for e in (".cc", ".cpp", ".cxx")
-                )
+                cpp_source_count = sum(ext_counter.get(e, 0) for e in (".cc", ".cpp", ".cxx"))
                 c_source_count = ext_counter.get(".c", 0)
                 if cpp_source_count > c_source_count:
                     # Only move the .h count that was attributed to "c"

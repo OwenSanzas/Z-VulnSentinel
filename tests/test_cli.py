@@ -5,20 +5,18 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
 from click.testing import CliRunner
 
 from z_code_analyzer.cli import (
+    _WORK_ORDER_TEMPLATE,
     _parse_neo4j_auth,
     _resolve_auth,
-    _WORK_ORDER_TEMPLATE,
     main,
     query_main,
     snapshots_main,
 )
-
 
 # ── Auth parsing ──
 
@@ -123,9 +121,9 @@ class TestRunValidation:
 
     def test_fuzzer_sources_must_be_dict(self, tmp_path: Path):
         work_file = tmp_path / "work.json"
-        work_file.write_text(json.dumps({
-            "repo_url": "x", "version": "v1", "fuzzer_sources": ["not_a_dict"]
-        }))
+        work_file.write_text(
+            json.dumps({"repo_url": "x", "version": "v1", "fuzzer_sources": ["not_a_dict"]})
+        )
         runner = CliRunner()
         result = runner.invoke(main, ["run", str(work_file)])
         assert result.exit_code != 0
@@ -199,35 +197,54 @@ class TestSnapshotsList:
 class TestQueryCommands:
     def test_shortest_path_no_snapshot(self):
         """Tests that missing snapshot gives proper error."""
-        with patch("z_code_analyzer.graph_store.GraphStore"), \
-             patch("z_code_analyzer.snapshot_manager.SnapshotManager") as MockSM:
+        with (
+            patch("z_code_analyzer.graph_store.GraphStore"),
+            patch("z_code_analyzer.snapshot_manager.SnapshotManager") as MockSM,
+        ):
             mock_sm = MockSM.return_value
             mock_sm.find_snapshot.return_value = None
             runner = CliRunner()
-            result = runner.invoke(query_main, [
-                "shortest-path",
-                "--repo-url", "https://r/a",
-                "--version", "v1",
-                "--neo4j-uri", "bolt://fake:7687",
-                "--mongo-uri", "mongodb://fake:27017",
-                "func_a", "func_b",
-            ])
+            result = runner.invoke(
+                query_main,
+                [
+                    "shortest-path",
+                    "--repo-url",
+                    "https://r/a",
+                    "--version",
+                    "v1",
+                    "--neo4j-uri",
+                    "bolt://fake:7687",
+                    "--mongo-uri",
+                    "mongodb://fake:27017",
+                    "func_a",
+                    "func_b",
+                ],
+            )
             assert result.exit_code != 0
             assert "No snapshot found" in result.output
 
     def test_search_no_snapshot(self):
-        with patch("z_code_analyzer.graph_store.GraphStore"), \
-             patch("z_code_analyzer.snapshot_manager.SnapshotManager") as MockSM:
+        with (
+            patch("z_code_analyzer.graph_store.GraphStore"),
+            patch("z_code_analyzer.snapshot_manager.SnapshotManager") as MockSM,
+        ):
             mock_sm = MockSM.return_value
             mock_sm.find_snapshot.return_value = None
             runner = CliRunner()
-            result = runner.invoke(query_main, [
-                "search",
-                "--repo-url", "https://r/a",
-                "--version", "v1",
-                "--neo4j-uri", "bolt://fake:7687",
-                "--mongo-uri", "mongodb://fake:27017",
-                "parse_*",
-            ])
+            result = runner.invoke(
+                query_main,
+                [
+                    "search",
+                    "--repo-url",
+                    "https://r/a",
+                    "--version",
+                    "v1",
+                    "--neo4j-uri",
+                    "bolt://fake:7687",
+                    "--mongo-uri",
+                    "mongodb://fake:27017",
+                    "parse_*",
+                ],
+            )
             assert result.exit_code != 0
             assert "No snapshot found" in result.output

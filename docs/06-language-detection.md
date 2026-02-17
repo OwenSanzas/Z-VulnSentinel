@@ -41,12 +41,11 @@ class ProjectProbe:
     # 注: .h 文件若有更多 .cpp 源文件会被重新归类为 cpp
     _BUILD_SYSTEM_MARKERS = [
         ("CMakeLists.txt", "cmake"),
-        ("configure", "autotools"),
         ("configure.ac", "autotools"),
         ("configure.in", "autotools"),
+        ("configure", "autotools"),
         ("meson.build", "meson"),
         ("Makefile", "make"),
-        ("build.sh", "custom"),
         # v2 计划：多语言支持
         # ("build.gradle", "gradle"),
         # ("pom.xml", "maven"),

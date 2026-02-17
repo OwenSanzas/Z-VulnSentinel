@@ -305,13 +305,19 @@ class StaticAnalysisOrchestrator:
         analysis_committed = False
         try:
             # Phase 4b: Fuzzer entry parsing
+            self.progress.start_phase("fuzzer_parse")
             library_func_names = {f.name for f in result.functions}
             fuzzer_calls = FuzzerEntryParser().parse(
                 fuzzer_sources, library_func_names, project_path
             )
+            self.progress.complete_phase(
+                "fuzzer_parse",
+                detail=f"{len(fuzzer_sources)} fuzzers parsed",
+            )
 
             # Phase 6: Neo4j import
             # Clean slate: remove any partial data from previous failed attempts
+            self.progress.start_phase("import")
             self.graph_store.delete_snapshot(snapshot_id)
             self.graph_store.create_snapshot_node(snapshot_id, repo_url, version, result.backend)
             func_count = self.graph_store.import_functions(snapshot_id, result.functions)
@@ -333,6 +339,10 @@ class StaticAnalysisOrchestrator:
                 language=result.language,
             )
             analysis_committed = True
+            self.progress.complete_phase(
+                "import",
+                detail=f"{func_count} functions, {edge_count} edges",
+            )
 
             # Eviction runs after mark_completed — failures must not affect the result
             try:

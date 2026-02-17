@@ -68,7 +68,12 @@ class BuildCommandDetector:
                     build_system="custom",
                     confidence=1.0,
                 )
-            logger.warning("User build script not found: %s", build_script)
+            logger.warning(
+                "User build script not found: %s (tried %s and absolute path), "
+                "falling back to auto-detect",
+                build_script,
+                script_path,
+            )
 
         # Layer 2: Auto-detect from project structure
         return self._auto_detect(project_path)

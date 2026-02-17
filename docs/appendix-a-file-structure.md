@@ -43,7 +43,7 @@ z-code-analyzer/                            # 独立 GitHub 仓库
 │   ├── svf/                            # SVF Pipeline 资源
 │   │   ├── __init__.py
 │   │   ├── svf_dot_parser.py           # SVF callgraph DOT 解析器
-│   │   ├── svf_pipeline.sh            # 通用 bitcode 提取 + SVF 分析脚本
+│   │   ├── svf-pipeline.sh             # 通用 bitcode 提取 + SVF 分析脚本
 │   │   ├── z-wllvm                    # wllvm 薄包装（追加 -g）
 │   │   ├── z-wllvm++                  # wllvm++ 薄包装（追加 -g）
 │   │   └── cases/                     # 项目构建配置
@@ -60,16 +60,19 @@ z-code-analyzer/                            # 独立 GitHub 仓库
 │       └── callgraph.py                # CallEdge, CallType（re-export from backends.base）
 │
 └── tests/
+    ├── __init__.py
     ├── conftest.py                     # 共享 fixtures（Neo4j/MongoDB 连接）
-    ├── test_graph_store.py
-    ├── test_svf_backend.py
-    ├── test_orchestrator.py
+    ├── test_graph_store.py             # 需要 Neo4j
+    ├── test_svf_backend.py             # 需要 Docker + svftools/svf
+    ├── test_orchestrator.py            # 集成测试，需要 Docker + Neo4j + MongoDB
     ├── test_detector.py
     ├── test_bitcode.py
     ├── test_fuzzer_parser.py
     ├── test_probe.py
     ├── test_progress.py
-    └── test_registry.py
+    ├── test_registry.py
+    ├── test_cli.py                     # CLI 命令测试（mock）
+    └── test_snapshot_manager.py        # 需要 MongoDB
 ```
 
 **FBv2 集成侧（改动最小化）：**

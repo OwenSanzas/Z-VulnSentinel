@@ -38,9 +38,12 @@
 
 等效环境变量：
 ```bash
+# ── v1 已实现 ──
 export NEO4J_URI=bolt://localhost:7687       # Neo4j 连接地址
-export NEO4J_AUTH=none                        # Neo4j 认证（none / neo4j:password）
+export NEO4J_AUTH=none                        # Neo4j 认证（none / neo4j:password / neo4j_user+neo4j_password）
 export MONGO_URI=mongodb://localhost:27017    # MongoDB 连接地址（SnapshotManager 用）
+
+# ── v2 预留（代码中未读取） ──
 export ANALYSIS_BACKEND=auto
 export SVF_DOCKER_IMAGE=curl-fuzzer-base     # SVF 构建用的 Docker 镜像
 export SVF_CASE_CONFIG=curl                   # SVF 构建配置名（对应 cases/ 下的文件）
@@ -48,6 +51,8 @@ export JOERN_PATH=/opt/joern/joern-cli        # Joern 安装路径
 export AI_REFINE_ENABLED=false
 export AI_REFINE_BUDGET=1.0
 ```
+
+> **注意：** v1 不支持配置文件加载。所有配置通过 CLI 选项和环境变量传递。上方 JSON 格式仅为参考，实际代码中无对应的加载机制。
 
 **Docker Compose（独立使用）：**
 

@@ -198,7 +198,7 @@ class AnalysisBackend(ABC):
             project_path: 项目源码根目录
             language: 目标语言
             **kwargs: 后端特有选项
-                SVF: bitcode_output: BitcodeOutput（Phase 3 产出）
+                SVF: bc_path: str（library.bc 路径）, function_metas: list[dict]（DISubprogram 元信息）
                 Joern(v2): 直接使用 project_path 源码
 
         Returns:

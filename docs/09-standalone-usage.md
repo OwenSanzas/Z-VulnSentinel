@@ -62,55 +62,42 @@ z-snapshots list
 z-snapshots list --repo-url https://github.com/curl/curl
 ```
 
-**CLI 实现（基于 Click）：**
-```python
-# z_code_analyzer/cli.py
+**CLI 入口（基于 Click，3 个命令组）：**
 
-import click
+```bash
+# z-analyze: 分析入口
+z-analyze -v create-work -o work.json     # 创建工单模板
+z-analyze run work.json                    # 执行分析
+z-analyze probe /path/to/project           # 快速项目探测（Phase 1）
 
-@click.group()
-def main():
-    """Z-Code Analyzer Station"""
+# z-query: 查询分析结果
+z-query shortest-path --repo-url URL --version TAG from_func to_func
+z-query search --repo-url URL --version TAG "pattern*"
 
-@main.command("create-work")
-@click.option("-o", "--output", default="work.json", help="输出文件路径")
-def create_work(output):
-    """创建工单模板"""
-    create_work_template(output)
+# z-snapshots: 快照管理
+z-snapshots list [--repo-url URL]
+```
 
-@main.command("run")
-@click.argument("work_file", type=click.Path(exists=True))
-@click.option("--neo4j-uri", default="bolt://localhost:7687")
-@click.option("--neo4j-auth", default=None, help="Neo4j auth ('none' or 'user:password')")
-@click.option("--mongo-uri", default="mongodb://localhost:27017")
-def run(work_file, neo4j_uri, neo4j_auth, mongo_uri):
-    """执行分析"""
-    work = json.loads(Path(work_file).read_text())
-    auth = _resolve_auth(neo4j_auth)
-    graph = GraphStore(neo4j_uri, auth)
-    sm = SnapshotManager(mongo_uri=mongo_uri, graph_store=graph)
-    orchestrator = StaticAnalysisOrchestrator(
-        snapshot_manager=sm, graph_store=graph
-    )
+所有命令支持 `-v / --verbose` 全局选项。`--neo4j-uri` / `--mongo-uri` 默认读取环境变量
+`NEO4J_URI` / `MONGO_URI`，未设置时使用 `bolt://localhost:7687` / `mongodb://localhost:27017`。
 
-    project_path = work.get("path")
-    if not project_path:
-        project_path = auto_clone(work["repo_url"], work["version"])
+`run` 命令输出示例：
+```
+Analysis complete:
+  Snapshot ID: 6789abcd...
+  Backend: svf
+  Functions: 641
+  Edges: 2325
+  Fuzzers: ['fuzz_read']
 
-    result = asyncio.run(orchestrator.analyze(
-        project_path=project_path,
-        repo_url=work["repo_url"],
-        version=work["version"],
-        fuzzer_sources=work["fuzzer_sources"],
-        build_script=work.get("build_script"),
-        backend=work.get("backend"),
-        diff_files=work.get("diff_files"),
-    ))
-
-    click.echo(f"Snapshot: {result.snapshot_id}")
-    click.echo(f"Functions: {result.function_count}, Edges: {result.edge_count}")
-    click.echo(f"Fuzzers: {result.fuzzer_names}")
-    click.echo(f"Backend: {result.backend}")
+Pipeline summary (total: 12.3s):
+  [+] probe (0.1s) - lang=c, build=autotools, files=42
+  [+] build_cmd (0.0s) - autotools (source: auto_detect)
+  [+] bitcode (8.2s) - bc=library.bc, metas=641
+  [+] svf (3.5s) - functions=641, edges=2325, fptr=128
+  [+] fuzzer_parse (0.1s) - 1 fuzzers, lib_calls=5
+  [-] ai_refine - v1: not implemented
+  [+] import (0.4s) - functions=641, edges=2325, reaches=412, fuzzers=1
 ```
 
 ### 9.2 REST API（v2 计划，未实现）

@@ -5,9 +5,8 @@ from __future__ import annotations
 import logging
 import tempfile
 from dataclasses import dataclass
-from typing import Any
 
-from z_code_analyzer.backends.base import FuzzerInfo
+from z_code_analyzer.backends.base import AnalysisResult, FuzzerInfo
 from z_code_analyzer.build.bitcode import BitcodeGenerator
 from z_code_analyzer.build.detector import BuildCommandDetector
 from z_code_analyzer.build.fuzzer_parser import FuzzerEntryParser
@@ -305,7 +304,7 @@ class StaticAnalysisOrchestrator:
         repo_url: str,
         version: str,
         fuzzer_sources: dict[str, list[str]],
-        result: Any,
+        result: AnalysisResult,
         snapshot_id: str,
     ) -> AnalysisOutput:
         """
@@ -327,6 +326,9 @@ class StaticAnalysisOrchestrator:
                 "fuzzer_parse",
                 detail=f"{len(fuzzer_sources)} fuzzers parsed",
             )
+
+            # Phase 5: AI refinement (skipped in v1)
+            progress.skip_phase("ai_refine", "v1: not implemented")
 
             # Phase 6: Neo4j import
             # Clean slate: remove any partial data from previous failed attempts
@@ -442,6 +444,8 @@ class StaticAnalysisOrchestrator:
         if evicted:
             logger.info("Evicted %d expired snapshot(s)", evicted)
 
+    _MAX_REACH_DEPTH = 50  # upper bound to prevent Neo4j memory exhaustion
+
     def _compute_reaches(
         self,
         snapshot_id: str,
@@ -453,27 +457,33 @@ class StaticAnalysisOrchestrator:
         which would be O(exponential) on large call graphs.
         """
         reaches = []
-        max_reach_depth = 50  # upper bound to prevent Neo4j memory exhaustion
         for fuzzer in fuzzer_infos:
             main_file = fuzzer.files[0]["path"] if fuzzer.files else ""
-            bfs_result = self.graph_store.raw_query(
-                f"""
-                MATCH (entry:Function {{snapshot_id: $sid,
-                    name: "LLVMFuzzerTestOneInput", file_path: $fpath}})
-                MATCH (f:Function {{snapshot_id: $sid}})
-                WHERE f <> entry
-                MATCH p = shortestPath((entry)-[:CALLS*..{max_reach_depth}]->(f))
-                RETURN f.name AS func_name, f.file_path AS file_path, length(p) AS depth
-                """,
-                {"sid": snapshot_id, "fpath": main_file},
-            )
-            for row in bfs_result:
-                reaches.append(
-                    {
-                        "fuzzer_name": fuzzer.name,
-                        "function_name": row["func_name"],
-                        "file_path": row["file_path"],
-                        "depth": row["depth"],
-                    }
+            # Use a dedicated session instead of raw_query to avoid the
+            # write-keyword check and to keep depth parameterized.
+            with self.graph_store._session() as session:
+                result = session.run(
+                    f"""
+                    MATCH (entry:Function {{snapshot_id: $sid,
+                        name: "LLVMFuzzerTestOneInput", file_path: $fpath}})
+                    MATCH (f:Function {{snapshot_id: $sid}})
+                    WHERE f <> entry
+                    MATCH p = shortestPath(
+                        (entry)-[:CALLS*..{self._MAX_REACH_DEPTH}]->(f)
+                    )
+                    RETURN f.name AS func_name, f.file_path AS file_path,
+                           length(p) AS depth
+                    """,
+                    sid=snapshot_id,
+                    fpath=main_file,
                 )
+                for row in result:
+                    reaches.append(
+                        {
+                            "fuzzer_name": fuzzer.name,
+                            "function_name": row["func_name"],
+                            "file_path": row["file_path"],
+                            "depth": row["depth"],
+                        }
+                    )
         return reaches

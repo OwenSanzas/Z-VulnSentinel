@@ -82,6 +82,8 @@ class GraphStore:
         self, snapshot_id: str, repo_url: str, version: str, backend: str
     ) -> None:
         repo_name = repo_url.rstrip("/").rsplit("/", 1)[-1] if "/" in repo_url else repo_url
+        if repo_name.endswith(".git"):
+            repo_name = repo_name[:-4]
         with self._session() as session:
             session.run(
                 """
@@ -225,6 +227,8 @@ class GraphStore:
                     ON MATCH SET
                         r.call_type = CASE WHEN r.confidence < e.confidence
                                            THEN e.call_type ELSE r.call_type END,
+                        r.backend = CASE WHEN r.confidence < e.confidence
+                                         THEN e.backend ELSE r.backend END,
                         r.confidence = CASE WHEN e.confidence > r.confidence
                                             THEN e.confidence ELSE r.confidence END
                     RETURN count(*) AS cnt
@@ -300,10 +304,11 @@ class GraphStore:
                         WITH entry, lib, lib_name
                         ORDER BY lib.file_path
                         WITH entry, lib_name, head(collect(lib)) AS lib_node
-                        MERGE (entry)-[r:CALLS {
-                            call_type: 'direct', backend: 'fuzzer_parser'
-                        }]->(lib_node)
-                        ON CREATE SET r.confidence = 1.0
+                        MERGE (entry)-[r:CALLS]->(lib_node)
+                        ON CREATE SET
+                            r.call_type = 'direct',
+                            r.backend = 'fuzzer_parser',
+                            r.confidence = 1.0
                         """,
                         sid=snapshot_id,
                         entry_function=fz.entry_function,
@@ -500,7 +505,8 @@ class GraphStore:
                     MATCH (caller:Function {snapshot_id: $sid, name: $name, file_path: $fp})
                           -[r:CALLS]->(callee:Function {snapshot_id: $sid})
                     RETURN callee.name AS name, callee.file_path AS file_path,
-                           r.call_type AS call_type, callee.is_external AS is_external
+                           r.call_type AS call_type, callee.is_external AS is_external,
+                           r.confidence AS confidence, r.backend AS backend
                     """,
                     sid=snapshot_id,
                     name=name,
@@ -512,7 +518,8 @@ class GraphStore:
                     MATCH (caller:Function {snapshot_id: $sid, name: $name})
                           -[r:CALLS]->(callee:Function {snapshot_id: $sid})
                     RETURN callee.name AS name, callee.file_path AS file_path,
-                           r.call_type AS call_type, callee.is_external AS is_external
+                           r.call_type AS call_type, callee.is_external AS is_external,
+                           r.confidence AS confidence, r.backend AS backend
                     """,
                     sid=snapshot_id,
                     name=name,
@@ -528,7 +535,8 @@ class GraphStore:
                     MATCH (caller:Function {snapshot_id: $sid})-[r:CALLS]->
                           (callee:Function {snapshot_id: $sid, name: $name, file_path: $fp})
                     RETURN caller.name AS name, caller.file_path AS file_path,
-                           r.call_type AS call_type, caller.is_external AS is_external
+                           r.call_type AS call_type, caller.is_external AS is_external,
+                           r.confidence AS confidence, r.backend AS backend
                     """,
                     sid=snapshot_id,
                     name=name,
@@ -540,7 +548,8 @@ class GraphStore:
                     MATCH (caller:Function {snapshot_id: $sid})-[r:CALLS]->
                           (callee:Function {snapshot_id: $sid, name: $name})
                     RETURN caller.name AS name, caller.file_path AS file_path,
-                           r.call_type AS call_type, caller.is_external AS is_external
+                           r.call_type AS call_type, caller.is_external AS is_external,
+                           r.confidence AS confidence, r.backend AS backend
                     """,
                     sid=snapshot_id,
                     name=name,
@@ -624,7 +633,7 @@ class GraphStore:
                 if len(node_ids) != len(set(node_ids)):
                     continue
                 nodes_list = [
-                    {"name": n["name"], "file_path": n.get("file_path")} for n in path.nodes
+                    {"name": n["name"], "file_path": n.get("file_path", "")} for n in path.nodes
                 ]
                 edges_list = []
                 for rel in path.relationships:
@@ -706,7 +715,7 @@ class GraphStore:
             for record in result:
                 path = record["path"]
                 nodes_list = [
-                    {"name": n["name"], "file_path": n.get("file_path")} for n in path.nodes
+                    {"name": n["name"], "file_path": n.get("file_path", "")} for n in path.nodes
                 ]
                 edges_list = []
                 for rel in path.relationships:
@@ -741,6 +750,7 @@ class GraphStore:
         depth: int = 3,
     ) -> dict:
         with self._session() as session:
+            self._resolve_function(session, snapshot_id, name, file_path)  # validate/disambiguate
             root_match = "MATCH (root:Function {snapshot_id: $sid, name: $name"
             if file_path:
                 root_match += ", file_path: $fp"
@@ -909,6 +919,11 @@ class GraphStore:
             if isinstance(row.get("files"), str):
                 row["files"] = json.loads(row["files"])
 
+            # Ensure every file entry has a "code" key (empty string if not enriched)
+            if row.get("files"):
+                for f in row["files"]:
+                    f.setdefault("code", "")
+
             # Enrich with file content (code field) if project_path is available
             if project_path and row.get("files"):
                 root = Path(project_path)
@@ -919,8 +934,6 @@ class GraphStore:
                             f["code"] = src_path.read_text(errors="replace")
                         except OSError:
                             f["code"] = ""
-                    else:
-                        f["code"] = ""
 
             return row
 
@@ -996,21 +1009,22 @@ class GraphStore:
     # ── Extension ──
 
     def raw_query(self, cypher: str, params: dict[str, Any] | None = None) -> list[dict]:
-        """Execute raw Cypher query. Internal use only.
+        """Execute raw read-only Cypher query. Internal use only.
 
-        WARNING: This method accepts arbitrary Cypher without access control.
-        Do NOT expose to external callers (RPC, REST, CLI) without
-        input validation, as it allows destructive operations like
-        DETACH DELETE on the entire database.
+        Blocks write operations (CREATE, MERGE, DELETE, SET, REMOVE, DROP,
+        DETACH) unconditionally. Use dedicated write methods instead.
         """
-        # Block obviously destructive write operations when called without params
-        # (a sign of ad-hoc/debugging usage rather than parameterized internal calls)
+        import re as _re
+
         _upper = cypher.upper()
-        _write_keywords = ("DELETE", "REMOVE", "DROP", "CREATE", "MERGE", "SET ")
-        if any(kw in _upper for kw in _write_keywords):
+        # Match write keywords as whole words (\\b boundaries) to avoid
+        # false positives on substrings like "RESET" or "OFFSET".
+        _write_pattern = r"\b(DELETE|REMOVE|DROP|CREATE|MERGE|DETACH|SET)\b"
+        _found = _re.findall(_write_pattern, _upper)
+        if _found:
             raise ValueError(
                 "raw_query cannot contain write operations "
-                f"(detected: {[kw for kw in _write_keywords if kw in _upper]}). "
+                f"(detected: {sorted(set(_found))}). "
                 "Use dedicated write methods instead."
             )
         with self._session() as session:

@@ -74,7 +74,7 @@
 **Neo4j 的优势：**
 - 调用图 = 天然图结构，边的方向就是 caller → callee
 - `shortestPath`、可达性、BFS 深度 — 原生支持，百万节点毫秒级
-- `reached_by_fuzzers` 不用存，实时查询 `(Fuzzer)-[:ENTRY]->()-[:CALLS*]->(f)` 即可
+- 可达性预计算为 `:REACHES` 边（含 `depth` 属性），避免每次查询都做 BFS 遍历
 - 以 `(repo_url, version, backend)` 为 key 的 Snapshot 模型，项目级持久化，跨 task 复用
 
 **迁移策略：**

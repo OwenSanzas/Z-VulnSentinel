@@ -99,8 +99,8 @@ def run(work_file, neo4j_uri, neo4j_auth, mongo_uri):
         project_path=project_path,
         repo_url=work["repo_url"],
         version=work["version"],
-        build_script=work.get("build_script"),
         fuzzer_sources=work["fuzzer_sources"],
+        build_script=work.get("build_script"),
         backend=work.get("backend"),
         diff_files=work.get("diff_files"),
     ))
@@ -111,7 +111,9 @@ def run(work_file, neo4j_uri, neo4j_auth, mongo_uri):
     click.echo(f"Backend: {result.backend}")
 ```
 
-### 9.2 REST API
+### 9.2 REST API（v2 计划，未实现）
+
+> **v1 状态**: 仅提供 CLI 接口（§9.1）。以下 REST API 为 v2 预留设计。
 
 异步分析接口，适用于 Web 集成。
 
@@ -144,7 +146,10 @@ GET /api/analyze/{job_id}/functions?pattern=parse.*
   Response: 函数列表
 ```
 
-### 9.3 输出格式
+### 9.3 输出格式（v2 计划，未实现）
+
+> **v1 状态**: CLI `run` 命令输出文本摘要（Snapshot ID、函数数、边数等）。
+> 以下 JSON / DOT / GraphML 导出格式为 v2 预留设计。
 
 **JSON（默认）：**
 ```json

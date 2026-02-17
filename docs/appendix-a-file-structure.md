@@ -42,9 +42,14 @@ z-code-analyzer/                            # 独立 GitHub 仓库
 │   │
 │   ├── svf/                            # SVF Pipeline 资源
 │   │   ├── __init__.py
-│   │   └── svf_dot_parser.py           # SVF callgraph DOT 解析器
-│   │                                   # ├── svf_pipeline.sh （从 experiment/ 迁移，v2）
-│   │                                   # └── cases/ （项目构建配置，v2）
+│   │   ├── svf_dot_parser.py           # SVF callgraph DOT 解析器
+│   │   ├── svf_pipeline.sh            # 通用 bitcode 提取 + SVF 分析脚本
+│   │   ├── z-wllvm                    # wllvm 薄包装（追加 -g）
+│   │   ├── z-wllvm++                  # wllvm++ 薄包装（追加 -g）
+│   │   └── cases/                     # 项目构建配置
+│   │       ├── libpng.sh
+│   │       ├── lcms.sh
+│   │       └── curl.sh
 │   │
 │   └── models/                         # 数据模型
 │       ├── __init__.py

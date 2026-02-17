@@ -14,7 +14,7 @@
 class LanguageProfile:
     """项目的语言分布"""
     primary_language: str                         # 主要语言
-    file_counts: dict[str, int] = field(default_factory=dict)  # {语言: 文件数}，如 {"c": 70, "cpp": 30}
+    file_counts: dict[str, int] = field(default_factory=dict)  # {扩展名: 文件数}，如 {".c": 150, ".h": 80, ".cpp": 30}
     confidence: float = 1.0                       # 检测置信度
     detected_features: list[str] = field(default_factory=list)  # 特征列表
 

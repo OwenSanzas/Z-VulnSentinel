@@ -476,7 +476,7 @@ MongoDB 作为 Neo4j 的**元数据索引**，存储所有 Snapshot 的概览信
 | `edge_count` | int | 调用边数 |
 | `fuzzer_names` | list[str] | 包含的 Fuzzer 列表 |
 | `language` | str | 主要语言 |
-| `analysis_duration_sec` | float | 分析耗时 |
+| `analysis_duration_sec` | float | 分析耗时（秒） |
 | `status` | str | `"building"` → `"completed"` / `"failed"` |
 | `error` | str | 失败时的错误信息（status="failed" 时写入） |
 | `created_at` | datetime | 创建时间 |
@@ -620,7 +620,7 @@ async def analyze(self, project_path, repo_url, version, fuzzer_sources, ...):
                 "status": "completed",
                 "node_count": len(result.functions),
                 "edge_count": len(result.edges),
-                "analysis_duration_sec": result.analysis_duration_sec,
+                "analysis_duration_sec": result.analysis_duration_seconds,
             }}
         )
     except Exception as e:

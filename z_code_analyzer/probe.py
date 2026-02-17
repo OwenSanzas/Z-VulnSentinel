@@ -148,6 +148,13 @@ class ProjectProbe:
                     lang_counter["cpp"] += move
                     lang_counter["c"] -= move
 
+        if not lang_counter:
+            return LanguageProfile(
+                primary_language="unknown",
+                file_counts=dict(ext_counter),
+                confidence=0.0,
+            )
+
         primary = lang_counter.most_common(1)[0][0]
         total = sum(lang_counter.values())
         confidence = lang_counter[primary] / total if total > 0 else 0

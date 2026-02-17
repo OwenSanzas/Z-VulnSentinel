@@ -82,12 +82,13 @@ class BuildCommandDetector:
     """
 
     DETECTION_RULES = [
-        # (标记文件, 构建系统, 默认命令)
-        ("CMakeLists.txt",  "cmake",     "cmake -B build && cmake --build build"),
-        ("configure",       "autotools", "./configure && make"),
-        ("configure.ac",    "autotools", "autoreconf -fi && ./configure && make"),
-        ("meson.build",     "meson",     "meson setup build && ninja -C build"),
-        ("Makefile",        "make",      "make"),
+        # (标记文件, 构建系统, 默认命令列表)
+        ("CMakeLists.txt",  "cmake",     ["cmake -B build", "cmake --build build"]),
+        ("configure.ac",    "autotools", ["autoreconf -fi && ./configure && make"]),
+        ("configure.in",    "autotools", ["autoreconf -fi && ./configure && make"]),
+        ("configure",       "autotools", ["./configure && make"]),
+        ("meson.build",     "meson",     ["meson setup build", "ninja -C build"]),
+        ("Makefile",        "make",      ["make"]),
     ]
 
     def detect(self, project_path: str, build_script: str | None = None) -> BuildCommand | None:
@@ -171,6 +172,7 @@ class BitcodeGenerator:
         project_path: str,
         build_cmd: BuildCommand,
         fuzzer_source_files: List[str],   # 工单中所有 fuzzer 的源文件（扁平列表）
+        output_dir: str | None = None,    # 输出目录，默认使用临时目录
     ) -> BitcodeOutput:
         """
         步骤：
@@ -190,6 +192,20 @@ class BitcodeGenerator:
         失败场景：
         - 编译错误 → 抛异常，上层可尝试降级 build_cmd
         - llvm-link 失败 → 检查 LLVM 版本匹配
+        """
+
+    def generate_via_docker(
+        self,
+        project_path: str,
+        case_config: str,              # cases/*.sh 配置文件路径
+        fuzzer_source_files: List[str],
+        output_dir: str,
+        docker_image: str = "svftools/svf",
+    ) -> BitcodeOutput:
+        """
+        通过 Docker 容器执行 svf-pipeline.sh 完成构建 + bitcode 提取。
+        当 Orchestrator 匹配到 cases/ 下的项目配置时使用此方法。
+        generate() 和 generate_via_docker() 二选一。
         """
 
 
@@ -236,7 +252,7 @@ class SVFBackend(AnalysisBackend):
     library.bc → SVF Andersen 分析 → DOT 调用图 → AnalysisResult（仅库代码）
     """
 
-    def analyze(self, project_path: str, language: str, *, bc_path: str, function_metas: list[dict]) -> AnalysisResult:
+    def analyze(self, project_path: str, language: str, **kwargs) -> AnalysisResult:
         """
         步骤：
         1. wpa -ander -dump-callgraph library.bc → callgraph DOT
@@ -514,8 +530,8 @@ class StaticAnalysisOrchestrator:
         project_path: str,
         repo_url: str,
         version: str,
-        build_script: Optional[str] = None,       # 用户提供的构建脚本路径
-        fuzzer_sources: Dict[str, List[str]],            # 必传，{fuzzer_name: [source_files]}
+        fuzzer_sources: Dict[str, List[str]],      # 必传，{fuzzer_name: [source_files]}
+        build_script: Optional[str] = None,        # 用户提供的构建脚本路径
         language: Optional[str] = None,           # 覆盖自动检测
         backend: Optional[str] = None,            # 覆盖自动选择
         diff_files: Optional[List[str]] = None,   # 增量分析
@@ -533,6 +549,21 @@ class StaticAnalysisOrchestrator:
         4b. Phase 4b: Fuzzer 入口解析（源码级）
         5. Phase 5: AI 精化（预留）
         6. Phase 6: 数据导入（Neo4j + fuzzer 连接 + REACHES 计算）
+        """
+
+    def analyze_full(
+        self,
+        project_path: str,
+        repo_url: str,
+        version: str,
+        fuzzer_sources: Dict[str, List[str]],
+        result: AnalysisResult,        # 已有的 Phase 4a 结果（外部 SVF 产出）
+        snapshot_id: str,              # 已创建的 Snapshot ID
+    ) -> AnalysisOutput:
+        """
+        从 Phase 4b 继续执行（跳过 Phase 1-4a）。
+        用于 SVF 已在外部完成的场景（如 Docker 内直接产出 AnalysisResult）。
+        执行: Phase 4b（FuzzerParser）→ Phase 6（Neo4j 导入 + REACHES）。
         """
 
         # Snapshot 查询/占位

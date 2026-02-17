@@ -62,7 +62,8 @@ class BackendRegistry:
         """按精度降序尝试后端，检查前置条件，返回第一个可用的。"""
         for desc in self.find_by_language(language):
             backend = desc.factory()
-            if not backend.check_prerequisites(project_path):
+            missing = backend.check_prerequisites(project_path)
+            if not missing:  # 空列表 = 前置条件全部满足
                 return backend
         return None
 
@@ -215,7 +216,7 @@ class AnalysisBackend(ABC):
         """
         return []
 
-    def get_descriptor(self) -> Optional[BackendDescriptor]:
+    def get_descriptor(self) -> Any | None:
         """返回本后端的能力声明描述符。未注册时返回 None。"""
         return None
 ```

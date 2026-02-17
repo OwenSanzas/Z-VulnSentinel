@@ -74,9 +74,9 @@
 ```
 输入:
   snapshot_id: str
-  reaches: list[dict]  — [{fuzzer_name: str, function_name: str, file_path: str, depth: int}, ...]
+  reaches: list[dict]  — [{fuzzer_name: str, function_name: str, file_path: str?, depth: int}, ...]
 输出: int — 写入数量
-说明: 批量创建 (:Fuzzer)-[:REACHES {depth}]->(:Function) 边。导入时 BFS 一次性计算。
+说明: 批量创建 (:Fuzzer)-[:REACHES {depth}]->(:Function) 边。调用方（Orchestrator）负责 BFS 计算 reaches 后传入。
 ```
 
 #### `delete_snapshot(snapshot_id)`

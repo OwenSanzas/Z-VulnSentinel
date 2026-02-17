@@ -433,7 +433,7 @@ class GraphStore:
                 return None
             return {
                 "name": node["name"],
-                "file_path": node.get("file_path"),
+                "file_path": node.get("file_path", ""),
                 "start_line": node.get("start_line", 0),
                 "end_line": node.get("end_line", 0),
                 "content": node.get("content", ""),

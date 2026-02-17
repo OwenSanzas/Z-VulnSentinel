@@ -33,12 +33,11 @@ _EXTENSION_TO_LANGUAGE: dict[str, str] = {
 # Build system marker files, ordered by priority
 _BUILD_SYSTEM_MARKERS: list[tuple[str, str]] = [
     ("CMakeLists.txt", "cmake"),
-    ("configure", "autotools"),
     ("configure.ac", "autotools"),
     ("configure.in", "autotools"),
+    ("configure", "autotools"),
     ("meson.build", "meson"),
     ("Makefile", "make"),
-    ("build.sh", "custom"),
 ]
 
 # Feature indicator files (doc §6.1)

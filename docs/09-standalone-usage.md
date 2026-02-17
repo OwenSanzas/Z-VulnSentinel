@@ -17,6 +17,7 @@ z-analyze create-work -o work.json
   "path": "./curl-src",
   "build_script": "./ossfuzz/build.sh",
   "backend": "svf",
+  "language": "c",
   "fuzzer_sources": {
     "curl_fuzzer_http": ["fuzz/fuzz_http.c", "fuzz/fuzzer_template.c"],
     "curl_fuzzer_ftp": ["fuzz/fuzz_ftp.c", "fuzz/fuzzer_template.c"],
@@ -36,6 +37,7 @@ z-analyze create-work -o work.json
 | `path` | N | str | 本地项目路径，不传则自动 clone |
 | `build_script` | N | str | 构建脚本路径，不传则自动检测/LLM 推断 |
 | `backend` | N | str | 分析后端，默认 `"auto"` |
+| `language` | N | str | 主语言（`"c"` / `"cpp"`），不传则自动探测 |
 | `fuzzer_sources` | Y | dict | fuzzer 名 → 源文件列表（list[str]） |
 | `diff_files` | N | list[str] | 增量分析的变更文件 |
 | `ai_refine` | N | bool | 启用 AI 精化（v1 预留） |

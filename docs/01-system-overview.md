@@ -184,9 +184,12 @@
 
 **索引：**
 ```cypher
-CREATE INDEX FOR (f:Function) ON (f.snapshot_id)
-CREATE INDEX FOR (f:Fuzzer) ON (f.snapshot_id)
 CREATE INDEX FOR (s:Snapshot) ON (s.id)
+CREATE INDEX FOR (f:Function) ON (f.snapshot_id)
+CREATE INDEX FOR (f:Function) ON (f.snapshot_id, f.name)
+CREATE INDEX FOR (f:Function) ON (f.snapshot_id, f.file_path)
+CREATE INDEX FOR (fz:Fuzzer) ON (fz.snapshot_id)
+CREATE INDEX FOR (fz:Fuzzer) ON (fz.snapshot_id, fz.name)
 ```
 
 #### 1.5.4 关键查询示例

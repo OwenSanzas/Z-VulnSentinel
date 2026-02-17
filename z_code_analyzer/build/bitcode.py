@@ -71,16 +71,19 @@ class BitcodeGenerator:
         output_dir: str | None = None,
     ) -> BitcodeOutput:
         """
-        Generate library-only bitcode.
+        Read pre-generated library-only bitcode and extract function metadata.
 
-        Note: In practice, this is orchestrated via svf-pipeline.sh in Docker.
-        This method provides the programmatic interface for the orchestrator.
+        v1 only supports Docker-based bitcode generation via generate_via_docker().
+        This method handles the post-generation step: reading library.bc/.ll
+        and extracting DISubprogram metadata. The build_cmd and
+        fuzzer_source_files params are accepted for API compatibility but
+        not used — actual build + llvm-link happens inside Docker.
 
         Args:
-            project_path: Project source root.
-            build_cmd: Build commands to execute.
-            fuzzer_source_files: Files to exclude from llvm-link.
-            output_dir: Where to write library.bc (default: temp dir).
+            project_path: Project source root (for source content enrichment).
+            build_cmd: (unused in v1) Build commands.
+            fuzzer_source_files: (unused in v1) Files to exclude.
+            output_dir: Directory containing library.bc (default: temp dir).
 
         Returns:
             BitcodeOutput with bc_path and function_metas.

@@ -175,23 +175,17 @@ class BitcodeGenerator:
         output_dir: str | None = None,    # 输出目录，默认使用临时目录
     ) -> BitcodeOutput:
         """
-        步骤：
-        1. 设置环境: CC=z-wllvm, CXX=z-wllvm++, LLVM_COMPILER=clang
-        2. 执行 build_cmd.commands（工作目录 = project_path）
-        3. 收集所有编译产出的 .o 对应的 .bc 文件
-           （wllvm 为每个 .o 记录了 .bc manifest）
-        4. 排除 fuzzer 源文件对应的 .bc
-           （fuzzer_source_files 中的文件路径 → 对应的 .o → 排除其 .bc）
-        5. llvm-link 剩余的库代码 .bc → library.bc
-           （不含任何 LLVMFuzzerTestOneInput，无符号冲突）
-        6. llvm-dis library.bc → library.ll
-        7. 解析 .ll 中的 DISubprogram 元数据 → 函数元数据表
-        8. 用 file_path + line 从源文件读取函数 content
-        9. 返回 BitcodeOutput
+        读取已生成的 library-only bitcode 并提取函数元数据。
 
-        失败场景：
-        - 编译错误 → 抛异常，上层可尝试降级 build_cmd
-        - llvm-link 失败 → 检查 LLVM 版本匹配
+        v1 中实际的编译 + llvm-link 在 Docker 内完成（generate_via_docker）。
+        此方法负责后处理：读取 library.bc/.ll，解析 DISubprogram 元数据。
+        build_cmd 和 fuzzer_source_files 参数为 API 兼容保留，v1 未使用。
+
+        步骤：
+        1. 检查 output_dir 下是否存在 library.bc（不存在则报错）
+        2. 解析 library.ll 中的 DISubprogram 元数据 → 函数元数据表
+        3. 用 file_path + line 从源文件读取函数 content
+        4. 返回 BitcodeOutput
         """
 
     def generate_via_docker(
@@ -563,58 +557,11 @@ class StaticAnalysisOrchestrator:
         """
         从 Phase 4b 继续执行（跳过 Phase 1-4a）。
         用于 SVF 已在外部完成的场景（如 Docker 内直接产出 AnalysisResult）。
+        调用方负责 acquire_or_wait 和 snapshot_id 传入。
         执行: Phase 4b（FuzzerParser）→ Phase 6（Neo4j 导入 + REACHES）。
         """
 
-        # Snapshot 查询/占位
-        snapshot_doc = await self.snapshot_manager.acquire_or_wait(
-            repo_url, version, backend or "auto"
-        )
-
-        # 缓存命中
-        if snapshot_doc["status"] == "completed":
-            return AnalysisOutput(
-                snapshot_id=str(snapshot_doc["_id"]),
-                repo_url=repo_url, version=version,
-                backend=snapshot_doc["backend"],
-                function_count=snapshot_doc["node_count"],
-                edge_count=snapshot_doc["edge_count"],
-                fuzzer_names=snapshot_doc.get("fuzzer_names", []),
-                cached=True,
-            )
-
-        # 缓存未命中 → 执行完整分析
-        snapshot_id = str(snapshot_doc["_id"])
         try:
-            # Phase 1: 项目探测
-            self.progress.start_phase("probe")
-            info = ProjectProbe().probe(project_path, diff_files)
-            self.progress.complete_phase("probe")
-
-            # Phase 2: 构建命令提取（三层降级）
-            self.progress.start_phase("build_cmd")
-            build_cmd = BuildCommandDetector().detect(
-                project_path, build_script=build_script
-            )
-            self.progress.complete_phase("build_cmd",
-                detail=f"{build_cmd.build_system} (source: {build_cmd.source})")
-
-            # Phase 3: Bitcode 生成（library-only，排除 fuzzer 源文件）
-            self.progress.start_phase("bitcode")
-            all_fuzzer_files = [f for files in fuzzer_sources.values() for f in files]
-            bitcode_output = BitcodeGenerator().generate(
-                project_path, build_cmd, fuzzer_source_files=all_fuzzer_files
-            )
-            self.progress.complete_phase("bitcode",
-                detail=f"{bitcode_output.bc_path}, {len(bitcode_output.function_metas)} lib functions")
-
-            # Phase 4a: SVF 分析（库代码调用图，不含 fuzzer）
-            self.progress.start_phase("svf")
-            result = SVFBackend().analyze(project_path, detected_lang,
-                bc_path=bitcode_output.bc_path, function_metas=[...])
-            self.progress.complete_phase("svf",
-                detail=f"{len(result.functions)} functions, {len(result.edges)} edges")
-
             # Phase 4b: Fuzzer 入口解析（源码级，提取 fuzzer → 库函数调用）
             self.progress.start_phase("fuzzer_parse")
             library_func_names = {f.name for f in result.functions}
@@ -624,13 +571,7 @@ class StaticAnalysisOrchestrator:
             self.progress.complete_phase("fuzzer_parse",
                 detail=f"{len(fuzzer_sources)} fuzzers parsed")
 
-            # Phase 5: AI 精化（预留）
-            if self.ai_config.enabled:
-                self.progress.start_phase("ai_refine")
-                result = await AIRefiner(self.ai_config).refine(result)
-                self.progress.complete_phase("ai_refine")
-
-            # Phase 6: 写入 Neo4j + 更新 MongoDB 目录（clean slate: 先删除可能的残留数据）
+            # Phase 6: 写入 Neo4j + 更新 MongoDB 目录
             self.progress.start_phase("import")
             self.graph_store.delete_snapshot(snapshot_id)  # 防止重试时数据重复
             self.graph_store.create_snapshot_node(snapshot_id, repo_url, version, "svf")
@@ -647,7 +588,9 @@ class StaticAnalysisOrchestrator:
 
             fuzzer_names = [f.name for f in fuzzer_infos]
             self.snapshot_manager.mark_completed(
-                snapshot_id, func_count, edge_count, fuzzer_names
+                snapshot_id, func_count, edge_count, fuzzer_names,
+                analysis_duration_sec=result.analysis_duration_seconds,
+                language=result.language,
             )
             self.progress.complete_phase("import",
                 detail=f"{func_count} functions, {edge_count} edges")
@@ -664,6 +607,10 @@ class StaticAnalysisOrchestrator:
 
         except Exception as e:
             self.snapshot_manager.mark_failed(snapshot_id, str(e))
+            try:
+                self.graph_store.delete_snapshot(snapshot_id)
+            except Exception:
+                pass
             raise
 ```
 

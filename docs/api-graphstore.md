@@ -156,9 +156,9 @@
 输出:
   list[dict]
   [
-    {"name": "malloc", "file_path": "", "call_type": "direct", "is_external": true},
-    {"name": "dict_init", "file_path": "lib/dict.c", "call_type": "direct", "is_external": false},
-    {"name": "handler_func", "file_path": "lib/handler.c", "call_type": "fptr", "is_external": false}
+    {"name": "malloc", "file_path": "", "call_type": "direct", "is_external": true, "confidence": 1.0, "backend": "svf"},
+    {"name": "dict_init", "file_path": "lib/dict.c", "call_type": "direct", "is_external": false, "confidence": 1.0, "backend": "svf"},
+    {"name": "handler_func", "file_path": "lib/handler.c", "call_type": "fptr", "is_external": false, "confidence": 1.0, "backend": "svf"}
   ]
 ```
 
@@ -171,8 +171,8 @@
 输出:
   list[dict]
   [
-    {"name": "curl_do", "file_path": "lib/url.c", "call_type": "direct", "is_external": false},
-    {"name": "main_loop", "file_path": "lib/main.c", "call_type": "fptr", "is_external": false}
+    {"name": "curl_do", "file_path": "lib/url.c", "call_type": "direct", "is_external": false, "confidence": 1.0, "backend": "svf"},
+    {"name": "main_loop", "file_path": "lib/main.c", "call_type": "fptr", "is_external": false, "confidence": 1.0, "backend": "svf"}
   ]
 ```
 

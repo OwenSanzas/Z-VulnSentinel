@@ -452,17 +452,18 @@ def _compute_reaches(
         # BFS from this fuzzer's LLVMFuzzerTestOneInput (identified by file_path)
         # file_path="" 表示未知（与 Neo4j 中 Function 节点的空字符串约定一致）
         main_file = fuzzer.files[0]["path"] if fuzzer.files else ""
-        bfs_result = self.graph_store.raw_query(
-            f"""
-            MATCH (entry:Function {{snapshot_id: $sid,
-                name: "LLVMFuzzerTestOneInput", file_path: $fpath}})
-            MATCH (f:Function {{snapshot_id: $sid}})
-            WHERE f <> entry
-            MATCH p = shortestPath((entry)-[:CALLS*..{max_reach_depth}]->(f))
-            RETURN f.name AS func_name, f.file_path AS file_path, length(p) AS depth
-            """,
-            {"sid": snapshot_id, "fpath": main_file},
-        )
+        with self.graph_store._session() as session:
+            bfs_result = session.run(
+                f"""
+                MATCH (entry:Function {{snapshot_id: $sid,
+                    name: "LLVMFuzzerTestOneInput", file_path: $fpath}})
+                MATCH (f:Function {{snapshot_id: $sid}})
+                WHERE f <> entry
+                MATCH p = shortestPath((entry)-[:CALLS*..{max_reach_depth}]->(f))
+                RETURN f.name AS func_name, f.file_path AS file_path, length(p) AS depth
+                """,
+                sid=snapshot_id, fpath=main_file,
+            )
         for row in bfs_result:
             reaches.append({
                 "fuzzer_name": fuzzer.name,

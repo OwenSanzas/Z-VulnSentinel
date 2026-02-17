@@ -97,6 +97,7 @@ _WORK_ORDER_TEMPLATE = {
     "path": "./project-src",
     "build_script": None,
     "backend": "auto",
+    "language": None,
     "fuzzer_sources": {
         "fuzz_example": ["fuzz/fuzz_example.c"],
     },

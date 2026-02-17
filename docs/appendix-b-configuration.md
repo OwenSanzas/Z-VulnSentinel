@@ -40,7 +40,8 @@
 ```bash
 # ── v1 已实现 ──
 export NEO4J_URI=bolt://localhost:7687       # Neo4j 连接地址
-export NEO4J_AUTH=none                        # Neo4j 认证（none / neo4j:password / neo4j_user+neo4j_password）
+export NEO4J_AUTH=none                        # Neo4j 认证（none / user:password）
+# 或分别设置: NEO4J_USER + NEO4J_PASSWORD
 export MONGO_URI=mongodb://localhost:27017    # MongoDB 连接地址（SnapshotManager 用）
 
 # ── v2 预留（代码中未读取） ──

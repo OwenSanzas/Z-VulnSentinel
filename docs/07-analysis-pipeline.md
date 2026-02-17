@@ -320,7 +320,7 @@ class AIRefiner:
 
 ### 7.7 Phase 6: 数据导入（Neo4j）
 
-数据导入由 Orchestrator 在 `analyze_with_snapshot()` 中统一管理（参见 §1.7），不再是独立的 Importer 类。
+数据导入由 Orchestrator 在 `analyze()` 中统一管理（参见 §1.7），不再是独立的 Importer 类。
 
 流程：
 1. **MongoDB 建目录**：`SnapshotManager.acquire_or_wait()` → 创建 Snapshot 元信息（`status: "building"`）→ 拿到 `snapshot_id`
@@ -332,7 +332,7 @@ class AIRefiner:
 3. **MongoDB 更新状态**：`status: "completed"`，写入 `node_count`、`edge_count`、`fuzzer_names`
 
 ```python
-# 伪代码（实际逻辑在 orchestrator.analyze_with_snapshot 中）
+# 伪代码（实际逻辑在 orchestrator.analyze 中）
 
 snapshot_doc = snapshot_manager.acquire_or_wait(repo_url, version, backend)
 snapshot_id = str(snapshot_doc["_id"])

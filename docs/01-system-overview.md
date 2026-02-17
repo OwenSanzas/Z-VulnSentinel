@@ -87,7 +87,7 @@
 │                           └────────┬───────────┘                      │
 │                                    ▼                                   │
 │                           ┌──────────────┐                            │
-│                           │ GraphImporter │                            │
+│                           │  GraphStore   │                            │
 │                           │   → Neo4j    │                            │
 │                           └──────────────┘                            │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -147,7 +147,7 @@
   │                     ├──[:CALLS {call_type: "direct", confidence: 1.0, backend: "svf"}]──→ (:Function)
   │                     └──[:CALLS {call_type: "fptr", confidence: 0.95, backend: "svf"}]──→ (:Function)
   │
-  ├──[:CONTAINS]──→ (:Function:External {name: "malloc", snapshot_id: "abc123"})
+  ├──[:CONTAINS]──→ (:Function:External {name: "malloc", snapshot_id: "abc123", file_path: "", is_external: true})
   │
   └──[:CONTAINS]──→ (:Fuzzer {
                         name: "curl_fuzzer",
@@ -168,7 +168,7 @@
 |------|------|------|
 | `:Snapshot` | `id`, `repo_name`, `repo_url`, `version`, `backend`, `created_at` | 一次分析快照，`id` = MongoDB snapshot `_id`，唯一约束: `(repo_url, version, backend)` |
 | `:Function` | `name`, `snapshot_id`, `file_path`, `start_line`, `end_line`, `content`, `cyclomatic_complexity`, `return_type`, `parameters`, `language`, `is_external` | 用户代码函数，`snapshot_id` 冗余便于索引 |
-| `:Function:External` | `name`, `snapshot_id` | 外部函数（`malloc`, `printf` 等），SVF 无法分析内部，作为叶节点 |
+| `:Function:External` | 同 `:Function`（`file_path=""`，`content=""`，`is_external=true`） | 外部函数（`malloc`, `printf` 等），SVF 无法分析内部，作为叶节点。额外 `:External` 标签便于快速过滤 |
 | `:Fuzzer` | `name`, `snapshot_id`, `entry_function`, `focus`, `files` | Fuzzer 入口，`files` = [{path, source}]，source 为 "user" 或 "auto_detect" |
 
 #### 1.5.3 边类型
@@ -609,7 +609,7 @@ async def _wait_for_ready(self, repo_url, version, backend, timeout=1800):
 **错误恢复：** 分析过程用 try/finally 保证状态一致性。
 
 ```python
-async def analyze_with_snapshot(self, repo_url, version, backend, ...):
+async def analyze(self, project_path, repo_url, version, fuzzer_sources, ...):
     snapshot_doc = self._create_snapshot(repo_url, version, backend, status="building")
     try:
         result = await self._run_backend(...)

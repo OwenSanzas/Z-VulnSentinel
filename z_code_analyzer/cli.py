@@ -186,18 +186,22 @@ def run(
         cloned_dir = project_path
 
     try:
-        result = asyncio.run(
-            orchestrator.analyze(
-                project_path=project_path,
-                repo_url=work["repo_url"],
-                version=work["version"],
-                fuzzer_sources=work["fuzzer_sources"],
-                build_script=work.get("build_script"),
-                language=work.get("language"),
-                backend=work.get("backend"),
-                diff_files=work.get("diff_files"),
+        try:
+            result = asyncio.run(
+                orchestrator.analyze(
+                    project_path=project_path,
+                    repo_url=work["repo_url"],
+                    version=work["version"],
+                    fuzzer_sources=work["fuzzer_sources"],
+                    build_script=work.get("build_script"),
+                    language=work.get("language"),
+                    backend=work.get("backend"),
+                    diff_files=work.get("diff_files"),
+                )
             )
-        )
+        except Exception as exc:
+            click.echo(f"Error: {exc}", err=True)
+            raise SystemExit(1) from exc
 
         click.echo(f"\nAnalysis {'(cached)' if result.cached else 'complete'}:")
         click.echo(f"  Snapshot ID: {result.snapshot_id}")
@@ -392,6 +396,10 @@ def _resolve_auth(neo4j_auth: str | None) -> tuple[str, str] | None:
         if ":" in neo4j_auth:
             user, password = neo4j_auth.split(":", 1)
             return (user, password)
+        logging.getLogger(__name__).warning(
+            "--neo4j-auth has unrecognized format (expected 'none' or 'user:password'), "
+            "treating as no-auth"
+        )
         return None
     return _parse_neo4j_auth()
 

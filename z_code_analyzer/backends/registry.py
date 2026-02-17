@@ -77,8 +77,16 @@ class BackendRegistry:
         """
         candidates = self.find_by_language(language)
         for desc in candidates:
-            backend = desc.factory()
-            missing = backend.check_prerequisites(project_path)
+            try:
+                backend = desc.factory()
+                missing = backend.check_prerequisites(project_path)
+            except Exception:
+                logger.warning(
+                    "Backend %s prerequisite check failed with exception",
+                    desc.name,
+                    exc_info=True,
+                )
+                continue
             if not missing:
                 logger.info(
                     "Selected backend: %s (precision=%.2f)", desc.name, desc.precision_score

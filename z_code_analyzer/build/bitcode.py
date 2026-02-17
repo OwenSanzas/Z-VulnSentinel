@@ -245,10 +245,13 @@ class BitcodeGenerator:
                     parts = file_path.split("/")
                     # Try to find project root in path
                     proj_name = Path(project_path).name
+                    # Find last occurrence to handle nested dirs with same name
+                    last_idx = None
                     for i, p in enumerate(parts):
                         if p == proj_name:
-                            file_path = "/".join(parts[i + 1 :])
-                            break
+                            last_idx = i
+                    if last_idx is not None:
+                        file_path = "/".join(parts[last_idx + 1 :])
             else:
                 file_path = ""
 

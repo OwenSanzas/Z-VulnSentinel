@@ -107,6 +107,12 @@ class SVFBackend(AnalysisBackend):
         nodes, final_adj = parse_svf_dot(final_dot)
         all_func_names = get_all_function_names(nodes)
 
+        if not all_func_names:
+            logger.warning(
+                "SVF produced an empty call graph (0 functions). "
+                "Check that the bitcode contains debug info."
+            )
+
         if initial_dot:
             _, initial_adj = parse_svf_dot(initial_dot)
             typed_edges = get_typed_edge_list(initial_adj, final_adj)
@@ -209,10 +215,15 @@ class SVFBackend(AnalysisBackend):
         with tempfile.TemporaryDirectory() as tmpdir:
             # Use --workdir instead of 'bash -c "cd ... && ..."' to avoid
             # shell interpolation of bc_name entirely.
+            import uuid
+
+            container_name = f"z-svf-{uuid.uuid4().hex[:8]}"
             cmd = [
                 "docker",
                 "run",
                 "--rm",
+                "--name",
+                container_name,
                 "--workdir",
                 "/output",
                 "-v",
@@ -235,6 +246,15 @@ class SVFBackend(AnalysisBackend):
                     timeout=SVF_TIMEOUT,
                 )
             except subprocess.TimeoutExpired:
+                # Kill the orphaned Docker container
+                try:
+                    subprocess.run(
+                        ["docker", "kill", container_name],
+                        capture_output=True,
+                        timeout=10,
+                    )
+                except Exception:
+                    pass
                 raise SVFError(f"SVF analysis timed out after {SVF_TIMEOUT}s")
 
             if result.returncode != 0:
@@ -256,11 +276,13 @@ class SVFBackend(AnalysisBackend):
         missing = []
         # Check Docker
         try:
-            subprocess.run(
+            docker_info = subprocess.run(
                 ["docker", "info"],
                 capture_output=True,
                 timeout=10,
             )
+            if docker_info.returncode != 0:
+                missing.append("Docker daemon is not running")
         except (subprocess.SubprocessError, FileNotFoundError):
             missing.append("Docker is not available")
 

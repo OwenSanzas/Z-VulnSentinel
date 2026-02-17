@@ -56,10 +56,14 @@ class StaticAnalysisOrchestrator:
         self.snapshot_manager = snapshot_manager
         self.graph_store = graph_store
         self.log_store = log_store
-        self.progress = ProgressTracker()
         self._snapshot_id_for_log: str | None = None
-        if log_store:
-            self.progress.callbacks.append(self._log_phase_callback)
+
+    def _new_progress(self) -> ProgressTracker:
+        """Create a fresh ProgressTracker for each analysis call."""
+        tracker = ProgressTracker()
+        if self.log_store:
+            tracker.callbacks.append(self._log_phase_callback)
+        return tracker
 
     def _log_phase_callback(self, phase: PhaseProgress) -> None:
         """Write phase status transitions to LogStore."""
@@ -91,6 +95,8 @@ class StaticAnalysisOrchestrator:
         and will block the event loop. For web contexts, run in a thread pool
         via asyncio.to_thread() or use ProcessPoolExecutor.
         """
+        progress = self._new_progress()
+        self.progress = progress  # expose last run's progress for callers
         snapshot_id: str | None = None
         analysis_committed = False
 
@@ -127,29 +133,29 @@ class StaticAnalysisOrchestrator:
         output_dir_obj = None
         try:
             # Phase 1: Project probe
-            self.progress.start_phase("probe")
+            progress.start_phase("probe")
             info = ProjectProbe().probe(project_path, diff_files=diff_files)
             detected_lang = language or info.language_profile.primary_language
-            self.progress.complete_phase(
+            progress.complete_phase(
                 "probe",
                 detail=f"lang={detected_lang}, build={info.build_system}, "
                 f"files={len(info.source_files)}",
             )
 
             # Phase 2: Build command detection
-            self.progress.start_phase("build_cmd")
+            progress.start_phase("build_cmd")
             build_cmd = BuildCommandDetector().detect(project_path, build_script=build_script)
             if build_cmd:
-                self.progress.complete_phase(
+                progress.complete_phase(
                     "build_cmd",
                     detail=f"{build_cmd.build_system} (source: {build_cmd.source})",
                 )
             else:
-                self.progress.fail_phase("build_cmd", "No build system detected")
+                progress.fail_phase("build_cmd", "No build system detected")
                 raise RuntimeError("No build system detected and no build_script provided")
 
             # Phase 3: Bitcode generation (in Docker via svf-pipeline.sh)
-            self.progress.start_phase("bitcode")
+            progress.start_phase("bitcode")
             all_fuzzer_files = [f for files in fuzzer_sources.values() for f in files]
             bitcode_gen = BitcodeGenerator()
             output_dir_obj = tempfile.TemporaryDirectory(prefix="z-analyze-")
@@ -174,14 +180,14 @@ class StaticAnalysisOrchestrator:
                     fuzzer_source_files=all_fuzzer_files,
                     output_dir=output_dir,
                 )
-            self.progress.complete_phase(
+            progress.complete_phase(
                 "bitcode",
                 detail=f"bc={bc_output.bc_path}, metas={len(bc_output.function_metas)}, "
                 f"excluded={len(all_fuzzer_files)}",
             )
 
             # Phase 4a: SVF analysis
-            self.progress.start_phase("svf")
+            progress.start_phase("svf")
             from z_code_analyzer.backends.svf_backend import SVFBackend
 
             svf = SVFBackend()
@@ -202,29 +208,29 @@ class StaticAnalysisOrchestrator:
                 bc_path=bc_output.bc_path,
                 function_metas=function_metas_dicts,
             )
-            self.progress.complete_phase(
+            progress.complete_phase(
                 "svf",
                 detail=f"functions={len(result.functions)}, edges={len(result.edges)}, "
                 f"fptr={result.metadata.get('fptr_edge_count', 0)}",
             )
 
             # Phase 4b: Fuzzer entry parsing
-            self.progress.start_phase("fuzzer_parse")
+            progress.start_phase("fuzzer_parse")
             library_func_names = {f.name for f in result.functions}
             fuzzer_calls = FuzzerEntryParser().parse(
                 fuzzer_sources, library_func_names, project_path
             )
-            self.progress.complete_phase(
+            progress.complete_phase(
                 "fuzzer_parse",
                 detail=f"{len(fuzzer_sources)} fuzzers, "
                 f"lib_calls={sum(len(v) for v in fuzzer_calls.values())}",
             )
 
             # Phase 5: AI refinement (skipped in v1)
-            self.progress.skip_phase("ai_refine", "v1: not implemented")
+            progress.skip_phase("ai_refine", "v1: not implemented")
 
             # Phase 6: Neo4j import + REACHES computation
-            self.progress.start_phase("import")
+            progress.start_phase("import")
             # Clean slate: remove any partial data from previous failed attempts
             self.graph_store.delete_snapshot(snapshot_id)
             self.graph_store.create_snapshot_node(snapshot_id, repo_url, version, result.backend)
@@ -247,7 +253,7 @@ class StaticAnalysisOrchestrator:
                 language=detected_lang,
             )
             analysis_committed = True
-            self.progress.complete_phase(
+            progress.complete_phase(
                 "import",
                 detail=f"functions={func_count}, edges={edge_count}, "
                 f"reaches={len(reaches)}, fuzzers={len(fuzzer_names)}",
@@ -272,7 +278,12 @@ class StaticAnalysisOrchestrator:
 
         except Exception as e:
             if snapshot_id and not analysis_committed:
-                self.snapshot_manager.mark_failed(snapshot_id, str(e))
+                try:
+                    self.snapshot_manager.mark_failed(snapshot_id, str(e))
+                except Exception:
+                    logger.warning(
+                        "Failed to mark snapshot %s as failed", snapshot_id, exc_info=True
+                    )
                 try:
                     self.graph_store.delete_snapshot(snapshot_id)
                 except Exception:
@@ -301,23 +312,25 @@ class StaticAnalysisOrchestrator:
         Run Phase 4b + Phase 6 with an already-computed AnalysisResult.
         Used when SVF has already been run externally.
         """
+        progress = self._new_progress()
+        self.progress = progress  # expose last run's progress for callers
         self._snapshot_id_for_log = snapshot_id
         analysis_committed = False
         try:
             # Phase 4b: Fuzzer entry parsing
-            self.progress.start_phase("fuzzer_parse")
+            progress.start_phase("fuzzer_parse")
             library_func_names = {f.name for f in result.functions}
             fuzzer_calls = FuzzerEntryParser().parse(
                 fuzzer_sources, library_func_names, project_path
             )
-            self.progress.complete_phase(
+            progress.complete_phase(
                 "fuzzer_parse",
                 detail=f"{len(fuzzer_sources)} fuzzers parsed",
             )
 
             # Phase 6: Neo4j import
             # Clean slate: remove any partial data from previous failed attempts
-            self.progress.start_phase("import")
+            progress.start_phase("import")
             self.graph_store.delete_snapshot(snapshot_id)
             self.graph_store.create_snapshot_node(snapshot_id, repo_url, version, result.backend)
             func_count = self.graph_store.import_functions(snapshot_id, result.functions)
@@ -339,7 +352,7 @@ class StaticAnalysisOrchestrator:
                 language=result.language,
             )
             analysis_committed = True
-            self.progress.complete_phase(
+            progress.complete_phase(
                 "import",
                 detail=f"{func_count} functions, {edge_count} edges",
             )
@@ -363,7 +376,12 @@ class StaticAnalysisOrchestrator:
 
         except Exception as e:
             if not analysis_committed:
-                self.snapshot_manager.mark_failed(snapshot_id, str(e))
+                try:
+                    self.snapshot_manager.mark_failed(snapshot_id, str(e))
+                except Exception:
+                    logger.warning(
+                        "Failed to mark snapshot %s as failed", snapshot_id, exc_info=True
+                    )
                 try:
                     self.graph_store.delete_snapshot(snapshot_id)
                 except Exception:

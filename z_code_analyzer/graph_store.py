@@ -297,9 +297,12 @@ class GraphStore:
                             file_path: $main_file
                         })
                         MATCH (lib:Function {snapshot_id: $sid, name: lib_name})
+                        WITH entry, lib, lib_name
+                        ORDER BY lib.file_path
+                        WITH entry, lib_name, head(collect(lib)) AS lib_node
                         MERGE (entry)-[r:CALLS {
                             call_type: 'direct', backend: 'fuzzer_parser'
-                        }]->(lib)
+                        }]->(lib_node)
                         ON CREATE SET r.confidence = 1.0
                         """,
                         sid=snapshot_id,
@@ -331,6 +334,9 @@ class GraphStore:
                     MATCH (fz:Fuzzer {snapshot_id: $sid, name: r.fuzzer_name})
                     MATCH (f:Function {snapshot_id: $sid, name: r.function_name})
                     WHERE r.file_path IS NULL OR f.file_path = r.file_path
+                    WITH fz, r, f
+                    ORDER BY f.file_path
+                    WITH fz, r, head(collect(f)) AS f
                     MERGE (fz)-[rel:REACHES]->(f)
                     ON CREATE SET rel.depth = r.depth
                     ON MATCH SET rel.depth = CASE WHEN r.depth < rel.depth
@@ -466,7 +472,9 @@ class GraphStore:
 
         # Preserve * and ? before escaping, then convert them
         escaped = _re.escape(pattern).replace(r"\*", ".*").replace(r"\?", ".")
-        regex = "(?i)" + escaped
+        # Anchor the pattern: if no wildcards were present, require exact match
+        has_wildcards = "*" in pattern or "?" in pattern
+        regex = "(?i)" + ("" if has_wildcards else "^") + escaped + ("" if has_wildcards else "$")
         with self._session() as session:
             result = session.run(
                 """
@@ -550,6 +558,10 @@ class GraphStore:
         max_results: int = 10,
     ) -> dict | None:
         with self._session() as session:
+            # Validate/disambiguate function names
+            self._resolve_function(session, snapshot_id, from_name, from_file_path)
+            self._resolve_function(session, snapshot_id, to_name, to_file_path)
+
             # Build match clauses
             from_match = "MATCH (a:Function {snapshot_id: $sid, name: $from_name"
             if from_file_path:
@@ -607,6 +619,10 @@ class GraphStore:
             paths = []
             for record in result:
                 path = record["path"]
+                # Filter out cyclic paths (same node visited twice)
+                node_ids = [n.element_id for n in path.nodes]
+                if len(node_ids) != len(set(node_ids)):
+                    continue
                 nodes_list = [
                     {"name": n["name"], "file_path": n.get("file_path")} for n in path.nodes
                 ]
@@ -645,6 +661,10 @@ class GraphStore:
         max_results: int = 100,
     ) -> dict | None:
         with self._session() as session:
+            # Validate/disambiguate function names
+            self._resolve_function(session, snapshot_id, from_name, from_file_path)
+            self._resolve_function(session, snapshot_id, to_name, to_file_path)
+
             from_match = "MATCH (a:Function {snapshot_id: $sid, name: $from_name"
             if from_file_path:
                 from_match += ", file_path: $from_fp"
@@ -986,12 +1006,12 @@ class GraphStore:
         # Block obviously destructive write operations when called without params
         # (a sign of ad-hoc/debugging usage rather than parameterized internal calls)
         _upper = cypher.upper()
-        if params is None and any(
-            kw in _upper for kw in ("DELETE", "REMOVE", "DROP", "CREATE", "MERGE", "SET ")
-        ):
+        _write_keywords = ("DELETE", "REMOVE", "DROP", "CREATE", "MERGE", "SET ")
+        if any(kw in _upper for kw in _write_keywords):
             raise ValueError(
-                "raw_query without parameters cannot contain write operations. "
-                "Use parameterized queries for internal write operations."
+                "raw_query cannot contain write operations "
+                f"(detected: {[kw for kw in _write_keywords if kw in _upper]}). "
+                "Use dedicated write methods instead."
             )
         with self._session() as session:
             result = session.run(cypher, **(params or {}))

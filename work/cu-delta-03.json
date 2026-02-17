@@ -2,7 +2,7 @@
   "// info": "curl-007: CWE-476 Null Pointer Dereference in lib/alliswellprotocoll.c",
 
   "repo_url": "git@github.com:aixcc-finals/afc-curl.git",
-  "version": "458897b4ba4d743c1dbc2fce0607dc3802b695e3",
+  "version": "challenges/cu-delta-03",
   "path": null,
   "build_script": null,
   "backend": "svf",

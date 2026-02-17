@@ -1,0 +1,23 @@
+{
+  "// info": "lcms cm-delta-01: AIXCC Little CMS challenge delta",
+
+  "repo_url": "git@github.com:aixcc-finals/afc-little-cms.git",
+  "version": "challenges/cm-delta-01",
+  "path": null,
+  "build_script": null,
+  "backend": "svf",
+  "language": "c",
+  "svf_case_config": "lcms",
+  "svf_docker_image": "aixcc-afc/lcms",
+
+  "fuzzer_sources": {
+    "cms_virtual_profile_fuzzer": ["cms_virtual_profile_fuzzer.c"],
+    "cms_postscript_fuzzer": ["cms_postscript_fuzzer.c"]
+  },
+
+  "fuzz_tooling_url": "https://github.com/aixcc-finals/oss-fuzz-aixcc.git",
+  "fuzz_tooling_ref": "challenge-state/cm-delta-01",
+
+  "diff_files": null,
+  "ai_refine": false
+}

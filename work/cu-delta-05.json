@@ -2,7 +2,7 @@
   "// info": "curl-001: CWE-134 Use of Externally-Controlled Format String in lib/dict.c + curl-002: CWE-787 Out-of-bounds Write in lib/ftp.c",
 
   "repo_url": "git@github.com:aixcc-finals/afc-curl.git",
-  "version": "150028193bf61131c2436e3f4f76631e5d0a21d7",
+  "version": "challenges/cu-delta-05",
   "path": null,
   "build_script": null,
   "backend": "svf",

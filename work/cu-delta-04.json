@@ -2,7 +2,7 @@
   "// info": "curl-003: CWE-121 Stack Buffer Overflow in lib/http.c + curl-008: CWE-476 Null Pointer Dereference in lib/extremelygoodprtcl.c",
 
   "repo_url": "git@github.com:aixcc-finals/afc-curl.git",
-  "version": "157e7faac92b4c79e7202de036b45d8ef0f7b35e",
+  "version": "challenges/cu-delta-04",
   "path": null,
   "build_script": null,
   "backend": "svf",

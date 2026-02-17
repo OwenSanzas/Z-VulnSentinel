@@ -2,7 +2,7 @@
   "// info": "curl-005: CWE-476 Null Pointer Dereference in lib/verynormalprotocol.c",
 
   "repo_url": "git@github.com:aixcc-finals/afc-curl.git",
-  "version": "a29184fc5f9b1474c08502d1545cd90375fadd51",
+  "version": "challenges/cu-delta-01",
   "path": null,
   "build_script": null,
   "backend": "svf",

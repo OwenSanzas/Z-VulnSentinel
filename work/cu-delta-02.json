@@ -2,8 +2,8 @@
   "// info": "curl-006: CWE-476 Null Pointer Dereference in lib/totallyfineprotcl.c",
 
   "repo_url": "git@github.com:aixcc-finals/afc-curl.git",
-  "version": "332850107d906154ec53c0b3dfc16a46fea692a4",
-  "path": null,
+  "version": "challenges/cu-delta-02",
+  "path": "/tmp/test-cu-02",
   "build_script": null,
   "backend": "svf",
   "language": "c",

@@ -209,6 +209,22 @@ echo "=== [5/6] Disassembling to .ll ==="
 llvm-dis /output/library.bc -o /output/library.ll 2>&1
 echo "  library.ll: $(ls -lh /output/library.ll)"
 
+# ---- Step 7: Copy fuzzer harness sources to output ----
+echo "=== [6/6] Copying fuzzer harness sources ==="
+mkdir -p /output/fuzzer_sources
+if [ -n "${HARNESS_SRC:-}" ] && [ -d "$HARNESS_SRC" ]; then
+    cp -r "$HARNESS_SRC"/*.cc "$HARNESS_SRC"/*.c "$HARNESS_SRC"/*.h /output/fuzzer_sources/ 2>/dev/null || true
+    echo "  Copied from HARNESS_SRC: $(ls /output/fuzzer_sources/ 2>/dev/null | wc -l) files"
+fi
+# Also scan common locations for external fuzzer repos
+for fuzz_dir in "$SRC"/*fuzzer* "$SRC"/*fuzz*; do
+    if [ -d "$fuzz_dir" ] && [ "$fuzz_dir" != "$PROJECT_SRC" ]; then
+        cp -r "$fuzz_dir"/*.cc "$fuzz_dir"/*.c "$fuzz_dir"/*.h /output/fuzzer_sources/ 2>/dev/null || true
+        echo "  Copied from $fuzz_dir"
+    fi
+done
+echo "  Total fuzzer source files: $(ls /output/fuzzer_sources/ 2>/dev/null | wc -l)"
+
 echo ""
 echo "================================================================"
 echo " SUCCESS: /output/library.bc (library-only)"

@@ -236,8 +236,19 @@ class StaticAnalysisOrchestrator:
             # Phase 4b: Fuzzer entry parsing
             progress.start_phase("fuzzer_parse")
             library_func_names = {f.name for f in result.functions}
+
+            # For external harness repos (e.g. curl_fuzzer in Docker image),
+            # svf-pipeline.sh copies sources to output_dir/fuzzer_sources/.
+            extracted_fuzzer_dir = Path(output_dir) / "fuzzer_sources"
+            if extracted_fuzzer_dir.is_dir():
+                self._fuzzer_search_paths = [project_path, str(extracted_fuzzer_dir)]
+                logger.info("Found extracted fuzzer sources at %s", extracted_fuzzer_dir)
+            else:
+                self._fuzzer_search_paths = None
+
             fuzzer_calls = FuzzerEntryParser().parse(
-                fuzzer_sources, library_func_names, project_path
+                fuzzer_sources, library_func_names, project_path,
+                extra_search_paths=self._fuzzer_search_paths,
             )
             progress.complete_phase(
                 "fuzzer_parse",
@@ -340,7 +351,8 @@ class StaticAnalysisOrchestrator:
             progress.start_phase("fuzzer_parse")
             library_func_names = {f.name for f in result.functions}
             fuzzer_calls = FuzzerEntryParser().parse(
-                fuzzer_sources, library_func_names, project_path
+                fuzzer_sources, library_func_names, project_path,
+                extra_search_paths=getattr(self, '_fuzzer_search_paths', None),
             )
             progress.complete_phase(
                 "fuzzer_parse",

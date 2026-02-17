@@ -197,15 +197,42 @@ class BitcodeGenerator:
         ])
 
         logger.info("Running bitcode pipeline: %s", " ".join(cmd[:10]))
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-        except subprocess.TimeoutExpired:
-            raise BitcodeError("Bitcode generation timed out")
 
-        if result.returncode != 0:
-            output = result.stderr or result.stdout or "(no output)"
+        # Stream build output to a log file so progress is visible during long builds.
+        # Also write to stdout/stderr in real time for interactive use.
+        log_path = Path(output_dir) / "build.log"
+        try:
+            with open(log_path, "w") as log_file:
+                proc = subprocess.Popen(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+                )
+                assert proc.stdout is not None
+                for line in proc.stdout:
+                    log_file.write(line)
+                    log_file.flush()
+                    # Log every line at DEBUG, but key milestones at INFO
+                    stripped = line.rstrip()
+                    if stripped.startswith("===") or stripped.startswith("SUCCESS"):
+                        logger.info("[build] %s", stripped)
+                    else:
+                        logger.debug("[build] %s", stripped)
+                proc.wait(timeout=600)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
             raise BitcodeError(
-                f"Bitcode generation failed (rc={result.returncode}):\n{output[-2000:]}"
+                f"Bitcode generation timed out after 600s. "
+                f"Build log: {log_path}"
+            )
+
+        if proc.returncode != 0:
+            # Read last 2000 chars from log for error message
+            try:
+                log_tail = log_path.read_text()[-2000:]
+            except OSError:
+                log_tail = "(no log)"
+            raise BitcodeError(
+                f"Bitcode generation failed (rc={proc.returncode}):\n{log_tail}"
             )
 
         bc_path = Path(output_dir) / "library.bc"

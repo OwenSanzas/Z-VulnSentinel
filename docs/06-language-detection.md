@@ -47,11 +47,12 @@ class ProjectProbe:
         ("meson.build", "meson"),
         ("Makefile", "make"),
         ("build.sh", "custom"),
-        ("build.gradle", "gradle"),
-        ("pom.xml", "maven"),
-        ("go.mod", "go_modules"),
-        ("Cargo.toml", "cargo"),
-        ("package.json", "npm"),
+        # v2 计划：多语言支持
+        # ("build.gradle", "gradle"),
+        # ("pom.xml", "maven"),
+        # ("go.mod", "go_modules"),
+        # ("Cargo.toml", "cargo"),
+        # ("package.json", "npm"),
     ]
 
     # 层 3：特征文件检测

@@ -437,31 +437,27 @@ def _compute_reaches(
     depth=1 是 LLVMFuzzerTestOneInput 的直接 callee，不含 entry 自身。
     """
     reaches = []
+    max_reach_depth = 50  # 防止 Neo4j 内存耗尽
     for fuzzer in fuzzer_infos:
         # BFS from this fuzzer's LLVMFuzzerTestOneInput (identified by file_path)
-        main_file = fuzzer.files[0]["path"] if fuzzer.files else None
-        # Neo4j null != "" — 根据 file_path 是否已知使用不同查询
-        if main_file:
-            entry_match = 'MATCH path = (entry:Function {snapshot_id: $sid, ' \
-                          'name: "LLVMFuzzerTestOneInput", file_path: $fpath})'
-            params = {"sid": snapshot_id, "fpath": main_file}
-        else:
-            entry_match = 'MATCH path = (entry:Function {snapshot_id: $sid, ' \
-                          'name: "LLVMFuzzerTestOneInput"})'
-            params = {"sid": snapshot_id}
+        # file_path="" 表示未知（与 Neo4j 中 Function 节点的空字符串约定一致）
+        main_file = fuzzer.files[0]["path"] if fuzzer.files else ""
         bfs_result = self.graph_store.raw_query(
             f"""
-            {entry_match}
-                         -[:CALLS*1..50]->(f:Function {{snapshot_id: $sid}})
-            WITH f.name AS func_name, f.file_path AS file_path, min(length(path)) AS depth
-            RETURN func_name, file_path, depth
+            MATCH (entry:Function {{snapshot_id: $sid,
+                name: "LLVMFuzzerTestOneInput", file_path: $fpath}})
+            MATCH (f:Function {{snapshot_id: $sid}})
+            WHERE f <> entry
+            MATCH p = shortestPath((entry)-[:CALLS*..{max_reach_depth}]->(f))
+            RETURN f.name AS func_name, f.file_path AS file_path, length(p) AS depth
             """,
-            params
+            {"sid": snapshot_id, "fpath": main_file},
         )
         for row in bfs_result:
             reaches.append({
                 "fuzzer_name": fuzzer.name,
                 "function_name": row["func_name"],
+                "file_path": row["file_path"],
                 "depth": row["depth"],
             })
     return reaches

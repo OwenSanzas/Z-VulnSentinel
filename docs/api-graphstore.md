@@ -74,7 +74,7 @@
 ```
 输入:
   snapshot_id: str
-  reaches: list[dict]  — [{fuzzer_name: str, function_name: str, file_path: str?, depth: int}, ...]
+  reaches: list[dict]  — [{fuzzer_name: str, function_name: str, file_path: str, depth: int}, ...]
 输出: int — 写入数量
 说明: 批量创建 (:Fuzzer)-[:REACHES {depth}]->(:Function) 边。导入时 BFS 一次性计算。
 ```
@@ -156,7 +156,7 @@
 输出:
   list[dict]
   [
-    {"name": "malloc", "file_path": null, "call_type": "direct", "is_external": true},
+    {"name": "malloc", "file_path": "", "call_type": "direct", "is_external": true},
     {"name": "dict_init", "file_path": "lib/dict.c", "call_type": "direct", "is_external": false},
     {"name": "handler_func", "file_path": "lib/handler.c", "call_type": "fptr", "is_external": false}
   ]
@@ -297,11 +297,11 @@
     "nodes": [
       {"name": "dict_do", "file_path": "lib/dict.c", "is_external": false},
       {"name": "dict_init", "file_path": "lib/dict.c", "is_external": false},
-      {"name": "malloc", "file_path": null, "is_external": true}
+      {"name": "malloc", "file_path": "", "is_external": true}
     ],
     "edges": [
       {"from": "dict_do", "to": "dict_init", "from_file": "lib/dict.c", "to_file": "lib/dict.c", "call_type": "direct"},
-      {"from": "dict_do", "to": "malloc", "from_file": "lib/dict.c", "to_file": null, "call_type": "direct"}
+      {"from": "dict_do", "to": "malloc", "from_file": "lib/dict.c", "to_file": "", "call_type": "direct"}
     ]
   }
 说明: 局部调用图，用于可视化。从指定函数出发向下 depth 层。

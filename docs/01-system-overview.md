@@ -354,7 +354,7 @@ class GraphStore:
     ) -> int:
         """
         批量创建 (:Fuzzer)-[:REACHES {depth}]->(:Function) 边。
-        reaches: [{fuzzer_name, function_name, depth}, ...]
+        reaches: [{fuzzer_name, function_name, file_path, depth}, ...]
         导入时对每个 fuzzer 做 BFS 计算 depth，一次性写入。
         """
 
@@ -712,14 +712,18 @@ def evict_by_ttl(self):
 ```python
 def _delete_snapshot(self, snap: dict):
     """
-    删除一个 Snapshot：
+    删除一个 Snapshot（单事务内执行）：
     1. MongoDB: 先删目录记录（防止僵尸引用——MongoDB 指向已删的 Neo4j 数据）
        db.snapshots.delete_one({"_id": snap["_id"]})
     2. Neo4j: 删除该 Snapshot 下所有节点和边
        MATCH (s:Snapshot {id: $sid})-[:CONTAINS]->(n)
        DETACH DELETE s, n
-    3. Neo4j: 清理可能的孤儿节点（部分导入残留）
-       MATCH (n {snapshot_id: $sid}) WHERE n:Function OR n:Fuzzer DETACH DELETE n
+    3. Neo4j: 删除无 CONTAINS 子节点的 Snapshot 节点
+       MATCH (s:Snapshot {id: $sid})
+       DETACH DELETE s
+    4. Neo4j: 清理可能的孤儿节点（使用 label-specific 查询以利用索引）
+       MATCH (n:Function {snapshot_id: $sid}) DETACH DELETE n
+       MATCH (n:Fuzzer {snapshot_id: $sid}) DETACH DELETE n
     """
 ```
 

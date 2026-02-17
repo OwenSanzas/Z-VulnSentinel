@@ -1,0 +1,19 @@
+{
+  "// info": "libpng full — OwenSanzas fork, delta commit, expected: 641 funcs, 2325 edges",
+
+  "repo_url": "git@github.com:OwenSanzas/libpng.git",
+  "version": "fdacd5a1dcff42175117d674b0fda9f8a005ae88",
+  "path": null,
+  "build_script": null,
+  "backend": "svf",
+  "language": "c",
+  "svf_case_config": "libpng",
+  "svf_docker_image": "aixcc-afc/libpng",
+
+  "fuzzer_sources": {
+    "libpng_read_fuzzer": ["contrib/oss-fuzz/libpng_read_fuzzer.cc"]
+  },
+
+  "diff_files": null,
+  "ai_refine": false
+}

@@ -90,6 +90,8 @@ class StaticAnalysisOrchestrator:
         diff_files: list[str] | None = None,
         svf_case_config: str | None = None,
         svf_docker_image: str | None = None,
+        fuzz_tooling_url: str | None = None,
+        fuzz_tooling_ref: str | None = None,
     ) -> AnalysisOutput:
         """Full analysis pipeline entry point.
 
@@ -178,6 +180,10 @@ class StaticAnalysisOrchestrator:
                 docker_kwargs = {}
                 if svf_docker_image:
                     docker_kwargs["docker_image"] = svf_docker_image
+                if fuzz_tooling_url:
+                    docker_kwargs["fuzz_tooling_url"] = fuzz_tooling_url
+                    if fuzz_tooling_ref:
+                        docker_kwargs["fuzz_tooling_ref"] = fuzz_tooling_ref
                 bc_output = bitcode_gen.generate_via_docker(
                     project_path=project_path,
                     case_config=case_config,

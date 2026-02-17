@@ -115,6 +115,11 @@ _WORK_ORDER_TEMPLATE = {
     "fuzzer_sources": {
         "fuzz_example": ["fuzz/fuzz_example.c"],
     },
+
+    "// fuzz_tooling_url": "Git URL for external fuzzer harness repo (e.g. oss-fuzz). null = harness in project.",
+    "fuzz_tooling_url": None,
+    "// fuzz_tooling_ref": "Branch/tag/commit for fuzz_tooling_url. null = default branch.",
+    "fuzz_tooling_ref": None,
     "// diff_files": "List of changed files for incremental analysis. null = full analysis.",
     "diff_files": None,
     "// ai_refine": "Enable AI-assisted refinement (v2 feature, not implemented in v1).",
@@ -230,6 +235,8 @@ def run(
                     diff_files=work.get("diff_files"),
                     svf_case_config=work.get("svf_case_config"),
                     svf_docker_image=work.get("svf_docker_image"),
+                    fuzz_tooling_url=work.get("fuzz_tooling_url"),
+                    fuzz_tooling_ref=work.get("fuzz_tooling_ref"),
                 )
             )
         except Exception as exc:

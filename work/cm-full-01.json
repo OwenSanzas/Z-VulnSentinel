@@ -1,0 +1,19 @@
+{
+  "// info": "lcms full — from cases/lcms.sh + cm-full-01, expected: 1301 funcs, 15226 edges",
+
+  "repo_url": "git@github.com:aixcc-finals/afc-little-cms.git",
+  "version": "HEAD",
+  "path": null,
+  "build_script": null,
+  "backend": "svf",
+  "language": "c",
+  "svf_case_config": "lcms",
+
+  "fuzzer_sources": {
+    "cms_postscript_fuzzer": ["src/cms_postscript_fuzzer.c"],
+    "cms_virtual_profile_fuzzer": ["src/cms_virtual_profile_fuzzer.c"]
+  },
+
+  "diff_files": null,
+  "ai_refine": false
+}

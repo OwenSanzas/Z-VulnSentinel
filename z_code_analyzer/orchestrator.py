@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import tempfile
+from pathlib import Path
 from dataclasses import dataclass
 
 from z_code_analyzer.backends.base import AnalysisResult, FuzzerInfo
@@ -87,6 +88,8 @@ class StaticAnalysisOrchestrator:
         language: str | None = None,
         backend: str | None = None,
         diff_files: list[str] | None = None,
+        svf_case_config: str | None = None,
+        svf_docker_image: str | None = None,
     ) -> AnalysisOutput:
         """Full analysis pipeline entry point.
 
@@ -157,19 +160,30 @@ class StaticAnalysisOrchestrator:
             progress.start_phase("bitcode")
             all_fuzzer_files = [f for files in fuzzer_sources.values() for f in files]
             bitcode_gen = BitcodeGenerator()
-            output_dir_obj = tempfile.TemporaryDirectory(prefix="z-analyze-")
+            ws = Path(project_path).resolve().parent
+            if not (ws / "workspace").exists():
+                ws = Path.cwd()
+            ws_dir = ws / "workspace"
+            ws_dir.mkdir(exist_ok=True)
+            output_dir_obj = tempfile.TemporaryDirectory(prefix="analyze-", dir=ws_dir)
             output_dir = output_dir_obj.name
 
             # Determine case config from build system
-            case_config = self._resolve_case_config(build_cmd.build_system, project_path)
+            case_config = self._resolve_case_config(
+                build_cmd.build_system, project_path, svf_case_config
+            )
 
             if case_config:
                 # Full Docker pipeline: build + extract bitcode
+                docker_kwargs = {}
+                if svf_docker_image:
+                    docker_kwargs["docker_image"] = svf_docker_image
                 bc_output = bitcode_gen.generate_via_docker(
                     project_path=project_path,
                     case_config=case_config,
                     fuzzer_source_files=all_fuzzer_files,
                     output_dir=output_dir,
+                    **docker_kwargs,
                 )
             else:
                 # No case config — try to use pre-existing bitcode
@@ -393,15 +407,23 @@ class StaticAnalysisOrchestrator:
             raise
 
     @staticmethod
-    def _resolve_case_config(build_system: str, project_path: str) -> str | None:
+    def _resolve_case_config(
+        build_system: str, project_path: str, svf_case_config: str | None = None
+    ) -> str | None:
         """Find a matching SVF case config for the project, or None."""
-        from pathlib import Path
 
         cases_dir = Path(__file__).parent / "svf" / "cases"
         if not cases_dir.is_dir():
             return None
 
-        # Try project name match first
+        # Priority 1: explicit case config from work order
+        if svf_case_config:
+            case_file = cases_dir / f"{svf_case_config}.sh"
+            if case_file.exists():
+                return str(case_file)
+            logger.warning("SVF case config '%s' not found at %s", svf_case_config, case_file)
+
+        # Priority 2: project name match
         project_name = Path(project_path).name.lower()
         for case_file in cases_dir.glob("*.sh"):
             if case_file.stem.lower() == project_name:

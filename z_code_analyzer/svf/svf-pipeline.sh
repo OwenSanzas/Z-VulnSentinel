@@ -67,6 +67,10 @@ else
     apt-get update -qq && apt-get install -y -qq llvm-${LLVM_VER} 2>&1 | tail -3
     ln -sf /usr/bin/llvm-link-${LLVM_VER} /usr/bin/llvm-link
 fi
+# Symlink llvm-dis too (needed for .ll generation)
+if [ -f "/usr/bin/llvm-dis-${LLVM_VER}" ]; then
+    ln -sf /usr/bin/llvm-dis-${LLVM_VER} /usr/bin/llvm-dis
+fi
 echo "llvm-link version: $(llvm-link --version 2>&1 | head -1)"
 
 # ---- Step 1: Set z-wllvm environment (forces -g) ----
@@ -151,59 +155,53 @@ esac
 
 echo "  Project build complete."
 
-# ---- Step 4: Collect .bc files (library-only) ----
-echo "=== [3/6] Collecting library-only .bc files ==="
+# ---- Step 4: Extract bitcode from static libraries ----
+echo "=== [3/6] Extracting bitcode from static libraries ==="
 
-# Find all .o files produced by wllvm (they have .bc manifest)
-BC_FILES=""
-BC_DIR="/tmp/bc-collect"
-mkdir -p "$BC_DIR"
+# Strategy: extract-bc on .a files (not individual .o files).
+# This avoids duplicate symbols from libtool, autotools hidden files, and test programs.
+# wllvm's extract-bc handles .a natively — it extracts and links all member .o bitcode.
 
-# Collect all .o -> .bc using extract-bc on individual .o files
-find "$PROJECT_SRC" -name "*.o" -type f | while read -r obj; do
-    # Try to extract bc from each .o
-    extract-bc "$obj" 2>/dev/null || true
-done
+STATIC_LIBS=$(find "$PROJECT_SRC" "$INSTALL_PREFIX" -name "*.a" \
+    -not -path '*/.libs/*' \
+    -type f 2>/dev/null || true)
 
-# Also check install dir
-if [ "$SKIP_INSTALL" != "yes" ] && [ -d "$INSTALL_PREFIX" ]; then
-    find "$INSTALL_PREFIX" -name "*.o" -type f | while read -r obj; do
-        extract-bc "$obj" 2>/dev/null || true
-    done
-fi
-
-# Collect all .bc files, excluding fuzzer sources
-echo "  Fuzzer source files to exclude: ${FUZZER_SOURCE_FILES:-none}"
-ALL_BC=$(find "$PROJECT_SRC" "$INSTALL_PREFIX" -name "*.o.bc" -type f 2>/dev/null || true)
 LIB_BC=""
-for bc in $ALL_BC; do
-    exclude=false
-    for fuzzer_src in $FUZZER_SOURCE_FILES; do
-        # Match by base filename: fuzz1.c -> fuzz1.o.bc
-        fuzzer_base=$(basename "$fuzzer_src" | sed 's/\.\(c\|cc\|cpp\|cxx\)$/.o.bc/')
-        if [[ "$(basename "$bc")" == "$fuzzer_base" ]]; then
-            echo "  Excluding fuzzer bc: $bc"
-            exclude=true
-            break
+for lib in $STATIC_LIBS; do
+    echo "  Extracting: $lib"
+    if extract-bc "$lib" 2>&1; then
+        # extract-bc on .a produces .bca (bitcode archive)
+        bca_file="${lib%.a}.bca"
+        if [ -f "$bca_file" ]; then
+            # Convert .bca (archive) to single .bc via llvm-link
+            bc_file="${lib%.a}.bc"
+            llvm-link "$bca_file" -o "$bc_file" 2>&1
+            echo "    -> $bc_file ($(du -h "$bc_file" | cut -f1))"
+            LIB_BC="$LIB_BC $bc_file"
         fi
-    done
-    if [ "$exclude" = false ]; then
-        LIB_BC="$LIB_BC $bc"
+    else
+        echo "    -> extract-bc failed (skipped)"
     fi
 done
 
 BC_COUNT=$(echo $LIB_BC | wc -w)
-echo "  Library .bc files: $BC_COUNT"
+echo "  Static library .bc files: $BC_COUNT"
 
 if [ "$BC_COUNT" -eq 0 ]; then
-    echo "ERROR: No library .bc files found"
+    echo "ERROR: No library .bc files found. Ensure the project builds static libraries."
     exit 1
 fi
 
 # ---- Step 5: llvm-link library .bc -> library.bc ----
 echo "=== [4/6] Linking library bitcode ==="
+echo "  Files to link:"
+for f in $LIB_BC; do echo "    $f"; done
 mkdir -p /output
-llvm-link $LIB_BC -o /output/library.bc 2>&1
+if [ "$BC_COUNT" -eq 1 ]; then
+    cp $LIB_BC /output/library.bc
+else
+    llvm-link $LIB_BC -o /output/library.bc 2>&1
+fi
 echo "  library.bc: $(ls -lh /output/library.bc)"
 
 # ---- Step 6: Generate .ll for debug info extraction ----

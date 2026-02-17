@@ -1,0 +1,18 @@
+{
+  "// info": "curl full — from cases/curl.sh + cu-full-01, expected: 2334 funcs, 18540 edges",
+
+  "repo_url": "https://github.com/curl/curl.git",
+  "version": "HEAD",
+  "path": null,
+  "build_script": null,
+  "backend": "svf",
+  "language": "c",
+  "svf_case_config": "curl",
+
+  "fuzzer_sources": {
+    "curl_fuzzer": ["curl_fuzzer.cc"]
+  },
+
+  "diff_files": null,
+  "ai_refine": false
+}

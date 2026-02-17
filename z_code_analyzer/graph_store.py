@@ -40,7 +40,10 @@ class GraphStore:
     # ── Connection Management ──
 
     def connect(self, uri: str, auth: tuple[str, str] | None = None) -> None:
-        self._driver = GraphDatabase.driver(uri, auth=auth)
+        # neo4j driver 6.x: auth=None sends an empty token (fails on no-auth servers).
+        # Omitting the kwarg entirely means "no authentication".
+        driver_kwargs: dict = {"auth": auth} if auth is not None else {}
+        self._driver = GraphDatabase.driver(uri, **driver_kwargs)
         self._ensure_indexes()
 
     def close(self) -> None:

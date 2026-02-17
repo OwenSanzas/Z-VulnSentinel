@@ -89,7 +89,9 @@ class BitcodeGenerator:
             BitcodeOutput with bc_path and function_metas.
         """
         if output_dir is None:
-            output_dir = tempfile.mkdtemp(prefix="z-bitcode-")
+            ws = Path.cwd() / "workspace"
+            ws.mkdir(exist_ok=True)
+            output_dir = tempfile.mkdtemp(prefix="bitcode-", dir=ws)
 
         output_path = Path(output_dir)
         bc_path = output_path / "library.bc"
@@ -141,6 +143,18 @@ class BitcodeGenerator:
         if not pipeline_script.exists():
             raise BitcodeError(f"Pipeline script not found: {pipeline_script}")
 
+        # Parse PROJECT_NAME from case config for correct mount point
+        mount_name = Path(project_path).name  # fallback
+        try:
+            case_text = Path(case_config).read_text()
+            for line in case_text.splitlines():
+                line = line.strip()
+                if line.startswith("PROJECT_NAME="):
+                    mount_name = line.split("=", 1)[1].strip().strip('"').strip("'")
+                    break
+        except OSError:
+            pass
+
         # Use newline as delimiter to handle paths with spaces
         fuzzer_env = "\n".join(fuzzer_source_files)
         cmd = [
@@ -148,7 +162,7 @@ class BitcodeGenerator:
             "run",
             "--rm",
             "-v",
-            f"{project_path}:/src/{Path(project_path).name}",
+            f"{project_path}:/src/{mount_name}",
             "-v",
             f"{str(svf_dir)}:/pipeline:ro",
             "-v",
@@ -170,8 +184,9 @@ class BitcodeGenerator:
             raise BitcodeError("Bitcode generation timed out")
 
         if result.returncode != 0:
+            output = result.stderr or result.stdout or "(no output)"
             raise BitcodeError(
-                f"Bitcode generation failed (rc={result.returncode}): {result.stderr[-1000:]}"
+                f"Bitcode generation failed (rc={result.returncode}):\n{output[-2000:]}"
             )
 
         bc_path = Path(output_dir) / "library.bc"

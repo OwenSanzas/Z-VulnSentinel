@@ -53,9 +53,16 @@ def _parse_neo4j_auth() -> tuple[str, str] | None:
     return None  # default: no auth
 
 
+def _workspace_dir() -> Path:
+    """Return the workspace directory, creating it if needed."""
+    ws = Path.cwd() / "workspace"
+    ws.mkdir(exist_ok=True)
+    return ws
+
+
 def _auto_clone(repo_url: str, version: str) -> str | None:
-    """Clone a repo to a temp directory and checkout the given version."""
-    tmpdir = tempfile.mkdtemp(prefix="z-analyze-clone-")
+    """Clone a repo to a workspace subdirectory and checkout the given version."""
+    tmpdir = tempfile.mkdtemp(prefix="clone-", dir=_workspace_dir())
     try:
         subprocess.run(
             ["git", "clone", "--depth", "1", "--branch", version, repo_url, tmpdir],
@@ -90,18 +97,27 @@ def _auto_clone(repo_url: str, version: str) -> str | None:
             return None
 
 
-# Work order template
+# Work order template with inline comments (JSON "//" convention)
 _WORK_ORDER_TEMPLATE = {
+    "// repo_url": "REQUIRED. Git repository URL (used as project identifier).",
     "repo_url": "https://github.com/user/project",
+    "// version": "REQUIRED. Git tag, branch, or commit hash to analyze.",
     "version": "v1.0",
+    "// path": "Local path to project source. If missing or invalid, auto-clones from repo_url.",
     "path": "./project-src",
+    "// build_script": "Path to custom build script (relative to project root). null = auto-detect.",
     "build_script": None,
+    "// backend": "Analysis backend: 'auto' (default), 'svf', 'joern', 'introspector', 'prebuild'.",
     "backend": "auto",
+    "// language": "Override language detection. null = auto-detect from source files.",
     "language": None,
+    "// fuzzer_sources": "REQUIRED. Map of fuzzer_name -> list of source files (relative to project root).",
     "fuzzer_sources": {
         "fuzz_example": ["fuzz/fuzz_example.c"],
     },
+    "// diff_files": "List of changed files for incremental analysis. null = full analysis.",
     "diff_files": None,
+    "// ai_refine": "Enable AI-assisted refinement (v2 feature, not implemented in v1).",
     "ai_refine": False,
 }
 
@@ -114,15 +130,29 @@ def main(verbose: bool) -> None:
         level=logging.DEBUG if verbose else logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
+    # Suppress noisy neo4j driver notifications (index already exists, etc.)
+    logging.getLogger("neo4j.notifications").setLevel(logging.WARNING)
 
 
 @main.command("create-work")
 @click.option("-o", "--output", default="work.json", help="Output file path")
 def create_work(output: str) -> None:
     """Generate a work order template JSON file."""
-    Path(output).write_text(json.dumps(_WORK_ORDER_TEMPLATE, indent=2) + "\n")
+    raw = json.dumps(_WORK_ORDER_TEMPLATE, indent=2)
+    # Insert blank lines between field groups (before each "// " comment key)
+    lines = raw.split("\n")
+    out_lines: list[str] = []
+    for line in lines:
+        if '"// ' in line and out_lines and out_lines[-1].strip() not in ("{", ""):
+            out_lines.append("")
+        out_lines.append(line)
+    Path(output).write_text("\n".join(out_lines) + "\n")
     click.echo(f"Work order template written to {output}")
-    click.echo("Edit the file, then run: z-analyze run " + output)
+    click.echo()
+    click.echo("Next steps:")
+    click.echo("  1. Edit the file — fill in repo_url, version, and fuzzer_sources")
+    click.echo("  2. Remove the '// ...' comment keys if you want clean JSON")
+    click.echo(f"  3. Run:  z-analyze run {output}")
 
 
 @main.command("run")
@@ -198,6 +228,8 @@ def run(
                     language=work.get("language"),
                     backend=work.get("backend"),
                     diff_files=work.get("diff_files"),
+                    svf_case_config=work.get("svf_case_config"),
+                    svf_docker_image=work.get("svf_docker_image"),
                 )
             )
         except Exception as exc:
@@ -268,6 +300,7 @@ def query_main(verbose: bool) -> None:
         level=logging.DEBUG if verbose else logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
+    logging.getLogger("neo4j.notifications").setLevel(logging.WARNING)
 
 
 @query_main.command("shortest-path")
@@ -360,6 +393,7 @@ def snapshots_main(verbose: bool) -> None:
         level=logging.DEBUG if verbose else logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
+    logging.getLogger("neo4j.notifications").setLevel(logging.WARNING)
 
 
 @snapshots_main.command("list")

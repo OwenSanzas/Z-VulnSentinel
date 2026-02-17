@@ -212,7 +212,10 @@ class SVFBackend(AnalysisBackend):
         if not _re.fullmatch(r"[\w.\-]+", bc_name):
             raise SVFError(f"Invalid bitcode filename (contains special characters): {bc_name}")
 
-        with tempfile.TemporaryDirectory() as tmpdir:
+        # Use workspace dir for temp files — /tmp may not be mountable in Docker-in-Docker
+        ws_dir = Path.cwd() / "workspace"
+        ws_dir.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=ws_dir) as tmpdir:
             # Use --workdir instead of 'bash -c "cd ... && ..."' to avoid
             # shell interpolation of bc_name entirely.
             import uuid
@@ -260,12 +263,21 @@ class SVFBackend(AnalysisBackend):
             if result.returncode != 0:
                 logger.warning("SVF stderr: %s", result.stderr[-2000:] if result.stderr else "")
 
-            dot_final = Path(tmpdir) / "callgraph_final.dot"
-            if not dot_final.exists():
+            # Find the callgraph DOT file — SVF may name it differently across versions
+            tmpdir_path = Path(tmpdir)
+            dot_files = list(tmpdir_path.glob("callgraph*.dot"))
+            if not dot_files:
+                all_files = list(tmpdir_path.iterdir())
                 raise SVFError(
                     f"SVF did not produce callgraph_final.dot. "
+                    f"Files in output: {[f.name for f in all_files]}, "
                     f"stdout: {result.stdout[-500:]}, stderr: {result.stderr[-500:]}"
                 )
+            # Prefer callgraph_final.dot, fall back to any callgraph*.dot
+            dot_final = tmpdir_path / "callgraph_final.dot"
+            if not dot_final.exists():
+                dot_final = dot_files[0]
+                logger.info("Using %s (callgraph_final.dot not found)", dot_final.name)
 
             dot_initial = Path(tmpdir) / "callgraph_initial.dot"
             initial_content = dot_initial.read_text() if dot_initial.exists() else None

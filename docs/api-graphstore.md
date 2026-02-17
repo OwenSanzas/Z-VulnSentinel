@@ -429,9 +429,10 @@
 #### `raw_query(cypher, params?)`
 ```
 输入:
-  cypher: str           — 任意 Cypher 查询
+  cypher: str           — 只读 Cypher 查询（MATCH/RETURN/WITH 等，禁止写操作）
   params: dict?         — 查询参数
 输出:
   list[dict]            — 查询结果
-说明: 用于未封装的自定义需求。调用方负责正确性。
+说明: 用于未封装的自定义查询需求。为安全起见，会拒绝包含
+  CREATE/MERGE/DELETE/SET/REMOVE/DROP/DETACH 等写操作的语句。
 ```

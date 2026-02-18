@@ -147,6 +147,37 @@ case "$BUILD_MODE" in
         fi
         ;;
 
+    ossfuzz-native)
+        # Run oss-fuzz build.sh directly with injected z-wllvm environment.
+        # OSSFUZZ_BUILD_SH must point to the build.sh inside the fuzz tooling repo.
+        if [ -z "${OSSFUZZ_BUILD_SH:-}" ]; then
+            echo "ERROR: BUILD_MODE=ossfuzz-native requires OSSFUZZ_BUILD_SH"
+            exit 1
+        fi
+        if [ ! -f "$OSSFUZZ_BUILD_SH" ]; then
+            echo "ERROR: OSSFUZZ_BUILD_SH not found: $OSSFUZZ_BUILD_SH"
+            exit 1
+        fi
+
+        # Set up oss-fuzz expected environment
+        export OUT="/out"
+        export WORK="/tmp/ossfuzz-work"
+        mkdir -p "$OUT" "$WORK"
+
+        # Stub fuzzing engine — oss-fuzz build.sh links against LIB_FUZZING_ENGINE
+        echo 'int main(){return 0;}' > /tmp/stub_engine.c
+        $CC -c /tmp/stub_engine.c -o /tmp/stub_engine.o
+        ar rcs /tmp/libFuzzingEngine.a /tmp/stub_engine.o
+        export LIB_FUZZING_ENGINE="/tmp/libFuzzingEngine.a"
+        export FUZZING_ENGINE="libfuzzer"
+        export SANITIZER="${SANITIZER:-none}"
+        export ARCHITECTURE="${ARCHITECTURE:-x86_64}"
+
+        echo "  OSSFUZZ_BUILD_SH=$OSSFUZZ_BUILD_SH"
+        echo "  LIB_FUZZING_ENGINE=$LIB_FUZZING_ENGINE"
+        bash "$OSSFUZZ_BUILD_SH"
+        ;;
+
     *)
         echo "ERROR: Unknown BUILD_MODE: $BUILD_MODE"
         exit 1

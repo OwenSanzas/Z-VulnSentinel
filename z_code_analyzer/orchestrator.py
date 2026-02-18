@@ -175,15 +175,19 @@ class StaticAnalysisOrchestrator:
                 build_cmd.build_system, project_path, svf_case_config
             )
 
-            if case_config:
-                # Full Docker pipeline: build + extract bitcode
-                docker_kwargs = {}
-                if svf_docker_image:
-                    docker_kwargs["docker_image"] = svf_docker_image
-                if fuzz_tooling_url:
-                    docker_kwargs["fuzz_tooling_url"] = fuzz_tooling_url
-                    if fuzz_tooling_ref:
-                        docker_kwargs["fuzz_tooling_ref"] = fuzz_tooling_ref
+            # Build Docker kwargs shared by both paths
+            docker_kwargs: dict = {}
+            if svf_docker_image:
+                docker_kwargs["docker_image"] = svf_docker_image
+            if fuzz_tooling_url:
+                docker_kwargs["fuzz_tooling_url"] = fuzz_tooling_url
+                if fuzz_tooling_ref:
+                    docker_kwargs["fuzz_tooling_ref"] = fuzz_tooling_ref
+
+            if case_config or fuzz_tooling_url:
+                # Docker pipeline: hand-written case config or auto-locate
+                # via fuzz_tooling (case_config may be None — bitcode.py
+                # will auto-generate an ossfuzz-native config)
                 bc_output = bitcode_gen.generate_via_docker(
                     project_path=project_path,
                     case_config=case_config,
@@ -192,7 +196,7 @@ class StaticAnalysisOrchestrator:
                     **docker_kwargs,
                 )
             else:
-                # No case config — try to use pre-existing bitcode
+                # No case config and no fuzz_tooling — try pre-existing bitcode
                 bc_output = bitcode_gen.generate(
                     project_path=project_path,
                     build_cmd=build_cmd,

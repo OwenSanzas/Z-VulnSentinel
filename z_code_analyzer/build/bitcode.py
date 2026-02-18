@@ -122,7 +122,7 @@ class BitcodeGenerator:
     def generate_via_docker(
         self,
         project_path: str,
-        case_config: str,
+        case_config: str | None,
         fuzzer_source_files: list[str],
         output_dir: str,
         docker_image: str = "svftools/svf",
@@ -134,7 +134,8 @@ class BitcodeGenerator:
 
         Args:
             project_path: Project source root.
-            case_config: Path to case config .sh file.
+            case_config: Path to case config .sh file, or None to auto-locate
+                from fuzz_tooling.
             fuzzer_source_files: Files to exclude.
             output_dir: Where to write output.
             docker_image: Docker image with build tools.
@@ -147,6 +148,27 @@ class BitcodeGenerator:
         if not pipeline_script.exists():
             raise BitcodeError(f"Pipeline script not found: {pipeline_script}")
 
+        # Clone external fuzz tooling repo if specified (e.g. oss-fuzz harness)
+        fuzz_tooling_path = None
+        if fuzz_tooling_url:
+            fuzz_tooling_path = self._clone_fuzz_tooling(
+                fuzz_tooling_url, fuzz_tooling_ref, output_dir
+            )
+
+        # Auto-generate case config when none provided but fuzz_tooling available
+        generated_config = False
+        if case_config is None and fuzz_tooling_path:
+            case_config = self._generate_ossfuzz_native_config(
+                project_path, fuzz_tooling_path, output_dir
+            )
+            generated_config = True
+
+        if case_config is None:
+            raise BitcodeError(
+                "No case config available and could not auto-locate build.sh "
+                "in fuzz tooling repo. Provide svf_case_config or fuzz_tooling_url."
+            )
+
         # Parse PROJECT_NAME from case config for correct mount point
         mount_name = Path(project_path).name  # fallback
         try:
@@ -158,13 +180,6 @@ class BitcodeGenerator:
                     break
         except OSError:
             pass
-
-        # Clone external fuzz tooling repo if specified (e.g. oss-fuzz harness)
-        fuzz_tooling_path = None
-        if fuzz_tooling_url:
-            fuzz_tooling_path = self._clone_fuzz_tooling(
-                fuzz_tooling_url, fuzz_tooling_ref, output_dir
-            )
 
         # Use newline as delimiter to handle paths with spaces
         fuzzer_env = "\n".join(fuzzer_source_files)
@@ -189,12 +204,23 @@ class BitcodeGenerator:
             tooling_name = Path(fuzz_tooling_path).name
             cmd.extend(["-v", f"{fuzz_tooling_path}:/src/{tooling_name}"])
 
-        cmd.extend([
-            docker_image,
-            "bash",
-            "/pipeline/svf-pipeline.sh",
-            f"/pipeline/cases/{Path(case_config).name}",
-        ])
+        # For generated configs, mount the config file into the pipeline dir
+        if generated_config:
+            config_name = Path(case_config).name
+            cmd.extend(["-v", f"{case_config}:/pipeline/cases/{config_name}:ro"])
+            cmd.extend([
+                docker_image,
+                "bash",
+                "/pipeline/svf-pipeline.sh",
+                f"/pipeline/cases/{config_name}",
+            ])
+        else:
+            cmd.extend([
+                docker_image,
+                "bash",
+                "/pipeline/svf-pipeline.sh",
+                f"/pipeline/cases/{Path(case_config).name}",
+            ])
 
         logger.info("Running bitcode pipeline: %s", " ".join(cmd[:10]))
 
@@ -254,6 +280,48 @@ class BitcodeGenerator:
             bc_path=str(bc_path),
             function_metas=function_metas,
         )
+
+    @staticmethod
+    def _generate_ossfuzz_native_config(
+        project_path: str, fuzz_tooling_path: str, output_dir: str
+    ) -> str | None:
+        """Auto-generate an ossfuzz-native case config from a fuzz tooling repo.
+
+        Uses BuildScriptLocator to find build.sh, then writes a minimal
+        case config to output_dir.
+
+        Returns:
+            Path to the generated config, or None if build.sh not found.
+        """
+        from z_code_analyzer.build.locator import BuildScriptLocator
+
+        project_name = Path(project_path).name
+        locator = BuildScriptLocator()
+        build_sh = locator.locate(fuzz_tooling_path, project_name)
+        if build_sh is None:
+            return None
+
+        # Compute Docker-internal path for the build.sh
+        # fuzz_tooling is mounted at /src/<tooling_name>/
+        tooling_name = Path(fuzz_tooling_path).name
+        rel_build_sh = Path(build_sh).relative_to(fuzz_tooling_path)
+        docker_build_sh = f"/src/{tooling_name}/{rel_build_sh}"
+
+        config_path = Path(output_dir) / f"{project_name}_auto.sh"
+        config_content = (
+            f'#!/bin/bash\n'
+            f'# Auto-generated ossfuzz-native config for {project_name}\n'
+            f'PROJECT_NAME="{project_name}"\n'
+            f'BUILD_MODE="ossfuzz-native"\n'
+            f'OSSFUZZ_BUILD_SH="{docker_build_sh}"\n'
+        )
+        config_path.write_text(config_content)
+        logger.info(
+            "Generated ossfuzz-native config: %s (build.sh: %s)",
+            config_path,
+            docker_build_sh,
+        )
+        return str(config_path)
 
     @staticmethod
     def _clone_fuzz_tooling(

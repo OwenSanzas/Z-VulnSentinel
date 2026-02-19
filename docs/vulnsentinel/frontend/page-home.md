@@ -78,4 +78,5 @@ Recent Activity 中捕获的事件类型：
 | 点击统计卡片 | 对应列表页 |
 | 点击库的 `view details →` | [库详情页](page-library-detail.md) |
 | 点击 Recent Activity 条目 | [事件详情页](page-event-detail.md) |
-| 点击 `show all →` | 对应完整列表 |
+| 点击 Monitored Libraries `show all →` | [项目列表页](page-projects.md)（Libraries tab） |
+| 点击 Recent Activity `show all →` | 完整事件列表（按时间倒序） |

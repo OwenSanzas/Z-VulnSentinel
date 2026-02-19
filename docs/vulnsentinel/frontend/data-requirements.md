@@ -288,3 +288,108 @@
 | source | string | 来源（如 oss-fuzz issue 编号） |
 | reproducer | string | 复现文件名 |
 | collected | bool | 是否已收集 |
+
+---
+
+## 上游漏洞详情 `/upstream-vuln/:id`
+
+### 漏洞信息头（数据来源：upstream_vulns 表）
+
+| 数据 | 类型 | 说明 |
+|------|------|------|
+| id | string | upstream_vuln 标识 |
+| library_id | string | 所属库标识 |
+| library_name | string | 所属库名 |
+| commit_id | string | 触发的 commit SHA |
+| vuln_type | string | 漏洞类型（如 CWE-126 Buffer Over-read） |
+| severity | enum | critical / high / medium / low |
+| affected_versions | string | 受影响版本范围 |
+| status | enum | analyzing / published / error |
+| error_message | string | 错误原因（仅 status=error 时有值） |
+| reasoning | string | AI 对漏洞的详细分析推理 |
+| detected_at | datetime | 首次检测时间 |
+| published_at | datetime | 分析完成时间 |
+| updated_at | datetime | 最后状态变更时间 |
+
+### Diff（实时从 GitHub 拉取）
+
+同事件详情页 Diff 区域。
+
+### Upstream PoC
+
+同事件详情页。
+
+### Client Impact（分页）
+
+| 数据 | 类型 | 说明 |
+|------|------|------|
+| client_vuln_id | string | client_vuln 标识（可为空，分析中时无） |
+| project_id | string | 项目标识 |
+| project_name | string | 项目名 |
+| version_used | string | 使用版本 |
+| is_affected | bool | 是否受影响 |
+| status | string | pipeline 状态或 client_vuln 状态 |
+| updated_at | datetime | 最后更新时间 |
+
+---
+
+## 客户漏洞详情 `/client-vuln/:id`
+
+### 漏洞信息头（数据来源：client_vulns + upstream_vulns 表）
+
+| 数据 | 类型 | 说明 |
+|------|------|------|
+| id | string | client_vuln 标识 |
+| project_id | string | 项目标识 |
+| project_name | string | 项目名 |
+| library_id | string | 上游库标识 |
+| library_name | string | 上游库名 |
+| upstream_vuln_id | string | 关联的上游漏洞标识 |
+| upstream_vuln_summary | string | 上游漏洞摘要（类型 + CWE） |
+| upstream_vuln_severity | enum | critical / high / medium / low |
+| status | enum | recorded / reported / confirmed / fixed / not_affect |
+
+### Status Timeline
+
+| 数据 | 类型 | 说明 |
+|------|------|------|
+| recorded_at | datetime | 记录时间 |
+| reported_at | datetime | 通知客户时间（可为空） |
+| confirmed_at | datetime | PoC 确认时间（可为空） |
+| fixed_at | datetime | 修复时间（可为空） |
+
+### Version Analysis
+
+| 数据 | 类型 | 说明 |
+|------|------|------|
+| constraint | string | 版本约束表达式 |
+| constraint_source | string | 约束提取来源文件 |
+| resolved_version | string | 客户实际使用版本 |
+| fix_version | string | 修复版本（来自 upstream_vuln affected_versions） |
+| verdict | string | 判定说明（如 "v1.3.1 < v1.3.2 — 客户版本在受影响范围内"） |
+
+### Reachable Path
+
+| 数据 | 类型 | 说明 |
+|------|------|------|
+| found | bool | 是否找到可达路径 |
+| call_chain | list[object] | 调用链，每项含 `function_name`, `file_path`, `line_number` |
+
+### PoC Results
+
+| 数据 | 类型 | 说明 |
+|------|------|------|
+| poc_status | enum | pending / generating / success / failed / not_attempted |
+| poc_type | string | 基于上游 PoC 改造 / 自动生成 |
+| trigger_input | string | 触发漏洞的输入描述 |
+| crash_info | string | sanitizer 输出 / crash backtrace |
+| reproduce_command | string | 复现命令行 |
+
+### Report（仅 status ≥ reported 时有值）
+
+| 数据 | 类型 | 说明 |
+|------|------|------|
+| reported_to | string | 通知对象（邮箱） |
+| reported_at | datetime | 通知时间 |
+| method | enum | email / webhook / manual |
+| content_summary | string | 通知内容摘要 |

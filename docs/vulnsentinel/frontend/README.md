@@ -14,6 +14,8 @@
 | 库详情 | `/library/:id` | [page-library-detail.md](page-library-detail.md) |
 | 项目详情 | `/project/:id` | [page-project-detail.md](page-project-detail.md) |
 | 事件详情 | `/event/:id` | [page-event-detail.md](page-event-detail.md) |
+| 上游漏洞详情 | `/upstream-vuln/:id` | [page-upstream-vuln-detail.md](page-upstream-vuln-detail.md) |
+| 客户漏洞详情 | `/client-vuln/:id` | [page-client-vuln-detail.md](page-client-vuln-detail.md) |
 
 ## 数据需求
 

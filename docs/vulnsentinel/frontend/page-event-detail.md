@@ -114,4 +114,5 @@ Client Impact 表中的 Status 列显示两种情况：
 | 操作 | 跳转 |
 |------|------|
 | 点击事件信息头中 Library 名 | [库详情页](page-library-detail.md) |
-| 点击 Client Impact 表中 Project 名 | [项目详情页](page-project-detail.md) |
+| 点击 Client Impact 表中 Project 名 | [客户漏洞详情页](page-client-vuln-detail.md) |
+| 点击 Upstream Vulnerability 标题 | [上游漏洞详情页](page-upstream-vuln-detail.md) |

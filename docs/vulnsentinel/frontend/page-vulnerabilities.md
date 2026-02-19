@@ -82,6 +82,6 @@
 
 | 操作 | 跳转 |
 |------|------|
-| 点击漏洞行 | [事件详情页](page-event-detail.md)（定位到对应 upstream_vuln 的触发事件） |
+| 点击漏洞行 | [客户漏洞详情页](page-client-vuln-detail.md) |
 | 点击 Library 名 | [库详情页](page-library-detail.md) |
 | 点击 Project 名 | [项目详情页](page-project-detail.md) |

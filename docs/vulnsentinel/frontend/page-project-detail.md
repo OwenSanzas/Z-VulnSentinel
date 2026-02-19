@@ -89,5 +89,5 @@
 | 操作 | 跳转 |
 |------|------|
 | 点击 Client Vulnerabilities 表中 Library 名 | [库详情页](page-library-detail.md) |
-| 点击 Client Vulnerabilities 表中漏洞行 | [事件详情页](page-event-detail.md) |
+| 点击 Client Vulnerabilities 表中漏洞行 | [客户漏洞详情页](page-client-vuln-detail.md) |
 | 点击 Dependencies 表中 Library 名 | [库详情页](page-library-detail.md) |

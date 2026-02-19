@@ -81,8 +81,9 @@
 
 | 操作 | 跳转 |
 |------|------|
+| 点击 `← Back to Dashboard` | [主页](page-home.md) |
 | 点击 Used By 表中项目名 | [项目详情页](page-project-detail.md) |
-| 点击 Upstream Vulnerabilities 表中漏洞行 | [事件详情页](page-event-detail.md) |
+| 点击 Upstream Vulnerabilities 表中漏洞行 | [上游漏洞详情页](page-upstream-vuln-detail.md) |
 | 点击 Recent Commits 中 ⚠ bugfix 项 | [事件详情页](page-event-detail.md) |
 
 ## 版本约束模型

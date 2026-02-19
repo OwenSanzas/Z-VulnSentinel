@@ -63,7 +63,7 @@ class Event(TimestampMixin, Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("library_id", "type", "ref"),
+        UniqueConstraint("library_id", "type", "ref", name="uq_events_library_type_ref"),
         Index("idx_events_library", "library_id"),
         Index("idx_events_cursor", desc("created_at"), desc("id")),
         Index(

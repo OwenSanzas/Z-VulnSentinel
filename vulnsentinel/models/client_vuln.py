@@ -4,19 +4,40 @@ import uuid
 from datetime import datetime
 from typing import Any, Optional
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Text, UniqueConstraint, desc, func, text
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Text,
+    UniqueConstraint,
+    desc,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from vulnsentinel.core.database import Base, TimestampMixin
 
 client_vuln_status_enum = Enum(
-    "recorded", "reported", "confirmed", "fixed", "not_affect",
-    name="client_vuln_status", create_type=False,
+    "recorded",
+    "reported",
+    "confirmed",
+    "fixed",
+    "not_affect",
+    name="client_vuln_status",
+    create_type=False,
 )
 pipeline_status_enum = Enum(
-    "pending", "path_searching", "poc_generating", "verified", "not_affect",
-    name="pipeline_status", create_type=False,
+    "pending",
+    "path_searching",
+    "poc_generating",
+    "verified",
+    "not_affect",
+    name="pipeline_status",
+    create_type=False,
 )
 
 
@@ -43,12 +64,8 @@ class ClientVuln(TimestampMixin, Base):
     )
     is_affected: Mapped[Optional[bool]] = mapped_column(Boolean)
     error_message: Mapped[Optional[str]] = mapped_column(Text)
-    analysis_started_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True)
-    )
-    analysis_completed_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True)
-    )
+    analysis_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    analysis_completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     # client vuln status
     status: Mapped[Optional[str]] = mapped_column(client_vuln_status_enum)
@@ -83,9 +100,8 @@ class ClientVuln(TimestampMixin, Base):
         Index("idx_clientvulns_cursor", desc("created_at"), desc("id")),
         Index("idx_clientvulns_status", "status"),
         Index(
-            "idx_clientvulns_pipeline", "pipeline_status",
-            postgresql_where=(
-                "pipeline_status IN ('pending', 'path_searching', 'poc_generating')"
-            ),
+            "idx_clientvulns_pipeline",
+            "pipeline_status",
+            postgresql_where=("pipeline_status IN ('pending', 'path_searching', 'poc_generating')"),
         ),
     )

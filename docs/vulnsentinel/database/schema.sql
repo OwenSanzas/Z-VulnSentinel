@@ -58,7 +58,7 @@ CREATE TABLE users (
 CREATE TABLE libraries (
     id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     name             TEXT        NOT NULL UNIQUE,       -- e.g. "curl/curl"
-    repo_url         TEXT        NOT NULL UNIQUE,
+    repo_url         TEXT        NOT NULL,              -- not unique: monorepo may host multiple libraries
     platform         TEXT        NOT NULL DEFAULT 'github',  -- github / gitlab / gitee
     default_branch   TEXT        NOT NULL DEFAULT 'main',   -- branch to monitor
     latest_tag_version    TEXT,              -- latest release tag (e.g. "v8.11.0")
@@ -180,7 +180,7 @@ CREATE TABLE events (
     created_at      TIMESTAMPTZ          NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ          NOT NULL DEFAULT now(),
 
-    UNIQUE (library_id, type, ref)
+    CONSTRAINT uq_events_library_type_ref UNIQUE (library_id, type, ref)
 );
 
 CREATE INDEX idx_events_library   ON events (library_id);

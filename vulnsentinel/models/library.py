@@ -18,7 +18,7 @@ class Library(TimestampMixin, Base):
         UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
     )
     name: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
-    repo_url: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    repo_url: Mapped[str] = mapped_column(Text, nullable=False)
     platform: Mapped[str] = mapped_column(
         Text, nullable=False, server_default=text("'github'")
     )

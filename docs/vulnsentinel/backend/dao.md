@@ -35,7 +35,7 @@ class Page[T]:
     data: list[T]
     next_cursor: str | None
     has_more: bool
-    total: int
+    total: int | None = None  # paginate 不自带 total，由 service 层单独调 count() 获取
 ```
 
 ### BaseDAO 方法
@@ -44,10 +44,17 @@ class Page[T]:
 |------|------|------|
 | `get_by_id` | `(session, id: UUID) → Model \| None` | ORM — `session.get(Model, id)` |
 | `create` | `(session, **values) → Model` | ORM — `session.add(Model(**values))` |
+| `bulk_create` | `(session, items: list[dict]) → list[Model]` | ORM — `session.add_all()`，子 DAO 可用 Core 重写以支持 `ON CONFLICT` |
 | `update` | `(session, id: UUID, **values) → Model \| None` | ORM — 获取对象后直接赋值 |
 | `delete` | `(session, id: UUID) → bool` | ORM — `session.delete(obj)` |
-| `paginate` | `(session, query, cursor, page_size) → Page[Row]` | Core — 通用 cursor 分页 |
+| `exists` | `(session, id: UUID) → bool` | Core — `SELECT EXISTS`，不加载 ORM 对象 |
+| `get_by_field` | `(session, **filters) → Model \| None` | ORM — 按任意字段组合查找第一条匹配记录 |
+| `paginate` | `(session, query, cursor, page_size) → Page[Model]` | Core — 通用 cursor 分页，返回 ORM 对象 |
 | `count` | `(session, query) → int` | Core — 执行 COUNT 查询 |
+
+### cursor 安全
+
+游标使用 HMAC-SHA256 签名防篡改。密钥通过 `VULNSENTINEL_CURSOR_SECRET` 环境变量配置。编码后格式为 `base64url(payload|hmac_hex_16)`。
 
 ### cursor 分页实现
 
@@ -119,20 +126,21 @@ RETURNING *;
 | `get_by_id` | `(session, id) → Row \| None` | 库详情 | API |
 | `list_paginated` | `(session, cursor, page_size) → Page[Row]` | 库列表 | API |
 | `count` | `(session) → int` | 总数 | API |
-| `upsert_by_name` | `(session, name, repo_url, platform, default_branch) → Row` | 新库入库（去重） | 客户接入 |
+| `upsert_by_name` | `(session, name, repo_url, platform, default_branch) → Model` | 新库入库（去重，同名异 repo 抛 `LibraryConflictError`） | 客户接入 |
 | `get_all_monitored` | `(session) → list[Row]` | 全量监控列表 | MonitorEngine |
 | `update_pointers` | `(session, id, latest_commit_sha?, latest_tag_version?, last_activity_at?) → None` | 更新监控指针 | MonitorEngine |
 
 ### 关键查询
 
 ```sql
--- upsert_by_name
+-- upsert_by_name（ON CONFLICT DO NOTHING + 冲突检测）
+-- 同名库已存在时，如果 repo_url 一致则返回已有记录；
+-- 如果 repo_url 不一致则抛 LibraryConflictError（防止 fork 覆盖）
 INSERT INTO libraries (name, repo_url, platform, default_branch)
 VALUES (:name, :repo_url, :platform, :default_branch)
-ON CONFLICT (name) DO UPDATE SET
-    repo_url = EXCLUDED.repo_url,
-    updated_at = now()
+ON CONFLICT (name) DO NOTHING
 RETURNING *;
+-- 如果返回 NULL（冲突），查已有行并比对 repo_url
 
 -- get_all_monitored（MonitorEngine 全量拉取，无需分页）
 SELECT * FROM libraries ORDER BY name;
@@ -185,16 +193,9 @@ LIMIT :page_size + 1;
 ### 关键查询
 
 ```sql
--- list_by_library（库详情 Used By，数据量小无需分页）
-SELECT pd.*, p.name AS project_name
-FROM project_dependencies pd
-JOIN projects p ON p.id = pd.project_id
-WHERE pd.library_id = :library_id;
-
--- find_projects_by_library（ImpactEngine 用，只需 project_id + 版本信息）
-SELECT pd.project_id, pd.constraint_expr, pd.resolved_version, pd.constraint_source
-FROM project_dependencies pd
-WHERE pd.library_id = :library_id;
+-- list_by_library / find_projects_by_library（返回完整 ORM 对象，display name 由 service 层补充）
+SELECT * FROM project_dependencies
+WHERE library_id = :library_id;
 
 -- batch_create
 INSERT INTO project_dependencies (project_id, library_id, constraint_expr, resolved_version, constraint_source)
@@ -349,9 +350,9 @@ WHERE id = :id;
 | `active_count_by_project` | `(session, project_id) → int` | 活跃漏洞数（排除 fixed / not_affect） | API（项目列表 vuln_count） |
 | `create` | `(session, upstream_vuln_id, project_id, constraint_expr?, ...) → Row` | 创建客户漏洞 | ImpactEngine |
 | `list_pending_pipeline` | `(session, limit: int) → list[Row]` | 查找需要推进的 pipeline | ImpactEngine |
-| `update_pipeline` | `(session, id, pipeline_status, is_affected?, reachable_path?, poc_results?, error_message?) → None` | 推进 pipeline 状态 | ImpactEngine |
-| `finalize` | `(session, id, status, recorded_at?) → None` | pipeline 完成，设置终态 | ImpactEngine |
-| `update_status` | `(session, id, status, msg?) → None` | 维护者反馈（confirmed / fixed） | API |
+| `update_pipeline` | `(session, id, pipeline_status, is_affected?, reachable_path?, poc_results?, error_message?, clear_error?) → None` | 推进 pipeline 状态（`clear_error=True` 重置 error_message） | ImpactEngine |
+| `finalize` | `(session, id, pipeline_status, status, is_affected) → None` | pipeline 完成，设置终态 + 时间戳 | ImpactEngine |
+| `update_status` | `(session, id, status, msg?) → None` | 维护者反馈（reported / confirmed / fixed） | API |
 
 ### ClientVulnFilters
 
@@ -369,13 +370,12 @@ class ClientVulnFilters:
 ### 关键查询
 
 ```sql
--- list_paginated（带筛选，需 JOIN upstream_vulns 获取 severity / library_id）
-SELECT cv.*, uv.summary, uv.severity, uv.library_id,
-       l.name AS library_name, p.name AS project_name
+-- list_paginated（带筛选）
+-- 仅当 severity / library_id 过滤时才 JOIN upstream_vulns（按需 JOIN）
+-- display name（library_name, project_name）由 service 层补充
+SELECT cv.*
 FROM client_vulns cv
-JOIN upstream_vulns uv ON uv.id = cv.upstream_vuln_id
-JOIN libraries l ON l.id = uv.library_id
-JOIN projects p ON p.id = cv.project_id
+  LEFT JOIN upstream_vulns uv ON uv.id = cv.upstream_vuln_id  -- 仅 severity/library_id 过滤时
 WHERE (:status IS NULL OR cv.status = :status)
   AND (:severity IS NULL OR uv.severity = :severity)
   AND (:library_id IS NULL OR uv.library_id = :library_id)
@@ -404,23 +404,25 @@ WHERE pipeline_status IN ('pending', 'path_searching', 'poc_generating')
 ORDER BY created_at ASC
 LIMIT :limit;
 
--- finalize（pipeline 终态）
+-- finalize（pipeline 终态，Python 层根据 status 构造 SET 子句）
+-- status='recorded'  → recorded_at=now(), not_affect_at=NULL
+-- status='not_affect' → not_affect_at=now(), recorded_at=NULL
 UPDATE client_vulns
 SET pipeline_status = :pipeline_status,
     status = :status,
     is_affected = :is_affected,
     analysis_completed_at = now(),
-    recorded_at = CASE WHEN :status = 'recorded' THEN now() ELSE NULL END,
-    not_affect_at = CASE WHEN :status = 'not_affect' THEN now() ELSE NULL END
+    recorded_at = :recorded_at,     -- now() or NULL
+    not_affect_at = :not_affect_at  -- now() or NULL
 WHERE id = :id;
 
--- update_status（维护者反馈）
+-- update_status（维护者反馈，Python 层根据 status 构造 SET 子句）
+-- status='reported'  → SET reported_at=now()
+-- status='confirmed' → SET confirmed_at=now(), confirmed_msg=:msg（仅本次字段，不碰 fixed_*）
+-- status='fixed'     → SET fixed_at=now(), fixed_msg=:msg（仅本次字段，不碰 confirmed_*）
+-- 其他 status        → 仅 SET status，不设任何时间戳
 UPDATE client_vulns
-SET status = :status,
-    confirmed_at = CASE WHEN :status = 'confirmed' THEN now() ELSE confirmed_at END,
-    confirmed_msg = CASE WHEN :status = 'confirmed' THEN :msg ELSE confirmed_msg END,
-    fixed_at = CASE WHEN :status = 'fixed' THEN now() ELSE fixed_at END,
-    fixed_msg = CASE WHEN :status = 'fixed' THEN :msg ELSE fixed_msg END
+SET status = :status, ...  -- 根据 status 动态追加字段
 WHERE id = :id;
 ```
 
@@ -430,8 +432,9 @@ WHERE id = :id;
 
 1. **一表一 DAO** — 8 张表对应 8 个 DAO，不跨表
 2. **简单用 ORM，复杂用 Core** — get/create/update/delete 用 ORM；分页、JOIN、聚合、upsert 用 Core
-3. **JOIN 在 DAO 内完成** — 需要联表的查询（如 client_vulns 列表需要 library_name）在 DAO 的 SQL 中直接 JOIN，service 层不做二次查询拼装
-4. **过滤条件参数化** — 使用 `COALESCE` 或 `CASE WHEN :param IS NULL` 模式处理可选过滤
+3. **过滤 JOIN 在 DAO，display name 在 service** — DAO 仅在过滤时 JOIN 关联表（如 ClientVuln 按 severity 过滤需 JOIN upstream_vulns）。展示用的 display name（library_name, project_name）由 service 层补充，保持 DAO 单表职责
+4. **过滤条件参数化** — Python 层 `if filter is not None` 动态构建 WHERE 子句，部分更新使用 `COALESCE` 模式
 5. **幂等写入** — 所有 Engine 写入使用 `ON CONFLICT` 保证重复执行安全
 6. **DAO 不管事务** — 事务由 service 层管理，DAO 只接收 session 执行查询
-7. **ORM 方法返回 Model，Core 方法返回 Row** — service 层统一转换为 Pydantic schema
+7. **统一返回 ORM Model** — 所有方法（包括 paginate、Core 查询）统一返回 ORM Model 对象，service 层转换为 Pydantic schema
+8. **pk 安全** — 所有接受 pk 参数的写方法必须调用 `_require_pk(pk)` 守卫，防止 `None` 穿透到 SQL

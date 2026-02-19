@@ -13,3 +13,4 @@ venv/
 *.log
 logs/
 workspace/
+.claude/

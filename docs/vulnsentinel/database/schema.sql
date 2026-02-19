@@ -12,6 +12,18 @@
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";  -- gen_random_uuid()
 
 -- ---------------------------------------------------------------------------
+-- Trigger function: auto-update updated_at on row modification
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ---------------------------------------------------------------------------
 -- Enum types
 -- ---------------------------------------------------------------------------
 
@@ -262,3 +274,31 @@ CREATE INDEX idx_clientvulns_status   ON client_vulns (status);
 -- engine polling: find client_vulns that need analysis work
 CREATE INDEX idx_clientvulns_pipeline ON client_vulns (pipeline_status)
     WHERE pipeline_status IN ('pending', 'path_searching', 'poc_generating');
+
+-- ---------------------------------------------------------------------------
+-- Triggers: auto-update updated_at on every UPDATE
+-- ---------------------------------------------------------------------------
+
+CREATE TRIGGER trg_users_updated_at
+    BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER trg_libraries_updated_at
+    BEFORE UPDATE ON libraries FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER trg_projects_updated_at
+    BEFORE UPDATE ON projects FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER trg_project_dependencies_updated_at
+    BEFORE UPDATE ON project_dependencies FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER trg_snapshots_updated_at
+    BEFORE UPDATE ON snapshots FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER trg_events_updated_at
+    BEFORE UPDATE ON events FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER trg_upstream_vulns_updated_at
+    BEFORE UPDATE ON upstream_vulns FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER trg_client_vulns_updated_at
+    BEFORE UPDATE ON client_vulns FOR EACH ROW EXECUTE FUNCTION update_updated_at();

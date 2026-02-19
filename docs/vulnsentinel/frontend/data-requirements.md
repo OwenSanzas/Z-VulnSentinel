@@ -108,11 +108,13 @@
 
 ### 统计摘要（筛选后）
 
+> **注意：以下统计为向前包含计数。** 例如 total_recorded 包含所有 recorded + reported + confirmed + fixed 的漏洞。前端展示时直接使用后端返回值，无需二次计算。
+
 | 数据 | 类型 | 说明 |
 |------|------|------|
-| total_recorded | int | 当前筛选条件下的 recorded 数 |
-| total_reported | int | 当前筛选条件下的 reported 数 |
-| total_confirmed | int | 当前筛选条件下的 confirmed 数 |
+| total_recorded | int | 当前筛选条件下的 recorded 数（含 reported / confirmed / fixed） |
+| total_reported | int | 当前筛选条件下的 reported 数（含 confirmed / fixed） |
+| total_confirmed | int | 当前筛选条件下的 confirmed 数（含 fixed） |
 | total_fixed | int | 当前筛选条件下的 fixed 数 |
 
 ---
@@ -186,13 +188,13 @@
 
 ### Vulnerabilities（分页，数据来源：client_vulns 表）
 
-固定 `project_id` 筛选。含统计摘要：
+固定 `project_id` 筛选。含统计摘要（向前包含计数，规则同主页卡片）：
 
 | 数据 | 类型 | 说明 |
 |------|------|------|
-| total_recorded | int | 该项目的 recorded 数 |
-| total_reported | int | 该项目的 reported 数 |
-| total_confirmed | int | 该项目的 confirmed 数 |
+| total_recorded | int | 该项目的 recorded 数（含 reported / confirmed / fixed） |
+| total_reported | int | 该项目的 reported 数（含 confirmed / fixed） |
+| total_confirmed | int | 该项目的 confirmed 数（含 fixed） |
 | total_fixed | int | 该项目的 fixed 数 |
 
 每条 client_vuln 的返回字段同漏洞列表。
@@ -208,6 +210,11 @@
 | constraint_source | string | 约束来源文件 |
 | vuln_count | int | 该库当前影响该项目的 client_vuln 数 |
 | status | enum | clean / vulnerable / assumed |
+
+> **Dependencies status 定义：**
+> - `clean`：该库无活跃 client_vuln 影响此项目
+> - `vulnerable`：该库存在至少一个活跃 client_vuln（recorded / reported / confirmed）
+> - `assumed`：版本约束为 `unknown`，系统默认假设受影响（无法判定实际版本）
 
 ### Snapshots（分页）
 

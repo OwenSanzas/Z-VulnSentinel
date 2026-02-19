@@ -109,6 +109,24 @@ Client Impact 表中的 Status 列显示两种情况：
 
 显示 client_vuln 的状态：`recorded` / `reported` / `confirmed` / `fixed` / `not_affect`
 
+> **显示规则：** pipeline 终态（`verified` / `not_affect`）会自动创建 client_vuln，此后 Status 列只显示 client_vuln 状态。即：`verified` → 显示为 `recorded`，pipeline `not_affect` → 显示为 client_vuln `not_affect`。
+
+## Error 状态展示
+
+当 upstream_vuln 的 `status=error` 时，Upstream Vulnerability 区块内展示红色错误提示，AI Analysis 和 Client Impact 不展示：
+
+```
+│  ╔══════════════════════════════════════════════════════════════════════════════╗ │
+│  ║  UPSTREAM VULNERABILITY #42                              status: error    ║ │
+│  ╠══════════════════════════════════════════════════════════════════════════════╣ │
+│  ║                                                                            ║ │
+│  ║  ❌ Error: LLM analysis timeout after 120s                                ║ │
+│  ║                                                                            ║ │
+│  ╚══════════════════════════════════════════════════════════════════════════════╝ │
+```
+
+当 Client Impact 中某个项目的 pipeline `analysis_status=error` 时，该行 Status 列显示 `❌ error`，可点击查看 error_message。
+
 ## 交互
 
 | 操作 | 跳转 |

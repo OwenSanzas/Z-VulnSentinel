@@ -90,12 +90,14 @@
 
 ## Client Impact 状态
 
-Client Impact 表的 Status 列显示两种情况：
+Client Impact 表的 Status 列根据分析阶段显示不同状态：
 
-- **分析进行中**（pipeline 状态）：`pending` / `path_searching` / `poc_generating` / `verified` / `not_affect` / `error`
-- **分析完成**（client_vuln 状态）：`recorded` / `reported` / `confirmed` / `fixed` / `not_affect`
+- **分析进行中**（尚未生成 client_vuln）：显示 pipeline 状态 `pending` / `path_searching` / `poc_generating` / `error`
+- **分析完成**（已生成 client_vuln）：显示 client_vuln 状态 `recorded` / `reported` / `confirmed` / `fixed` / `not_affect`
 
-点击项目名进入该条 client_vuln 的详情页。
+> **显示规则：** pipeline 终态（`verified` / `not_affect`）会自动创建 client_vuln，此后 Status 列只显示 client_vuln 状态，pipeline 状态不再展示。即：`verified` → 显示为 `recorded`，pipeline `not_affect` → 显示为 client_vuln `not_affect`。
+
+点击项目名进入该条 client_vuln 的详情页（分析进行中时不可点击）。
 
 ## 交互
 

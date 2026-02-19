@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from sqlalchemy import DateTime, MetaData, func
-from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # Naming convention for constraints (Alembic auto-migration friendly)

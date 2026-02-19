@@ -11,12 +11,18 @@ from sqlalchemy.orm import Mapped, mapped_column
 from vulnsentinel.core.database import Base, TimestampMixin
 
 severity_level_enum = Enum(
-    "critical", "high", "medium", "low",
-    name="severity_level", create_type=False,
+    "critical",
+    "high",
+    "medium",
+    "low",
+    name="severity_level",
+    create_type=False,
 )
 upstream_vuln_status_enum = Enum(
-    "analyzing", "published",
-    name="upstream_vuln_status", create_type=False,
+    "analyzing",
+    "published",
+    name="upstream_vuln_status",
+    create_type=False,
 )
 
 
@@ -51,9 +57,7 @@ class UpstreamVuln(TimestampMixin, Base):
     detected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    published_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True)
-    )
+    published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
         Index("idx_upvulns_event", "event_id"),

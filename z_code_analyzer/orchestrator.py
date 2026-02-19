@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 import tempfile
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
 
 from z_code_analyzer.backends.base import AnalysisResult, FuzzerInfo
 from z_code_analyzer.build.bitcode import BitcodeGenerator
@@ -251,7 +251,9 @@ class StaticAnalysisOrchestrator:
                 self._fuzzer_search_paths = None
 
             fuzzer_calls = FuzzerEntryParser().parse(
-                fuzzer_sources, library_func_names, project_path,
+                fuzzer_sources,
+                library_func_names,
+                project_path,
                 extra_search_paths=self._fuzzer_search_paths,
             )
             progress.complete_phase(
@@ -355,8 +357,10 @@ class StaticAnalysisOrchestrator:
             progress.start_phase("fuzzer_parse")
             library_func_names = {f.name for f in result.functions}
             fuzzer_calls = FuzzerEntryParser().parse(
-                fuzzer_sources, library_func_names, project_path,
-                extra_search_paths=getattr(self, '_fuzzer_search_paths', None),
+                fuzzer_sources,
+                library_func_names,
+                project_path,
+                extra_search_paths=getattr(self, "_fuzzer_search_paths", None),
             )
             progress.complete_phase(
                 "fuzzer_parse",

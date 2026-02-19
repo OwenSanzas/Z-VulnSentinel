@@ -21,12 +21,21 @@ from sqlalchemy.orm import Mapped, mapped_column
 from vulnsentinel.core.database import Base, TimestampMixin
 
 event_type_enum = Enum(
-    "commit", "pr_merge", "tag", "bug_issue",
-    name="event_type", create_type=False,
+    "commit",
+    "pr_merge",
+    "tag",
+    "bug_issue",
+    name="event_type",
+    create_type=False,
 )
 event_classification_enum = Enum(
-    "security_bugfix", "normal_bugfix", "refactor", "feature", "other",
-    name="event_classification", create_type=False,
+    "security_bugfix",
+    "normal_bugfix",
+    "refactor",
+    "feature",
+    "other",
+    name="event_classification",
+    create_type=False,
 )
 
 
@@ -58,20 +67,20 @@ class Event(TimestampMixin, Base):
     # classification
     classification: Mapped[Optional[str]] = mapped_column(event_classification_enum)
     confidence: Mapped[Optional[float]] = mapped_column(Double)
-    is_bugfix: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default=text("false")
-    )
+    is_bugfix: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
 
     __table_args__ = (
         UniqueConstraint("library_id", "type", "ref", name="uq_events_library_type_ref"),
         Index("idx_events_library", "library_id"),
         Index("idx_events_cursor", desc("created_at"), desc("id")),
         Index(
-            "idx_events_bugfix", desc("created_at"),
+            "idx_events_bugfix",
+            desc("created_at"),
             postgresql_where="is_bugfix = TRUE",
         ),
         Index(
-            "idx_events_unclassified", desc("created_at"),
+            "idx_events_unclassified",
+            desc("created_at"),
             postgresql_where="classification IS NULL",
         ),
     )

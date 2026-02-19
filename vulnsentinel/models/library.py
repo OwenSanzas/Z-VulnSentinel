@@ -19,20 +19,14 @@ class Library(TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     repo_url: Mapped[str] = mapped_column(Text, nullable=False)
-    platform: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default=text("'github'")
-    )
-    default_branch: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default=text("'main'")
-    )
+    platform: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'github'"))
+    default_branch: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'main'"))
     latest_tag_version: Mapped[Optional[str]] = mapped_column(Text)
     latest_commit_sha: Mapped[Optional[str]] = mapped_column(Text)
     monitoring_since: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    last_activity_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True)
-    )
+    last_activity_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
         Index(

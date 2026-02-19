@@ -18,7 +18,18 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
 
-  test:
+  test-vulnsentinel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - name: Run VulnSentinel tests
+        run: pytest tests/vulnsentinel/ -v --timeout=60
+
+  test-analyzer:
     runs-on: ubuntu-latest
     services:
       mongo:
@@ -31,9 +42,10 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -e ".[dev]" tree-sitter tree-sitter-c tree-sitter-cpp
-      - name: Run tests (no Neo4j/Docker-dependent tests)
+      - name: Run Analyzer tests (no Neo4j/Docker-dependent tests)
         run: |
           pytest tests/ \
+            --ignore=tests/vulnsentinel \
             --ignore=tests/test_graph_store.py \
             --ignore=tests/test_orchestrator.py \
             --ignore=tests/test_svf_backend.py \

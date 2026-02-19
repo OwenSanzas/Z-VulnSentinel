@@ -51,7 +51,5 @@ class BuildScriptLocator:
             logger.info("Found build.sh (repo root): %s", root_build)
             return str(root_build)
 
-        logger.warning(
-            "No build.sh found for project '%s' in %s", project_name, fuzz_tooling_path
-        )
+        logger.warning("No build.sh found for project '%s' in %s", project_name, fuzz_tooling_path)
         return None

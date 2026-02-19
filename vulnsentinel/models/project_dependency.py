@@ -28,13 +28,13 @@ class ProjectDependency(TimestampMixin, Base):
     )
     constraint_expr: Mapped[Optional[str]] = mapped_column(Text)
     resolved_version: Mapped[Optional[str]] = mapped_column(Text)
-    constraint_source: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default=text("''")
-    )
+    constraint_source: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
 
     __table_args__ = (
         UniqueConstraint(
-            "project_id", "library_id", "constraint_source",
+            "project_id",
+            "library_id",
+            "constraint_source",
             name="uq_projdeps_project_library_source",
         ),
         Index("idx_projdeps_project", "project_id"),

@@ -208,19 +208,23 @@ class BitcodeGenerator:
         if generated_config:
             config_name = Path(case_config).name
             cmd.extend(["-v", f"{case_config}:/pipeline/cases/{config_name}:ro"])
-            cmd.extend([
-                docker_image,
-                "bash",
-                "/pipeline/svf-pipeline.sh",
-                f"/pipeline/cases/{config_name}",
-            ])
+            cmd.extend(
+                [
+                    docker_image,
+                    "bash",
+                    "/pipeline/svf-pipeline.sh",
+                    f"/pipeline/cases/{config_name}",
+                ]
+            )
         else:
-            cmd.extend([
-                docker_image,
-                "bash",
-                "/pipeline/svf-pipeline.sh",
-                f"/pipeline/cases/{Path(case_config).name}",
-            ])
+            cmd.extend(
+                [
+                    docker_image,
+                    "bash",
+                    "/pipeline/svf-pipeline.sh",
+                    f"/pipeline/cases/{Path(case_config).name}",
+                ]
+            )
 
         logger.info("Running bitcode pipeline: %s", " ".join(cmd[:10]))
 
@@ -246,10 +250,7 @@ class BitcodeGenerator:
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
-            raise BitcodeError(
-                f"Bitcode generation timed out after 600s. "
-                f"Build log: {log_path}"
-            )
+            raise BitcodeError(f"Bitcode generation timed out after 600s. Build log: {log_path}")
 
         if proc.returncode != 0:
             # Read last 2000 chars from log for error message
@@ -257,9 +258,7 @@ class BitcodeGenerator:
                 log_tail = log_path.read_text()[-2000:]
             except OSError:
                 log_tail = "(no log)"
-            raise BitcodeError(
-                f"Bitcode generation failed (rc={proc.returncode}):\n{log_tail}"
-            )
+            raise BitcodeError(f"Bitcode generation failed (rc={proc.returncode}):\n{log_tail}")
 
         bc_path = Path(output_dir) / "library.bc"
         ll_path = Path(output_dir) / "library.ll"
@@ -309,8 +308,8 @@ class BitcodeGenerator:
 
         config_path = Path(output_dir) / f"{project_name}_auto.sh"
         config_content = (
-            f'#!/bin/bash\n'
-            f'# Auto-generated ossfuzz-native config for {project_name}\n'
+            f"#!/bin/bash\n"
+            f"# Auto-generated ossfuzz-native config for {project_name}\n"
             f'PROJECT_NAME="{project_name}"\n'
             f'BUILD_MODE="ossfuzz-native"\n'
             f'OSSFUZZ_BUILD_SH="{docker_build_sh}"\n'
@@ -324,9 +323,7 @@ class BitcodeGenerator:
         return str(config_path)
 
     @staticmethod
-    def _clone_fuzz_tooling(
-        url: str, ref: str | None, output_dir: str
-    ) -> str:
+    def _clone_fuzz_tooling(url: str, ref: str | None, output_dir: str) -> str:
         """Clone external fuzz tooling repo (e.g. oss-fuzz harness) into output_dir.
 
         Returns the cloned directory path.
@@ -342,9 +339,7 @@ class BitcodeGenerator:
 
         logger.info("Cloning fuzz tooling: %s @ %s", url, ref or "HEAD")
         try:
-            result = subprocess.run(
-                clone_cmd, capture_output=True, text=True, timeout=120
-            )
+            result = subprocess.run(clone_cmd, capture_output=True, text=True, timeout=120)
         except subprocess.TimeoutExpired:
             raise BitcodeError(f"Fuzz tooling clone timed out: {url}")
 
@@ -370,9 +365,7 @@ class BitcodeGenerator:
                     text=True,
                 )
             else:
-                raise BitcodeError(
-                    f"Fuzz tooling clone failed: {result.stderr or result.stdout}"
-                )
+                raise BitcodeError(f"Fuzz tooling clone failed: {result.stderr or result.stdout}")
 
         return str(tooling_dir)
 
@@ -437,7 +430,7 @@ class BitcodeGenerator:
                     stripped = False
                     for prefix in candidates:
                         if file_path.startswith(prefix):
-                            file_path = file_path[len(prefix):]
+                            file_path = file_path[len(prefix) :]
                             stripped = True
                             break
                     if not stripped and file_path.startswith("/src/"):

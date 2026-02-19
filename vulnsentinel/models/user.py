@@ -18,6 +18,4 @@ class User(TimestampMixin, Base):
     username: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     email: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
-    role: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default=text("'viewer'")
-    )
+    role: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'viewer'"))

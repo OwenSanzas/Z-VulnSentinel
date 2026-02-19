@@ -18,9 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from vulnsentinel.core.database import Base
 
-DEFAULT_DB_URL = (
-    "postgresql+asyncpg://vulnsentinel:vulnsentinel@localhost:5432/vulnsentinel_test"
-)
+DEFAULT_DB_URL = "postgresql+asyncpg://vulnsentinel:vulnsentinel@localhost:5432/vulnsentinel_test"
 
 _needs_pg = pytest.mark.skipif(
     os.environ.get("SKIP_PG") == "1",
@@ -51,59 +49,77 @@ async def setup_database(engine):
     """Create all tables (including ENUMs) before tests, drop after."""
     async with engine.begin() as conn:
         # Create custom ENUMs used by models
-        await conn.execute(text(
-            "DO $$ BEGIN "
-            "  CREATE TYPE event_type AS ENUM "
-            "    ('commit','pr_merge','tag','bug_issue'); "
-            "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
-        ))
-        await conn.execute(text(
-            "DO $$ BEGIN "
-            "  CREATE TYPE event_classification AS ENUM "
-            "    ('security_bugfix','normal_bugfix','refactor','feature','other'); "
-            "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
-        ))
-        await conn.execute(text(
-            "DO $$ BEGIN "
-            "  CREATE TYPE severity_level AS ENUM "
-            "    ('critical','high','medium','low'); "
-            "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
-        ))
-        await conn.execute(text(
-            "DO $$ BEGIN "
-            "  CREATE TYPE upstream_vuln_status AS ENUM "
-            "    ('analyzing','published'); "
-            "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
-        ))
-        await conn.execute(text(
-            "DO $$ BEGIN "
-            "  CREATE TYPE client_vuln_status AS ENUM "
-            "    ('recorded','reported','confirmed','fixed','not_affect'); "
-            "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
-        ))
-        await conn.execute(text(
-            "DO $$ BEGIN "
-            "  CREATE TYPE pipeline_status AS ENUM "
-            "    ('pending','path_searching','poc_generating','verified','not_affect'); "
-            "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
-        ))
-        await conn.execute(text(
-            "DO $$ BEGIN "
-            "  CREATE TYPE snapshot_status AS ENUM ('building','completed'); "
-            "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
-        ))
-        await conn.execute(text(
-            "DO $$ BEGIN "
-            "  CREATE TYPE snapshot_backend AS ENUM "
-            "    ('svf','joern','introspector','prebuild'); "
-            "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
-        ))
-        await conn.execute(text(
-            "DO $$ BEGIN "
-            "  CREATE TYPE snapshot_trigger AS ENUM "
-            "    ('tag_push','manual','scheduled','on_upstream_vuln_analysis'); "
-            "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
-        ))
+        await conn.execute(
+            text(
+                "DO $$ BEGIN "
+                "  CREATE TYPE event_type AS ENUM "
+                "    ('commit','pr_merge','tag','bug_issue'); "
+                "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+            )
+        )
+        await conn.execute(
+            text(
+                "DO $$ BEGIN "
+                "  CREATE TYPE event_classification AS ENUM "
+                "    ('security_bugfix','normal_bugfix','refactor','feature','other'); "
+                "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+            )
+        )
+        await conn.execute(
+            text(
+                "DO $$ BEGIN "
+                "  CREATE TYPE severity_level AS ENUM "
+                "    ('critical','high','medium','low'); "
+                "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+            )
+        )
+        await conn.execute(
+            text(
+                "DO $$ BEGIN "
+                "  CREATE TYPE upstream_vuln_status AS ENUM "
+                "    ('analyzing','published'); "
+                "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+            )
+        )
+        await conn.execute(
+            text(
+                "DO $$ BEGIN "
+                "  CREATE TYPE client_vuln_status AS ENUM "
+                "    ('recorded','reported','confirmed','fixed','not_affect'); "
+                "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+            )
+        )
+        await conn.execute(
+            text(
+                "DO $$ BEGIN "
+                "  CREATE TYPE pipeline_status AS ENUM "
+                "    ('pending','path_searching','poc_generating','verified','not_affect'); "
+                "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+            )
+        )
+        await conn.execute(
+            text(
+                "DO $$ BEGIN "
+                "  CREATE TYPE snapshot_status AS ENUM ('building','completed'); "
+                "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+            )
+        )
+        await conn.execute(
+            text(
+                "DO $$ BEGIN "
+                "  CREATE TYPE snapshot_backend AS ENUM "
+                "    ('svf','joern','introspector','prebuild'); "
+                "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+            )
+        )
+        await conn.execute(
+            text(
+                "DO $$ BEGIN "
+                "  CREATE TYPE snapshot_trigger AS ENUM "
+                "    ('tag_push','manual','scheduled','on_upstream_vuln_analysis'); "
+                "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+            )
+        )
         await conn.run_sync(Base.metadata.create_all)
 
     yield

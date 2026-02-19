@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import tempfile
+from pathlib import Path
 from dataclasses import dataclass
 
 from z_code_analyzer.backends.base import AnalysisResult, FuzzerInfo
@@ -87,6 +88,10 @@ class StaticAnalysisOrchestrator:
         language: str | None = None,
         backend: str | None = None,
         diff_files: list[str] | None = None,
+        svf_case_config: str | None = None,
+        svf_docker_image: str | None = None,
+        fuzz_tooling_url: str | None = None,
+        fuzz_tooling_ref: str | None = None,
     ) -> AnalysisOutput:
         """Full analysis pipeline entry point.
 
@@ -157,22 +162,41 @@ class StaticAnalysisOrchestrator:
             progress.start_phase("bitcode")
             all_fuzzer_files = [f for files in fuzzer_sources.values() for f in files]
             bitcode_gen = BitcodeGenerator()
-            output_dir_obj = tempfile.TemporaryDirectory(prefix="z-analyze-")
+            ws = Path(project_path).resolve().parent
+            if not (ws / "workspace").exists():
+                ws = Path.cwd()
+            ws_dir = ws / "workspace"
+            ws_dir.mkdir(exist_ok=True)
+            output_dir_obj = tempfile.TemporaryDirectory(prefix="analyze-", dir=ws_dir)
             output_dir = output_dir_obj.name
 
             # Determine case config from build system
-            case_config = self._resolve_case_config(build_cmd.build_system, project_path)
+            case_config = self._resolve_case_config(
+                build_cmd.build_system, project_path, svf_case_config
+            )
 
-            if case_config:
-                # Full Docker pipeline: build + extract bitcode
+            # Build Docker kwargs shared by both paths
+            docker_kwargs: dict = {}
+            if svf_docker_image:
+                docker_kwargs["docker_image"] = svf_docker_image
+            if fuzz_tooling_url:
+                docker_kwargs["fuzz_tooling_url"] = fuzz_tooling_url
+                if fuzz_tooling_ref:
+                    docker_kwargs["fuzz_tooling_ref"] = fuzz_tooling_ref
+
+            if case_config or fuzz_tooling_url:
+                # Docker pipeline: hand-written case config or auto-locate
+                # via fuzz_tooling (case_config may be None — bitcode.py
+                # will auto-generate an ossfuzz-native config)
                 bc_output = bitcode_gen.generate_via_docker(
                     project_path=project_path,
                     case_config=case_config,
                     fuzzer_source_files=all_fuzzer_files,
                     output_dir=output_dir,
+                    **docker_kwargs,
                 )
             else:
-                # No case config — try to use pre-existing bitcode
+                # No case config and no fuzz_tooling — try pre-existing bitcode
                 bc_output = bitcode_gen.generate(
                     project_path=project_path,
                     build_cmd=build_cmd,
@@ -216,8 +240,19 @@ class StaticAnalysisOrchestrator:
             # Phase 4b: Fuzzer entry parsing
             progress.start_phase("fuzzer_parse")
             library_func_names = {f.name for f in result.functions}
+
+            # For external harness repos (e.g. curl_fuzzer in Docker image),
+            # svf-pipeline.sh copies sources to output_dir/fuzzer_sources/.
+            extracted_fuzzer_dir = Path(output_dir) / "fuzzer_sources"
+            if extracted_fuzzer_dir.is_dir():
+                self._fuzzer_search_paths = [project_path, str(extracted_fuzzer_dir)]
+                logger.info("Found extracted fuzzer sources at %s", extracted_fuzzer_dir)
+            else:
+                self._fuzzer_search_paths = None
+
             fuzzer_calls = FuzzerEntryParser().parse(
-                fuzzer_sources, library_func_names, project_path
+                fuzzer_sources, library_func_names, project_path,
+                extra_search_paths=self._fuzzer_search_paths,
             )
             progress.complete_phase(
                 "fuzzer_parse",
@@ -320,7 +355,8 @@ class StaticAnalysisOrchestrator:
             progress.start_phase("fuzzer_parse")
             library_func_names = {f.name for f in result.functions}
             fuzzer_calls = FuzzerEntryParser().parse(
-                fuzzer_sources, library_func_names, project_path
+                fuzzer_sources, library_func_names, project_path,
+                extra_search_paths=getattr(self, '_fuzzer_search_paths', None),
             )
             progress.complete_phase(
                 "fuzzer_parse",
@@ -393,15 +429,23 @@ class StaticAnalysisOrchestrator:
             raise
 
     @staticmethod
-    def _resolve_case_config(build_system: str, project_path: str) -> str | None:
+    def _resolve_case_config(
+        build_system: str, project_path: str, svf_case_config: str | None = None
+    ) -> str | None:
         """Find a matching SVF case config for the project, or None."""
-        from pathlib import Path
 
         cases_dir = Path(__file__).parent / "svf" / "cases"
         if not cases_dir.is_dir():
             return None
 
-        # Try project name match first
+        # Priority 1: explicit case config from work order
+        if svf_case_config:
+            case_file = cases_dir / f"{svf_case_config}.sh"
+            if case_file.exists():
+                return str(case_file)
+            logger.warning("SVF case config '%s' not found at %s", svf_case_config, case_file)
+
+        # Priority 2: project name match
         project_name = Path(project_path).name.lower()
         for case_file in cases_dir.glob("*.sh"):
             if case_file.stem.lower() == project_name:

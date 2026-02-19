@@ -1,0 +1,22 @@
+{
+  "// info": "curl-007: CWE-476 Null Pointer Dereference in lib/alliswellprotocoll.c",
+
+  "repo_url": "git@github.com:aixcc-finals/afc-curl.git",
+  "version": "challenges/cu-delta-03",
+  "path": null,
+  "build_script": null,
+  "backend": "svf",
+  "language": "c",
+  "svf_case_config": "curl",
+  "svf_docker_image": "aixcc-afc/curl",
+
+  "fuzzer_sources": {
+    "curl_fuzzer_ws": ["curl_fuzzer.cc"]
+  },
+
+  "fuzz_tooling_url": "https://github.com/aixcc-finals/oss-fuzz-aixcc.git",
+  "fuzz_tooling_ref": "challenge-state/cu-delta-03",
+
+  "diff_files": null,
+  "ai_refine": false
+}

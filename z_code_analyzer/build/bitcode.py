@@ -89,7 +89,9 @@ class BitcodeGenerator:
             BitcodeOutput with bc_path and function_metas.
         """
         if output_dir is None:
-            output_dir = tempfile.mkdtemp(prefix="z-bitcode-")
+            ws = Path.cwd() / "workspace"
+            ws.mkdir(exist_ok=True)
+            output_dir = tempfile.mkdtemp(prefix="bitcode-", dir=ws)
 
         output_path = Path(output_dir)
         bc_path = output_path / "library.bc"
@@ -120,26 +122,64 @@ class BitcodeGenerator:
     def generate_via_docker(
         self,
         project_path: str,
-        case_config: str,
+        case_config: str | None,
         fuzzer_source_files: list[str],
         output_dir: str,
         docker_image: str = "svftools/svf",
+        fuzz_tooling_url: str | None = None,
+        fuzz_tooling_ref: str | None = None,
     ) -> BitcodeOutput:
         """
         Run the full pipeline in Docker.
 
         Args:
             project_path: Project source root.
-            case_config: Path to case config .sh file.
+            case_config: Path to case config .sh file, or None to auto-locate
+                from fuzz_tooling.
             fuzzer_source_files: Files to exclude.
             output_dir: Where to write output.
             docker_image: Docker image with build tools.
+            fuzz_tooling_url: Git URL for external fuzzer harness repo (e.g. oss-fuzz).
+            fuzz_tooling_ref: Branch/tag/commit for fuzz_tooling_url.
         """
         svf_dir = Path(__file__).parent.parent / "svf"
         pipeline_script = svf_dir / "svf-pipeline.sh"
 
         if not pipeline_script.exists():
             raise BitcodeError(f"Pipeline script not found: {pipeline_script}")
+
+        # Clone external fuzz tooling repo if specified (e.g. oss-fuzz harness)
+        fuzz_tooling_path = None
+        if fuzz_tooling_url:
+            fuzz_tooling_path = self._clone_fuzz_tooling(
+                fuzz_tooling_url, fuzz_tooling_ref, output_dir
+            )
+
+        # Auto-generate case config when none provided but fuzz_tooling available
+        generated_config = False
+        if case_config is None and fuzz_tooling_path:
+            case_config = self._generate_ossfuzz_native_config(
+                project_path, fuzz_tooling_path, output_dir
+            )
+            generated_config = True
+
+        if case_config is None:
+            raise BitcodeError(
+                "No case config available and could not auto-locate build.sh "
+                "in fuzz tooling repo. Provide svf_case_config or fuzz_tooling_url."
+            )
+
+        # Parse PROJECT_NAME from case config for correct mount point
+        mount_name = Path(project_path).name  # fallback
+        try:
+            case_text = Path(case_config).read_text()
+            for line in case_text.splitlines():
+                line = line.strip()
+                if line.startswith("PROJECT_NAME="):
+                    mount_name = line.split("=", 1)[1].strip().strip('"').strip("'")
+                    break
+        except OSError:
+            pass
 
         # Use newline as delimiter to handle paths with spaces
         fuzzer_env = "\n".join(fuzzer_source_files)
@@ -148,7 +188,7 @@ class BitcodeGenerator:
             "run",
             "--rm",
             "-v",
-            f"{project_path}:/src/{Path(project_path).name}",
+            f"{project_path}:/src/{mount_name}",
             "-v",
             f"{str(svf_dir)}:/pipeline:ro",
             "-v",
@@ -157,21 +197,68 @@ class BitcodeGenerator:
             "SRC=/src",
             "-e",
             f"FUZZER_SOURCE_FILES={fuzzer_env}",
-            docker_image,
-            "bash",
-            "/pipeline/svf-pipeline.sh",
-            f"/pipeline/cases/{Path(case_config).name}",
         ]
 
-        logger.info("Running bitcode pipeline: %s", " ".join(cmd[:10]))
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-        except subprocess.TimeoutExpired:
-            raise BitcodeError("Bitcode generation timed out")
+        # Mount fuzz tooling repo if available (e.g. $SRC/curl_fuzzer)
+        if fuzz_tooling_path:
+            tooling_name = Path(fuzz_tooling_path).name
+            cmd.extend(["-v", f"{fuzz_tooling_path}:/src/{tooling_name}"])
 
-        if result.returncode != 0:
+        # For generated configs, mount the config file into the pipeline dir
+        if generated_config:
+            config_name = Path(case_config).name
+            cmd.extend(["-v", f"{case_config}:/pipeline/cases/{config_name}:ro"])
+            cmd.extend([
+                docker_image,
+                "bash",
+                "/pipeline/svf-pipeline.sh",
+                f"/pipeline/cases/{config_name}",
+            ])
+        else:
+            cmd.extend([
+                docker_image,
+                "bash",
+                "/pipeline/svf-pipeline.sh",
+                f"/pipeline/cases/{Path(case_config).name}",
+            ])
+
+        logger.info("Running bitcode pipeline: %s", " ".join(cmd[:10]))
+
+        # Stream build output to a log file so progress is visible during long builds.
+        # Also write to stdout/stderr in real time for interactive use.
+        log_path = Path(output_dir) / "build.log"
+        try:
+            with open(log_path, "w") as log_file:
+                proc = subprocess.Popen(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+                )
+                assert proc.stdout is not None
+                for line in proc.stdout:
+                    log_file.write(line)
+                    log_file.flush()
+                    # Log every line at DEBUG, but key milestones at INFO
+                    stripped = line.rstrip()
+                    if stripped.startswith("===") or stripped.startswith("SUCCESS"):
+                        logger.info("[build] %s", stripped)
+                    else:
+                        logger.debug("[build] %s", stripped)
+                proc.wait(timeout=600)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
             raise BitcodeError(
-                f"Bitcode generation failed (rc={result.returncode}): {result.stderr[-1000:]}"
+                f"Bitcode generation timed out after 600s. "
+                f"Build log: {log_path}"
+            )
+
+        if proc.returncode != 0:
+            # Read last 2000 chars from log for error message
+            try:
+                log_tail = log_path.read_text()[-2000:]
+            except OSError:
+                log_tail = "(no log)"
+            raise BitcodeError(
+                f"Bitcode generation failed (rc={proc.returncode}):\n{log_tail}"
             )
 
         bc_path = Path(output_dir) / "library.bc"
@@ -182,7 +269,9 @@ class BitcodeGenerator:
 
         function_metas = []
         if ll_path.exists():
-            function_metas = self._parse_ll_debug_info(ll_path, project_path)
+            function_metas = self._parse_ll_debug_info(
+                ll_path, project_path, docker_mount_name=mount_name
+            )
 
         # Enrich with source content and end_line from actual source files
         self._enrich_from_source(function_metas, project_path)
@@ -192,12 +281,109 @@ class BitcodeGenerator:
             function_metas=function_metas,
         )
 
+    @staticmethod
+    def _generate_ossfuzz_native_config(
+        project_path: str, fuzz_tooling_path: str, output_dir: str
+    ) -> str | None:
+        """Auto-generate an ossfuzz-native case config from a fuzz tooling repo.
+
+        Uses BuildScriptLocator to find build.sh, then writes a minimal
+        case config to output_dir.
+
+        Returns:
+            Path to the generated config, or None if build.sh not found.
+        """
+        from z_code_analyzer.build.locator import BuildScriptLocator
+
+        project_name = Path(project_path).name
+        locator = BuildScriptLocator()
+        build_sh = locator.locate(fuzz_tooling_path, project_name)
+        if build_sh is None:
+            return None
+
+        # Compute Docker-internal path for the build.sh
+        # fuzz_tooling is mounted at /src/<tooling_name>/
+        tooling_name = Path(fuzz_tooling_path).name
+        rel_build_sh = Path(build_sh).relative_to(fuzz_tooling_path)
+        docker_build_sh = f"/src/{tooling_name}/{rel_build_sh}"
+
+        config_path = Path(output_dir) / f"{project_name}_auto.sh"
+        config_content = (
+            f'#!/bin/bash\n'
+            f'# Auto-generated ossfuzz-native config for {project_name}\n'
+            f'PROJECT_NAME="{project_name}"\n'
+            f'BUILD_MODE="ossfuzz-native"\n'
+            f'OSSFUZZ_BUILD_SH="{docker_build_sh}"\n'
+        )
+        config_path.write_text(config_content)
+        logger.info(
+            "Generated ossfuzz-native config: %s (build.sh: %s)",
+            config_path,
+            docker_build_sh,
+        )
+        return str(config_path)
+
+    @staticmethod
+    def _clone_fuzz_tooling(
+        url: str, ref: str | None, output_dir: str
+    ) -> str:
+        """Clone external fuzz tooling repo (e.g. oss-fuzz harness) into output_dir.
+
+        Returns the cloned directory path.
+        """
+        tooling_dir = Path(output_dir) / "fuzz_tooling"
+        if tooling_dir.exists():
+            return str(tooling_dir)
+
+        clone_cmd = ["git", "clone", "--depth", "1"]
+        if ref:
+            clone_cmd.extend(["--branch", ref])
+        clone_cmd.extend([url, str(tooling_dir)])
+
+        logger.info("Cloning fuzz tooling: %s @ %s", url, ref or "HEAD")
+        try:
+            result = subprocess.run(
+                clone_cmd, capture_output=True, text=True, timeout=120
+            )
+        except subprocess.TimeoutExpired:
+            raise BitcodeError(f"Fuzz tooling clone timed out: {url}")
+
+        if result.returncode != 0:
+            # --branch may fail for commit hashes; retry without --depth
+            if ref:
+                clone_cmd2 = ["git", "clone", url, str(tooling_dir)]
+                try:
+                    result2 = subprocess.run(
+                        clone_cmd2, capture_output=True, text=True, timeout=300
+                    )
+                except subprocess.TimeoutExpired:
+                    raise BitcodeError(f"Fuzz tooling clone timed out: {url}")
+                if result2.returncode != 0:
+                    raise BitcodeError(
+                        f"Fuzz tooling clone failed: {result2.stderr or result2.stdout}"
+                    )
+                # Checkout specific ref
+                subprocess.run(
+                    ["git", "checkout", ref],
+                    cwd=str(tooling_dir),
+                    capture_output=True,
+                    text=True,
+                )
+            else:
+                raise BitcodeError(
+                    f"Fuzz tooling clone failed: {result.stderr or result.stdout}"
+                )
+
+        return str(tooling_dir)
+
     # Maximum .ll file size to read into memory (500 MB).
     # Larger files (e.g., full Chromium) need a streaming parser.
     _MAX_LL_SIZE = 500 * 1024 * 1024
 
     @staticmethod
-    def _parse_ll_debug_info(ll_path: Path, project_path: str) -> list[FunctionMeta]:
+    def _parse_ll_debug_info(
+        ll_path: Path, project_path: str, docker_mount_name: str | None = None
+    ) -> list[FunctionMeta]:
         """Parse LLVM IR .ll file to extract DISubprogram metadata."""
         file_size = ll_path.stat().st_size
         if file_size > BitcodeGenerator._MAX_LL_SIZE:
@@ -240,18 +426,25 @@ class BitcodeGenerator:
                     file_path = f"{directory}/{filename}"
                 else:
                     file_path = filename
-                # Strip common prefixes like /src/project_name/
+                # Strip Docker container prefix (e.g. /src/libpng/ → relative)
                 if file_path.startswith("/"):
-                    parts = file_path.split("/")
-                    # Try to find project root in path
-                    proj_name = Path(project_path).name
-                    # Find last occurrence to handle nested dirs with same name
-                    last_idx = None
-                    for i, p in enumerate(parts):
-                        if p == proj_name:
-                            last_idx = i
-                    if last_idx is not None:
-                        file_path = "/".join(parts[last_idx + 1 :])
+                    # Try docker mount name first (from case config PROJECT_NAME)
+                    # then fall back to project_path basename
+                    candidates = []
+                    if docker_mount_name:
+                        candidates.append(f"/src/{docker_mount_name}/")
+                    candidates.append(f"/src/{Path(project_path).name}/")
+                    stripped = False
+                    for prefix in candidates:
+                        if file_path.startswith(prefix):
+                            file_path = file_path[len(prefix):]
+                            stripped = True
+                            break
+                    if not stripped and file_path.startswith("/src/"):
+                        # Generic fallback: /src/<anything>/ → strip first two segments
+                        parts = file_path.split("/")
+                        if len(parts) > 3:  # ['', 'src', 'project', 'file.c', ...]
+                            file_path = "/".join(parts[3:])
             else:
                 file_path = ""
 
@@ -305,6 +498,14 @@ class BitcodeGenerator:
         enriched = sum(1 for m in metas if m.content)
         if metas:
             logger.info("Enriched %d/%d functions with source content", enriched, len(metas))
+            if enriched == 0 and by_file:
+                sample_paths = list(by_file.keys())[:5]
+                logger.warning(
+                    "No functions enriched! Sample file_paths from .ll: %s  "
+                    "project_path: %s — check if paths match actual source tree",
+                    sample_paths,
+                    root,
+                )
 
     @staticmethod
     def _find_function_end(lines: list[str], start_idx: int) -> int:

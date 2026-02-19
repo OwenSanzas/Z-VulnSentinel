@@ -39,6 +39,8 @@ z-analyze create-work -o work.json
 | `backend` | N | str | 分析后端，默认 `"auto"` |
 | `language` | N | str | 主语言（`"c"` / `"cpp"`），不传则自动探测 |
 | `fuzzer_sources` | Y | dict | fuzzer 名 → 源文件列表（list[str]） |
+| `fuzz_tooling_url` | N | str | 外部 fuzzer harness 仓库 URL（如 oss-fuzz），null = harness 在项目内 |
+| `fuzz_tooling_ref` | N | str | fuzz_tooling_url 的分支/tag/commit，null = 默认分支 |
 | `diff_files` | N | list[str] | 增量分析的变更文件 |
 | `ai_refine` | N | bool | 启用 AI 精化（v1 预留） |
 

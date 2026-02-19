@@ -1,0 +1,21 @@
+{
+  "// info": "libpng delta — same config, different version, tests snapshot cache miss",
+  "// expected": "similar to lp-full-01 but for v1.6.44",
+
+  "repo_url": "https://github.com/pnggroup/libpng.git",
+  "version": "v1.6.44",
+  "path": null,
+  "build_script": null,
+  "backend": "svf",
+  "language": "c",
+
+  "fuzzer_sources": {
+    "libpng_read_fuzzer": ["contrib/oss-fuzz/libpng_read_fuzzer.cc"]
+  },
+
+  "svf_docker_image": null,
+  "svf_case_config": "libpng",
+
+  "diff_files": null,
+  "ai_refine": false
+}

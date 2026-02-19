@@ -45,6 +45,7 @@ class FuzzerEntryParser:
         fuzzer_sources: dict[str, list[str]],
         library_functions: set[str],
         project_path: str,
+        extra_search_paths: list[str] | None = None,
     ) -> dict[str, list[str]]:
         """
         Parse all fuzzer sources and return library function calls.
@@ -53,12 +54,16 @@ class FuzzerEntryParser:
             fuzzer_sources: {fuzzer_name: [source_files]} from work order.
             library_functions: Set of all library function names (from SVF).
             project_path: Project root for resolving relative paths.
+            extra_search_paths: Additional directories to search for fuzzer source
+                files (e.g. extracted from Docker image).
 
         Returns:
             {fuzzer_name: [called_library_function_names]}
         """
         result: dict[str, list[str]] = {}
-        root = Path(project_path)
+        search_roots = [Path(project_path)]
+        if extra_search_paths:
+            search_roots.extend(Path(p) for p in extra_search_paths)
 
         for fuzzer_name, source_files in fuzzer_sources.items():
             # Collect all function definitions and calls from this fuzzer's files
@@ -66,9 +71,24 @@ class FuzzerEntryParser:
             all_defined: set[str] = set()
 
             for src_file in source_files:
-                src_path = root / src_file
-                if not src_path.exists():
-                    logger.warning("Fuzzer source not found: %s", src_path)
+                # Search in project_path first, then extra search paths
+                src_path = None
+                for root in search_roots:
+                    candidate = root / src_file
+                    if candidate.exists():
+                        src_path = candidate
+                        break
+                    # Also try just the filename (for external repos)
+                    candidate = root / Path(src_file).name
+                    if candidate.exists():
+                        src_path = candidate
+                        break
+                if src_path is None:
+                    logger.warning(
+                        "Fuzzer source not found: %s (searched %s)",
+                        src_file,
+                        [str(r) for r in search_roots],
+                    )
                     continue
 
                 content = src_path.read_text(errors="replace")

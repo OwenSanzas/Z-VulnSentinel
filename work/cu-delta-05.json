@@ -1,0 +1,23 @@
+{
+  "// info": "curl-001: CWE-134 Use of Externally-Controlled Format String in lib/dict.c + curl-002: CWE-787 Out-of-bounds Write in lib/ftp.c",
+
+  "repo_url": "git@github.com:aixcc-finals/afc-curl.git",
+  "version": "challenges/cu-delta-05",
+  "path": null,
+  "build_script": null,
+  "backend": "svf",
+  "language": "c",
+  "svf_case_config": "curl",
+  "svf_docker_image": "aixcc-afc/curl",
+
+  "fuzzer_sources": {
+    "curl_fuzzer_dict": ["curl_fuzzer.cc"],
+    "curl_fuzzer_ftp": ["curl_fuzzer.cc"]
+  },
+
+  "fuzz_tooling_url": "https://github.com/aixcc-finals/oss-fuzz-aixcc.git",
+  "fuzz_tooling_ref": "challenge-state/cu-delta-05",
+
+  "diff_files": null,
+  "ai_refine": false
+}

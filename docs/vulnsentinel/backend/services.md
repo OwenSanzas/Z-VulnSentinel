@@ -119,6 +119,7 @@ UserDAO.get_by_username(username)
 解码 refresh_token (验证签名 + 过期时间)
   → 无效或过期 → AuthenticationError("invalid refresh token")
   → payload.type != "refresh" → AuthenticationError("invalid token type")
+  → payload.sub 缺失 → AuthenticationError("invalid token payload")
   → 签发新 access_token (exp=30min, sub=payload.sub)
   → 返回 AccessToken { access_token, token_type: "bearer" }
 ```
@@ -168,7 +169,8 @@ UserDAO.get_by_username(username)
 LibraryDAO.get_by_id(id)
   → None → NotFoundError("library not found")
   → ProjectDependencyDAO.list_by_library(library.id)
-     → 组装 used_by: [{ project_id, constraint_expr, resolved_version, constraint_source }]
+     → 对每个 dep: ProjectDAO.get_by_id(dep.project_id) → project_name
+     → 组装 used_by: [{ project_id, project_name, constraint_expr, resolved_version, constraint_source }]
   → EventDAO.count(library_id=library.id)
      → events_tracked
   → 返回 LibraryDetailSchema
@@ -192,7 +194,7 @@ LibraryDAO.count()
 LibraryDAO.upsert_by_name(name, repo_url, platform, default_branch)
   → 新插入 → 返回新 Library
   → 已存在且 repo_url 一致 → 返回已有 Library
-  → 已存在但 repo_url 不一致 → 抛 LibraryConflictError（同名异 repo，防止 fork 覆盖）
+  → 已存在但 repo_url 不一致 → 抛 ConflictError（同名异 repo，防止 fork 覆盖）
 ```
 
 > `repo_url` 不设 UNIQUE 约束（monorepo 场景：一个 repo 可出多个库），去重仅靠 `name` UNIQUE。

@@ -21,7 +21,7 @@
 │  Client Vulnerabilities                                                          │
 │  ────────────────────────────────────────────────────────────────────────────     │
 │                                                                                  │
-│  Recorded: 4    Reported: 2    Confirmed: 1    Fixed: 0                          │
+│  Recorded: 4    Reported: 3    Confirmed: 1    Fixed: 0                          │
 │                                                                                  │
 │  ┌────┬──────────┬──────────────┬──────────────────────────┬────────┬──────────┐ │
 │  │ ## │ Date     │ Library      │ Summary                  │ Sev.   │ Status   │ │

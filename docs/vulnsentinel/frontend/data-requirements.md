@@ -328,14 +328,18 @@
 
 ### Client Impact（分页）
 
+字段结构同事件详情页 Client Impact：
+
 | 数据 | 类型 | 说明 |
 |------|------|------|
-| client_vuln_id | string | client_vuln 标识（可为空，分析中时无） |
 | project_id | string | 项目标识 |
 | project_name | string | 项目名 |
 | version_used | string | 使用版本 |
 | is_affected | bool | 是否受影响 |
-| status | string | pipeline 状态或 client_vuln 状态 |
+| analysis_status | enum | pending / path_searching / poc_generating / verified / not_affect / error |
+| error_message | string | 错误原因（仅 analysis_status=error 时有值） |
+| client_vuln_id | string | 分析完成后生成的 client_vuln 标识（可为空） |
+| client_vuln_status | enum | recorded / reported / confirmed / fixed / not_affect（可为空） |
 | updated_at | datetime | 最后更新时间 |
 
 ---

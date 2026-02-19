@@ -3,7 +3,7 @@
 > 路由: `/upstream-vuln/:id`
 > 数据来源：upstream_vulns 表
 
-从库详情页 Upstream Vulnerabilities 表中点击漏洞行进入，或从客户漏洞详情页点击上游漏洞引用进入。
+从库详情页 Upstream Vulnerabilities 表中点击漏洞行进入，或从事件详情页点击 Upstream Vulnerability 标题进入，或从客户漏洞详情页点击上游漏洞引用进入。
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐

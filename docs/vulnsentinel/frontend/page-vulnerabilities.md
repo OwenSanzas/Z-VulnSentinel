@@ -3,7 +3,7 @@
 > 路由: `/vulnerabilities`
 > 数据来源：client_vulns 表（客户漏洞）
 
-从主页 Vuln Recorded / Reported / Confirmed 卡片点击进入。卡片决定默认筛选状态。
+从主页 Vuln Recorded / Reported / Confirmed / Fixed 卡片点击进入。卡片决定默认筛选状态。
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐

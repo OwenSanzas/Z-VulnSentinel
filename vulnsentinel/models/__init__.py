@@ -1,0 +1,21 @@
+"""SQLAlchemy ORM models — one file per table."""
+
+from vulnsentinel.models.client_vuln import ClientVuln
+from vulnsentinel.models.event import Event
+from vulnsentinel.models.library import Library
+from vulnsentinel.models.project import Project
+from vulnsentinel.models.project_dependency import ProjectDependency
+from vulnsentinel.models.snapshot import Snapshot
+from vulnsentinel.models.upstream_vuln import UpstreamVuln
+from vulnsentinel.models.user import User
+
+__all__ = [
+    "User",
+    "Library",
+    "Project",
+    "ProjectDependency",
+    "Snapshot",
+    "Event",
+    "UpstreamVuln",
+    "ClientVuln",
+]

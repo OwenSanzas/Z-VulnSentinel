@@ -43,7 +43,7 @@
 | **Project** | 项目名 + 仓库地址 |
 | **Version** | 当前版本（tag 或 branch@commit） |
 | **Deps** | 依赖库数量 |
-| **Vulns** | 当前活跃 client_vulns 数（recorded + reported + confirmed） |
+| **Vulns** | 当前活跃 client_vulns 数（不含 fixed 和 not_affect） |
 | **Since** | 开始监控日期 |
 | **Last Update** | 最近一次代码更新时间 |
 

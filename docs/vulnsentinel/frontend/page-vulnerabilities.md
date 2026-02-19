@@ -61,10 +61,10 @@
 | **Project** | 下拉选择合作项目 | 按客户项目筛选 |
 | **Date** | Last 7 days / 30 days / 90 days / All time | 时间范围 |
 
-从主页卡片跳转时自动设置筛选：
-- 点 Vuln Recorded → Status = All
-- 点 Vuln Reported → Status = Reported
-- 点 Vuln Confirmed → Status = Confirmed
+从主页卡片跳转时自动设置筛选（向前包含，与卡片数字一致）：
+- 点 Vuln Recorded → Status = All（不含 not_affect）
+- 点 Vuln Reported → Status = Reported + Confirmed + Fixed
+- 点 Vuln Confirmed → Status = Confirmed + Fixed
 - 点 Vuln Fixed → Status = Fixed
 
 ## 列说明

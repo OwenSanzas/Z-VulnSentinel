@@ -67,7 +67,7 @@
 | repo_url | string | 仓库地址 |
 | current_version | string | 当前版本（tag 或 branch@commit） |
 | deps_count | int | 依赖库数量 |
-| vuln_count | int | 活跃客户漏洞数（client_vulns，不含 not_affect） |
+| vuln_count | int | 活跃客户漏洞数（client_vulns，不含 fixed 和 not_affect） |
 | monitoring_since | date | 开始监控日期 |
 | last_update_at | datetime | 最近一次代码更新时间 |
 

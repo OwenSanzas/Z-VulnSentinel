@@ -103,6 +103,7 @@ Client Impact 表中的 Status 列显示两种情况：
 | `poc_generating` | 找到可达路径，正在尝试生成 PoC |
 | `verified` | PoC 成功，已生成 client_vuln |
 | `not_affect` | 未找到可达路径或 PoC 失败，已生成 client_vuln |
+| `error` | 分析过程出错，显示 error_message |
 
 **分析完成（已生成 client_vuln）：**
 

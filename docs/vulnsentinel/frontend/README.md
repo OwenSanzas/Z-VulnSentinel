@@ -52,6 +52,7 @@ client_vulns (客户×上游漏洞，业务核心)
 |------|------|
 | `analyzing` | 已确认是 bugfix，正在分析漏洞类型、严重程度、影响版本范围 |
 | `published` | 分析完成，已开始检查客户影响 |
+| `error` | 分析过程出错（附 `error_message` 记录原因） |
 
 ### 客户漏洞状态（client vuln status）
 
@@ -78,3 +79,4 @@ client_vulns (客户×上游漏洞，业务核心)
 | `poc_generating` | 找到可达路径，正在尝试生成 PoC |
 | `verified` | PoC 成功，生成 client_vuln（status=recorded） |
 | `not_affect` | 未找到可达路径或 PoC 失败，生成 client_vuln（status=not_affect） |
+| `error` | 分析过程出错（附 `error_message` 记录原因） |

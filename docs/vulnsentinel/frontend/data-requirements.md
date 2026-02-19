@@ -100,6 +100,11 @@
 | summary | string | 漏洞简要描述（来自 upstream_vuln） |
 | severity | enum | critical / high / medium / low（来自 upstream_vuln） |
 | status | enum | recorded / reported / confirmed / fixed / not_affect |
+| recorded_at | datetime | 记录时间 |
+| reported_at | datetime | 通知客户时间（可为空） |
+| confirmed_at | datetime | PoC 确认时间（可为空） |
+| fixed_at | datetime | 修复时间（可为空） |
+| updated_at | datetime | 最后状态变更时间 |
 
 ### 统计摘要（筛选后）
 
@@ -146,9 +151,12 @@
 | commit_id | string | 触发的 commit SHA |
 | vuln_type | string | 漏洞类型（如 CWE-126 Buffer Over-read） |
 | severity | enum | critical / high / medium / low |
-| status | enum | analyzing / published |
+| status | enum | analyzing / published / error |
+| error_message | string | 错误原因（仅 status=error 时有值） |
 | affected_clients | list[object] | 受影响的客户项目列表，每项含 `project_id`, `project_name`, `client_vuln_status` |
-| detected_at | datetime | 检测时间 |
+| detected_at | datetime | 首次检测时间 |
+| published_at | datetime | 分析完成时间（status=published 时记录） |
+| updated_at | datetime | 最后状态变更时间 |
 
 ### Recent Commits（分页，数据来源：events 表）
 
@@ -241,8 +249,12 @@
 | vuln_type | string | 漏洞类型（如 CWE-126 Buffer Over-read） |
 | severity | enum | critical / high / medium / low |
 | affected_versions | string | 受影响版本范围 |
-| status | enum | analyzing / published |
+| status | enum | analyzing / published / error |
+| error_message | string | 错误原因（仅 status=error 时有值） |
 | reasoning | string | AI 对漏洞的详细分析推理 |
+| detected_at | datetime | 首次检测时间 |
+| published_at | datetime | 分析完成时间 |
+| updated_at | datetime | 最后状态变更时间 |
 
 ### Diff（实时从 GitHub 拉取，不入库）
 
@@ -262,7 +274,10 @@
 | project_name | string | 项目名 |
 | version_used | string | 使用版本 |
 | is_affected | bool | 是否受影响 |
-| analysis_status | enum | pending / path_searching / poc_generating / verified / not_affect |
+| analysis_status | enum | pending / path_searching / poc_generating / verified / not_affect / error |
+| error_message | string | 错误原因（仅 analysis_status=error 时有值） |
+| started_at | datetime | 开始分析时间 |
+| completed_at | datetime | 分析结束时间（可为空） |
 | client_vuln_id | string | 分析完成后生成的 client_vuln 标识（可为空） |
 | client_vuln_status | enum | recorded / reported / confirmed / fixed / not_affect（可为空） |
 

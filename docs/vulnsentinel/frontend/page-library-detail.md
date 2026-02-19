@@ -75,6 +75,7 @@
 - ⚠ 表示存在活跃 client_vuln（recorded / reported / confirmed）
 - ✅ 表示 not_affect 或 fixed
 - `analyzing` 表示 upstream_vuln 仍在分析中，尚未生成 client_vulns
+- `error` 表示分析失败，显示错误原因
 
 ## 交互
 

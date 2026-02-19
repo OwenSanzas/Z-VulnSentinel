@@ -149,7 +149,7 @@ UserDAO.get_by_username(username)
 
 ## 2. LibraryService
 
-**依赖 DAO：** LibraryDAO, ProjectDependencyDAO, EventDAO
+**依赖 DAO：** LibraryDAO, ProjectDAO, ProjectDependencyDAO, EventDAO
 
 ### 方法
 

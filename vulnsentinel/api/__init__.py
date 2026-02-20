@@ -12,6 +12,26 @@ from vulnsentinel.api.deps import dispose_engine, get_auth_service, init_session
 from vulnsentinel.api.errors import register_error_handlers
 from vulnsentinel.api.middleware.request_id import RequestIDMiddleware
 from vulnsentinel.core.logging import setup_logging
+
+BANNER = """
+\033[38;5;208m\
+    ██╗   ██╗██╗   ██╗██╗     ███╗   ██╗
+    ██║   ██║██║   ██║██║     ████╗  ██║
+    ██║   ██║██║   ██║██║     ██╔██╗ ██║
+    ╚██╗ ██╔╝██║   ██║██║     ██║╚██╗██║
+     ╚████╔╝ ╚██████╔╝███████╗██║ ╚████║
+      ╚═══╝   ╚═════╝ ╚══════╝╚═╝  ╚═══╝
+
+    ███████╗███████╗███╗   ██╗████████╗██╗███╗   ██╗███████╗██╗
+    ██╔════╝██╔════╝████╗  ██║╚══██╔══╝██║████╗  ██║██╔════╝██║
+    ███████╗█████╗  ██╔██╗ ██║   ██║   ██║██╔██╗ ██║█████╗  ██║
+    ╚════██║██╔══╝  ██║╚██╗██║   ██║   ██║██║╚██╗██║██╔══╝  ██║
+    ███████║███████╗██║ ╚████║   ██║   ██║██║ ╚████║███████╗███████╗
+    ╚══════╝╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝
+
+      Vulnerability Early Warning Platform v1.0
+      Developed by O2Lab @ Texas A&M University
+\033[0m"""
 from vulnsentinel.api.routers import (
     auth,
     client_vulns,
@@ -39,6 +59,7 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 def create_app() -> FastAPI:
     """Build and return the FastAPI application."""
     setup_logging()
+    print(BANNER)
 
     app = FastAPI(
         title="VulnSentinel",

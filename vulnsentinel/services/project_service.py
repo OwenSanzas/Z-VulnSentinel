@@ -26,7 +26,6 @@ class DependencyInput:
     library_repo_url: str
     constraint_expr: str | None = None
     resolved_version: str | None = None
-    constraint_source: str = "manifest"
     platform: str = "github"
     default_branch: str = "main"
 
@@ -157,12 +156,12 @@ class ProjectService:
                         "library_id": library.id,
                         "constraint_expr": dep.constraint_expr,
                         "resolved_version": dep.resolved_version,
-                        "constraint_source": dep.constraint_source,
+                        "constraint_source": "manual",
                     }
                 )
 
             # 4. Batch upsert dependencies
-            await self._dep_dao.batch_create(session, deps_rows)
+            await self._dep_dao.batch_upsert(session, deps_rows)
 
         return project
 
@@ -247,7 +246,7 @@ class ProjectService:
             platform=dependency.platform,
             default_branch=dependency.default_branch,
         )
-        rows = await self._dep_dao.batch_create(
+        rows = await self._dep_dao.batch_upsert(
             session,
             [
                 {
@@ -255,7 +254,7 @@ class ProjectService:
                     "library_id": library.id,
                     "constraint_expr": dependency.constraint_expr,
                     "resolved_version": dependency.resolved_version,
-                    "constraint_source": dependency.constraint_source,
+                    "constraint_source": "manual",
                 }
             ],
         )

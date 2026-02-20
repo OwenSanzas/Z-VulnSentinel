@@ -183,7 +183,7 @@ class TestCreate:
         service, proj_dao, dep_dao, _, lib_service = _make_service()
         proj_dao.get_by_field = AsyncMock(return_value=None)
         proj_dao.create = AsyncMock(return_value=project)
-        dep_dao.batch_create = AsyncMock(return_value=[])
+        dep_dao.batch_upsert = AsyncMock(return_value=[])
 
         # LibraryService.upsert returns different libraries per call
         lib_service.upsert = AsyncMock(side_effect=[lib_curl, lib_zlib])
@@ -223,9 +223,9 @@ class TestCreate:
         # Verify library upserts
         assert lib_service.upsert.await_count == 2
 
-        # Verify batch_create called with correct dep rows
-        dep_dao.batch_create.assert_awaited_once()
-        dep_rows = dep_dao.batch_create.call_args.args[1]
+        # Verify batch_upsert called with correct dep rows
+        dep_dao.batch_upsert.assert_awaited_once()
+        dep_rows = dep_dao.batch_upsert.call_args.args[1]
         assert len(dep_rows) == 2
         assert dep_rows[0]["project_id"] == project.id
         assert dep_rows[0]["library_id"] == lib_curl.id
@@ -238,7 +238,7 @@ class TestCreate:
         service, proj_dao, dep_dao, _, _ = _make_service()
         proj_dao.get_by_field = AsyncMock(return_value=None)
         proj_dao.create = AsyncMock(return_value=project)
-        dep_dao.batch_create = AsyncMock()
+        dep_dao.batch_upsert = AsyncMock()
 
         result = await service.create(
             AsyncMock(),
@@ -247,14 +247,14 @@ class TestCreate:
         )
 
         assert result is project
-        dep_dao.batch_create.assert_not_awaited()
+        dep_dao.batch_upsert.assert_not_awaited()
 
     async def test_create_empty_dependencies_list(self):
         project = _make_project()
         service, proj_dao, dep_dao, _, _ = _make_service()
         proj_dao.get_by_field = AsyncMock(return_value=None)
         proj_dao.create = AsyncMock(return_value=project)
-        dep_dao.batch_create = AsyncMock()
+        dep_dao.batch_upsert = AsyncMock()
 
         result = await service.create(
             AsyncMock(),
@@ -264,7 +264,7 @@ class TestCreate:
         )
 
         assert result is project
-        dep_dao.batch_create.assert_not_awaited()
+        dep_dao.batch_upsert.assert_not_awaited()
 
     async def test_create_passes_all_project_fields(self):
         project = _make_project()
@@ -298,6 +298,5 @@ class TestCreate:
         )
         assert dep.constraint_expr is None
         assert dep.resolved_version is None
-        assert dep.constraint_source == "manifest"
         assert dep.platform == "github"
         assert dep.default_branch == "main"

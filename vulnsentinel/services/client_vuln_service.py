@@ -7,7 +7,8 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vulnsentinel.dao.client_vuln_dao import ClientVulnDAO, ClientVulnFilters
+from vulnsentinel.dao.client_vuln_dao import ClientVulnDAO
+from vulnsentinel.dao.client_vuln_dao import ClientVulnFilters as ClientVulnFilters  # re-export
 from vulnsentinel.dao.upstream_vuln_dao import UpstreamVulnDAO
 from vulnsentinel.models.client_vuln import ClientVuln
 from vulnsentinel.services import NotFoundError, ValidationError

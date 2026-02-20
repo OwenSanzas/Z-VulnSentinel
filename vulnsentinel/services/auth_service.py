@@ -31,6 +31,9 @@ def _verify_password(password: str, password_hash: str) -> bool:
 # JWT configuration
 # ---------------------------------------------------------------------------
 
+# Pre-computed bcrypt hash for timing-safe login (user-not-found path)
+_DUMMY_HASH = bcrypt.hashpw(b"dummy", bcrypt.gensalt()).decode()
+
 _ALGORITHM = "HS256"
 _ACCESS_TOKEN_EXPIRE = timedelta(minutes=30)
 _REFRESH_TOKEN_EXPIRE = timedelta(days=7)
@@ -123,7 +126,11 @@ class AuthService:
         Does not distinguish between "user not found" and "wrong password".
         """
         user = await self._user_dao.get_by_username(session, username)
-        if user is None or not _verify_password(password, user.password_hash):
+        if user is None:
+            # Constant-time: run bcrypt even when user doesn't exist
+            _verify_password(password, _DUMMY_HASH)
+            raise AuthenticationError("invalid credentials")
+        if not _verify_password(password, user.password_hash):
             raise AuthenticationError("invalid credentials")
 
         secret = _get_secret()

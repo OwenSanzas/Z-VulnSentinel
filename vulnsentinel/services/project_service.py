@@ -11,7 +11,7 @@ from vulnsentinel.dao.client_vuln_dao import ClientVulnDAO
 from vulnsentinel.dao.project_dao import ProjectDAO
 from vulnsentinel.dao.project_dependency_dao import ProjectDependencyDAO
 from vulnsentinel.models.project import Project
-from vulnsentinel.services import NotFoundError
+from vulnsentinel.services import ConflictError, NotFoundError
 from vulnsentinel.services.library_service import LibraryService
 
 
@@ -113,7 +113,12 @@ class ProjectService:
         LibraryService (idempotent). Dependencies are batch-upserted via
         ON CONFLICT DO UPDATE (idempotent).
         """
-        # 1. Create project
+        # 1. Check uniqueness
+        existing = await self._project_dao.get_by_field(session, repo_url=repo_url)
+        if existing is not None:
+            raise ConflictError(f"project with repo_url '{repo_url}' already exists")
+
+        # 2. Create project
         project = await self._project_dao.create(
             session,
             name=name,
@@ -124,7 +129,7 @@ class ProjectService:
             default_branch=default_branch,
         )
 
-        # 2. Register dependencies
+        # 3. Register dependencies
         if dependencies:
             deps_rows = []
             for dep in dependencies:
@@ -145,7 +150,7 @@ class ProjectService:
                     }
                 )
 
-            # 3. Batch upsert dependencies
+            # 4. Batch upsert dependencies
             await self._dep_dao.batch_create(session, deps_rows)
 
         return project

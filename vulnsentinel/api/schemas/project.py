@@ -1,0 +1,57 @@
+"""Project request/response schemas."""
+
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict
+
+
+class DependencyInputSchema(BaseModel):
+    library_name: str
+    library_repo_url: str
+    constraint_expr: str | None = None
+    resolved_version: str | None = None
+    constraint_source: str = "manifest"
+    platform: str = "github"
+    default_branch: str = "main"
+
+
+class CreateProjectRequest(BaseModel):
+    name: str
+    repo_url: str
+    organization: str | None = None
+    contact: str | None = None
+    platform: str = "github"
+    default_branch: str = "main"
+    dependencies: list[DependencyInputSchema] | None = None
+
+
+class ProjectResponse(BaseModel):
+    """Base project fields (used for create response)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    organization: str | None
+    repo_url: str
+    platform: str
+    default_branch: str
+    contact: str | None
+    current_version: str | None
+    monitoring_since: datetime
+    last_update_at: datetime | None
+    created_at: datetime
+
+
+class ProjectListItem(ProjectResponse):
+    """Project with computed counts (used in list/detail)."""
+
+    deps_count: int
+    vuln_count: int
+
+
+class ProjectDetail(ProjectListItem):
+    pass

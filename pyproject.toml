@@ -20,6 +20,7 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "structlog>=24.0",
+    "tomli>=2.0;python_version<'3.11'",
 ]
 
 [project.optional-dependencies]

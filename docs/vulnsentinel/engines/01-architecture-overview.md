@@ -119,3 +119,91 @@ LLM 改变了这一点。它能在语义层面理解 diff：
 | **Backend** | FastAPI | API 网关，认证鉴权，任务调度，引擎编排，WebSocket 推送 |
 | **Storage** | PostgreSQL + Neo4j + Disk | PostgreSQL：业务数据（客户、项目、依赖、漏洞、分析结果）；Neo4j：函数调用图与可达性分析；Disk：静态分析 snapshot 文件 |
 | **Engines** | Python 模块 | 各独立引擎：依赖监控、commit 语义分析（LLM）、静态分析（z_code_analyzer）、调用图搜索、PoC 生成（FuzzingBrain） |
+
+---
+
+## 引擎定义
+
+7 个引擎 + 1 个调度层，覆盖从"监控上游代码变更"到"通知下游项目负责人"的完整链路。
+
+### 引擎流水线
+
+```
+Event Collector → Event Classifier → Vuln Analyzer → Impact Engine → Reachability Analyzer → Notification Engine
+                                                                            ↑
+                                                                     Snapshot Builder
+```
+
+### 引擎列表
+
+| # | 引擎 | 对应十步流程 | 输入 | 输出 | 核心能力 |
+|---|------|-------------|------|------|---------|
+| 1 | **Event Collector** | 步骤 4-5 | Library 列表 | Event 记录 | GitHub API 拉取 commit / PR / tag / issue |
+| 2 | **Event Classifier** | 步骤 6 | 未分类 Event | classification + confidence | LLM 语义分析 diff，判断是否为 security_bugfix |
+| 3 | **Vuln Analyzer** | 步骤 7 | security_bugfix Event | UpstreamVuln 记录 | LLM 分析漏洞类型、严重度、影响版本、上游 PoC |
+| 4 | **Impact Engine** | 步骤 8（版本匹配部分） | 已 publish 的 UpstreamVuln | ClientVuln 记录 | 版本约束比对，判断哪些项目受影响 |
+| 5 | **Reachability Analyzer** | 步骤 8-9 | pending ClientVuln + Snapshot | 可达路径 + PoC 结果 | 调用图 BFS + PoC 生成 |
+| 6 | **Snapshot Builder** | （基础设施） | Project 信息 | Snapshot 记录 | SVF/Joern 静态分析，构建调用图 |
+| 7 | **Notification Engine** | 步骤 10 | verified ClientVuln | 通知记录 | 邮件 / Webhook / 站内消息 |
+
+### 引擎间数据流
+
+```
+┌──────────────┐     Event      ┌──────────────────┐  security_bugfix  ┌────────────────┐
+│    Event     │ ──────────────→│     Event        │ ────────────────→│     Vuln       │
+│  Collector   │   batch_create │   Classifier     │ update_classif.  │   Analyzer     │
+└──────────────┘                └──────────────────┘                  └───────┬────────┘
+                                                                             │ create + publish
+                                                                             ▼
+┌──────────────┐                ┌──────────────────┐  create          ┌────────────────┐
+│ Notification │ ←──────────────│  Reachability    │ ←────────────────│    Impact      │
+│   Engine     │   finalize     │   Analyzer       │  ClientVuln      │    Engine      │
+└──────────────┘                └────────┬─────────┘                  └────────────────┘
+                                         │
+                                         │ 依赖
+                                         ▼
+                                ┌──────────────────┐
+                                │    Snapshot      │
+                                │    Builder       │
+                                └──────────────────┘
+```
+
+### Service 接口映射
+
+每个引擎通过已有的 Service 层读写数据，不直接操作数据库：
+
+| 引擎 | 读取 | 写入 |
+|------|------|------|
+| Event Collector | `LibraryService.list()` | `EventService.batch_create()` |
+| Event Classifier | `EventService.list_unclassified()` | `EventService.update_classification()` |
+| Vuln Analyzer | `EventService.list_bugfix_without_vuln()` | `UpstreamVulnService.create()` → `update_analysis()` → `publish()` |
+| Impact Engine | 已 publish 的 UpstreamVuln + ProjectDependency | `ClientVulnService.create()` |
+| Reachability Analyzer | `ClientVulnService.list_pending_pipeline()` | `ClientVulnService.update_pipeline()` → `finalize()` |
+| Snapshot Builder | Project 信息 | `SnapshotService.create()` → `update_status()` → `activate()` |
+| Notification Engine | 已 verified 未通知的 ClientVuln | 发送通知 + 更新 ClientVuln 状态 |
+
+---
+
+## 调度层
+
+引擎不自行管理触发时机，由统一的 Scheduler 调度。
+
+### 触发策略
+
+| 引擎 | 触发方式 | 说明 |
+|------|---------|------|
+| Event Collector | 定时轮询 | 每 N 分钟 per library，GitHub API rate limit 感知 |
+| Event Classifier | 链式触发 / 定时兜底 | Collector 完成后立即触发；定时兜底处理遗漏 |
+| Vuln Analyzer | 链式触发 | Classifier 产出 security_bugfix 后触发 |
+| Impact Engine | 链式触发 | Vuln publish 后触发 |
+| Reachability Analyzer | 链式触发 | ClientVuln 创建后触发（需 Snapshot 就绪） |
+| Snapshot Builder | 事件触发 + 定时 | 新项目注册 / 上游漏洞 / 手动 / 定时重建 |
+| Notification Engine | 链式触发 / 定时兜底 | finalize(is_affected=True) 后触发；定时兜底 |
+
+### 调度方案选择
+
+具体技术方案（APScheduler / Celery / 简单 asyncio loop）在各引擎设计文档确定后再决定。核心原则：
+
+- **链式触发为主**：上游引擎完成后直接触发下游，减少延迟
+- **定时兜底为辅**：防止链式触发丢失（进程重启、异常中断等）
+- **幂等性**：所有引擎必须支持重复执行不产生副作用（Service 层已保证 batch_create ON CONFLICT DO NOTHING）

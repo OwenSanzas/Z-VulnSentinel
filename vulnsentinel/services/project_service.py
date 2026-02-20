@@ -10,7 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from vulnsentinel.dao.client_vuln_dao import ClientVulnDAO
 from vulnsentinel.dao.project_dao import ProjectDAO
 from vulnsentinel.dao.project_dependency_dao import ProjectDependencyDAO
+from vulnsentinel.models.library import Library
 from vulnsentinel.models.project import Project
+from vulnsentinel.models.project_dependency import ProjectDependency
 from vulnsentinel.services import ConflictError, NotFoundError
 from vulnsentinel.services.library_service import LibraryService
 
@@ -154,3 +156,100 @@ class ProjectService:
             await self._dep_dao.batch_create(session, deps_rows)
 
         return project
+
+    # ── dependency management ─────────────────────────────────────────
+
+    async def list_dependencies(
+        self,
+        session: AsyncSession,
+        project_id: uuid.UUID,
+        cursor: str | None = None,
+        page_size: int = 20,
+    ) -> dict:
+        """Return paginated dependencies for a project, enriched with library_name."""
+        await self._ensure_project(session, project_id)
+        page = await self._dep_dao.list_by_project(session, project_id, cursor, page_size)
+
+        items = []
+        for dep in page.data:
+            lib = await session.get(Library, dep.library_id)
+            items.append({"dep": dep, "library_name": lib.name if lib else ""})
+
+        return {
+            "data": items,
+            "next_cursor": page.next_cursor,
+            "has_more": page.has_more,
+        }
+
+    async def add_dependency(
+        self,
+        session: AsyncSession,
+        project_id: uuid.UUID,
+        dependency: DependencyInput,
+    ) -> dict:
+        """Add a single dependency (upsert library + create dep row)."""
+        await self._ensure_project(session, project_id)
+
+        library = await self._library_service.upsert(
+            session,
+            name=dependency.library_name,
+            repo_url=dependency.library_repo_url,
+            platform=dependency.platform,
+            default_branch=dependency.default_branch,
+        )
+        rows = await self._dep_dao.batch_create(
+            session,
+            [
+                {
+                    "project_id": project_id,
+                    "library_id": library.id,
+                    "constraint_expr": dependency.constraint_expr,
+                    "resolved_version": dependency.resolved_version,
+                    "constraint_source": dependency.constraint_source,
+                }
+            ],
+        )
+        return {"dep": rows[0], "library_name": library.name}
+
+    async def remove_dependency(
+        self,
+        session: AsyncSession,
+        project_id: uuid.UUID,
+        dep_id: uuid.UUID,
+    ) -> None:
+        """Delete a dependency (must belong to the project)."""
+        dep = await self._get_dep_for_project(session, project_id, dep_id)
+        await self._dep_dao.delete(session, dep.id)
+
+    async def update_dependency_notify(
+        self,
+        session: AsyncSession,
+        project_id: uuid.UUID,
+        dep_id: uuid.UUID,
+        notify_enabled: bool,
+    ) -> dict:
+        """Toggle notify_enabled for a dependency."""
+        dep = await self._get_dep_for_project(session, project_id, dep_id)
+        updated = await self._dep_dao.update(session, dep.id, notify_enabled=notify_enabled)
+        lib = await session.get(Library, updated.library_id)  # type: ignore[union-attr]
+        return {"dep": updated, "library_name": lib.name if lib else ""}
+
+    # ── private helpers ───────────────────────────────────────────────
+
+    async def _ensure_project(self, session: AsyncSession, project_id: uuid.UUID) -> Project:
+        project = await self._project_dao.get_by_id(session, project_id)
+        if project is None:
+            raise NotFoundError("project not found")
+        return project
+
+    async def _get_dep_for_project(
+        self,
+        session: AsyncSession,
+        project_id: uuid.UUID,
+        dep_id: uuid.UUID,
+    ) -> ProjectDependency:
+        await self._ensure_project(session, project_id)
+        dep = await self._dep_dao.get_by_id(session, dep_id)
+        if dep is None or dep.project_id != project_id:
+            raise NotFoundError("dependency not found")
+        return dep

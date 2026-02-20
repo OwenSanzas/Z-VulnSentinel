@@ -18,9 +18,12 @@ from vulnsentinel.api.schemas.client_vuln import ClientVulnListItem
 from vulnsentinel.api.schemas.common import PageMeta, PaginatedResponse
 from vulnsentinel.api.schemas.project import (
     CreateProjectRequest,
+    DependencyInputSchema,
+    DependencyResponse,
     ProjectDetail,
     ProjectListItem,
     ProjectResponse,
+    UpdateDependencyRequest,
 )
 from vulnsentinel.api.schemas.snapshot import CreateSnapshotRequest, SnapshotResponse
 from vulnsentinel.models.user import User
@@ -179,3 +182,100 @@ async def list_project_vulns(
             has_more=result["has_more"],
         ),
     )
+
+
+# ── Dependencies sub-resource ────────────────────────────────────────
+
+
+def _dep_response(item: dict) -> DependencyResponse:
+    dep = item["dep"]
+    return DependencyResponse(
+        id=dep.id,
+        library_id=dep.library_id,
+        library_name=item["library_name"],
+        constraint_expr=dep.constraint_expr,
+        resolved_version=dep.resolved_version,
+        constraint_source=dep.constraint_source,
+        notify_enabled=dep.notify_enabled,
+        created_at=dep.created_at,
+    )
+
+
+@router.get(
+    "/{project_id}/dependencies",
+    response_model=PaginatedResponse[DependencyResponse],
+)
+async def list_project_dependencies(
+    project_id: uuid.UUID,
+    cursor: str | None = Query(None),
+    page_size: int = Query(20, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+    _user: User = Depends(get_current_user),
+    svc: ProjectService = Depends(get_project_service),
+) -> PaginatedResponse[DependencyResponse]:
+    result = await svc.list_dependencies(session, project_id, cursor=cursor, page_size=page_size)
+    return PaginatedResponse(
+        data=[_dep_response(item) for item in result["data"]],
+        meta=PageMeta(
+            next_cursor=result["next_cursor"],
+            has_more=result["has_more"],
+        ),
+    )
+
+
+@router.post(
+    "/{project_id}/dependencies",
+    response_model=DependencyResponse,
+    status_code=201,
+)
+async def add_project_dependency(
+    project_id: uuid.UUID,
+    body: DependencyInputSchema,
+    session: AsyncSession = Depends(get_session),
+    _user: User = Depends(get_current_user),
+    svc: ProjectService = Depends(get_project_service),
+) -> DependencyResponse:
+    result = await svc.add_dependency(
+        session,
+        project_id,
+        DependencyInput(
+            library_name=body.library_name,
+            library_repo_url=body.library_repo_url,
+            constraint_expr=body.constraint_expr,
+            resolved_version=body.resolved_version,
+            constraint_source=body.constraint_source,
+            platform=body.platform,
+            default_branch=body.default_branch,
+        ),
+    )
+    return _dep_response(result)
+
+
+@router.delete(
+    "/{project_id}/dependencies/{dep_id}",
+    status_code=204,
+)
+async def remove_project_dependency(
+    project_id: uuid.UUID,
+    dep_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    _user: User = Depends(get_current_user),
+    svc: ProjectService = Depends(get_project_service),
+) -> None:
+    await svc.remove_dependency(session, project_id, dep_id)
+
+
+@router.patch(
+    "/{project_id}/dependencies/{dep_id}",
+    response_model=DependencyResponse,
+)
+async def update_project_dependency(
+    project_id: uuid.UUID,
+    dep_id: uuid.UUID,
+    body: UpdateDependencyRequest,
+    session: AsyncSession = Depends(get_session),
+    _user: User = Depends(get_current_user),
+    svc: ProjectService = Depends(get_project_service),
+) -> DependencyResponse:
+    result = await svc.update_dependency_notify(session, project_id, dep_id, body.notify_enabled)
+    return _dep_response(result)

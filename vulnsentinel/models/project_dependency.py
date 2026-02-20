@@ -3,7 +3,7 @@
 import uuid
 from typing import Optional
 
-from sqlalchemy import ForeignKey, Index, Text, UniqueConstraint, func, text
+from sqlalchemy import Boolean, ForeignKey, Index, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -29,6 +29,9 @@ class ProjectDependency(TimestampMixin, Base):
     constraint_expr: Mapped[Optional[str]] = mapped_column(Text)
     resolved_version: Mapped[Optional[str]] = mapped_column(Text)
     constraint_source: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    notify_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("true")
+    )
 
     __table_args__ = (
         UniqueConstraint(

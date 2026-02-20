@@ -55,3 +55,20 @@ class ProjectListItem(ProjectResponse):
 
 class ProjectDetail(ProjectListItem):
     pass
+
+
+class DependencyResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    library_id: uuid.UUID
+    library_name: str
+    constraint_expr: str | None
+    resolved_version: str | None
+    constraint_source: str
+    notify_enabled: bool
+    created_at: datetime
+
+
+class UpdateDependencyRequest(BaseModel):
+    notify_enabled: bool

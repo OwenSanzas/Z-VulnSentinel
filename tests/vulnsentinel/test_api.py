@@ -17,6 +17,7 @@ from vulnsentinel.models.client_vuln import ClientVuln
 from vulnsentinel.models.event import Event
 from vulnsentinel.models.library import Library
 from vulnsentinel.models.project import Project
+from vulnsentinel.models.project_dependency import ProjectDependency
 from vulnsentinel.models.snapshot import Snapshot
 from vulnsentinel.models.upstream_vuln import UpstreamVuln
 from vulnsentinel.models.user import User
@@ -140,6 +141,24 @@ def _upstream_vuln(vuln_id: uuid.UUID | None = None) -> UpstreamVuln:
         upstream_poc=None,
         detected_at=NOW,
         published_at=NOW,
+        created_at=NOW,
+        updated_at=NOW,
+    )
+
+
+def _project_dependency(
+    dep_id: uuid.UUID | None = None,
+    project_id: uuid.UUID | None = None,
+    library_id: uuid.UUID | None = None,
+) -> ProjectDependency:
+    return ProjectDependency(
+        id=dep_id or uuid.uuid4(),
+        project_id=project_id or uuid.uuid4(),
+        library_id=library_id or uuid.uuid4(),
+        constraint_expr=">=7.0",
+        resolved_version="8.4.0",
+        constraint_source="manifest",
+        notify_enabled=True,
         created_at=NOW,
         updated_at=NOW,
     )
@@ -1099,3 +1118,123 @@ class TestErrorHandlers:
             json={"username": "x", "password": "y"},
         )
         assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Project Dependencies tests
+# ---------------------------------------------------------------------------
+
+
+class TestProjectDependenciesRouter:
+    @pytest.mark.asyncio
+    async def test_list_dependencies(self, app, client):
+        from vulnsentinel.api import deps
+
+        proj_id = uuid.uuid4()
+        dep = _project_dependency(project_id=proj_id)
+
+        mock_svc = AsyncMock()
+        mock_svc.list_dependencies = AsyncMock(
+            return_value={
+                "data": [{"dep": dep, "library_name": "curl"}],
+                "next_cursor": None,
+                "has_more": False,
+            }
+        )
+        app.dependency_overrides[deps.get_project_service] = lambda: mock_svc
+
+        resp = await client.get(f"/api/v1/projects/{proj_id}/dependencies")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["data"]) == 1
+        assert data["data"][0]["library_name"] == "curl"
+        assert data["data"][0]["notify_enabled"] is True
+
+    @pytest.mark.asyncio
+    async def test_add_dependency(self, app, client):
+        from vulnsentinel.api import deps
+
+        proj_id = uuid.uuid4()
+        dep = _project_dependency(project_id=proj_id)
+
+        mock_svc = AsyncMock()
+        mock_svc.add_dependency = AsyncMock(return_value={"dep": dep, "library_name": "curl"})
+        app.dependency_overrides[deps.get_project_service] = lambda: mock_svc
+
+        resp = await client.post(
+            f"/api/v1/projects/{proj_id}/dependencies",
+            json={
+                "library_name": "curl",
+                "library_repo_url": "https://github.com/curl/curl",
+                "constraint_expr": ">=7.0",
+            },
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["library_name"] == "curl"
+        assert data["constraint_expr"] == ">=7.0"
+
+    @pytest.mark.asyncio
+    async def test_remove_dependency(self, app, client):
+        from vulnsentinel.api import deps
+
+        proj_id = uuid.uuid4()
+        dep_id = uuid.uuid4()
+
+        mock_svc = AsyncMock()
+        mock_svc.remove_dependency = AsyncMock(return_value=None)
+        app.dependency_overrides[deps.get_project_service] = lambda: mock_svc
+
+        resp = await client.delete(f"/api/v1/projects/{proj_id}/dependencies/{dep_id}")
+        assert resp.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_remove_dependency_not_found(self, app, client):
+        from vulnsentinel.api import deps
+
+        mock_svc = AsyncMock()
+        mock_svc.remove_dependency = AsyncMock(side_effect=NotFoundError("dependency not found"))
+        app.dependency_overrides[deps.get_project_service] = lambda: mock_svc
+
+        resp = await client.delete(f"/api/v1/projects/{uuid.uuid4()}/dependencies/{uuid.uuid4()}")
+        assert resp.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_update_dependency_notify(self, app, client):
+        from vulnsentinel.api import deps
+
+        proj_id = uuid.uuid4()
+        dep_id = uuid.uuid4()
+        dep = _project_dependency(dep_id=dep_id, project_id=proj_id)
+        dep.notify_enabled = False
+
+        mock_svc = AsyncMock()
+        mock_svc.update_dependency_notify = AsyncMock(
+            return_value={"dep": dep, "library_name": "curl"}
+        )
+        app.dependency_overrides[deps.get_project_service] = lambda: mock_svc
+
+        resp = await client.patch(
+            f"/api/v1/projects/{proj_id}/dependencies/{dep_id}",
+            json={"notify_enabled": False},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["notify_enabled"] is False
+        assert data["library_name"] == "curl"
+
+    @pytest.mark.asyncio
+    async def test_update_dependency_not_found(self, app, client):
+        from vulnsentinel.api import deps
+
+        mock_svc = AsyncMock()
+        mock_svc.update_dependency_notify = AsyncMock(
+            side_effect=NotFoundError("dependency not found")
+        )
+        app.dependency_overrides[deps.get_project_service] = lambda: mock_svc
+
+        resp = await client.patch(
+            f"/api/v1/projects/{uuid.uuid4()}/dependencies/{uuid.uuid4()}",
+            json={"notify_enabled": True},
+        )
+        assert resp.status_code == 404

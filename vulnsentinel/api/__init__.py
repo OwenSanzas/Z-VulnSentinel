@@ -11,6 +11,16 @@ from fastapi.responses import JSONResponse
 from vulnsentinel.api.deps import dispose_engine, get_auth_service, init_session_factory
 from vulnsentinel.api.errors import register_error_handlers
 from vulnsentinel.api.middleware.request_id import RequestIDMiddleware
+from vulnsentinel.api.routers import (
+    auth,
+    client_vulns,
+    events,
+    libraries,
+    projects,
+    snapshots,
+    stats,
+    upstream_vulns,
+)
 from vulnsentinel.core.logging import setup_logging
 
 BANNER = """
@@ -32,16 +42,6 @@ BANNER = """
       Vulnerability Early Warning Platform v1.0
       Developed by O2Lab @ Texas A&M University
 \033[0m"""
-from vulnsentinel.api.routers import (
-    auth,
-    client_vulns,
-    events,
-    libraries,
-    projects,
-    snapshots,
-    stats,
-    upstream_vulns,
-)
 
 
 @asynccontextmanager

@@ -1,0 +1,151 @@
+"""ProjectService — project onboarding and management."""
+
+from __future__ import annotations
+
+import uuid
+from dataclasses import dataclass
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from vulnsentinel.dao.client_vuln_dao import ClientVulnDAO
+from vulnsentinel.dao.project_dao import ProjectDAO
+from vulnsentinel.dao.project_dependency_dao import ProjectDependencyDAO
+from vulnsentinel.models.project import Project
+from vulnsentinel.services import NotFoundError
+from vulnsentinel.services.library_service import LibraryService
+
+
+@dataclass
+class DependencyInput:
+    """Input for a single dependency during project creation."""
+
+    library_name: str
+    library_repo_url: str
+    constraint_expr: str | None = None
+    resolved_version: str | None = None
+    constraint_source: str = "manifest"
+    platform: str = "github"
+    default_branch: str = "main"
+
+
+class ProjectService:
+    """Stateless service for project CRUD and client onboarding."""
+
+    def __init__(
+        self,
+        project_dao: ProjectDAO,
+        project_dependency_dao: ProjectDependencyDAO,
+        client_vuln_dao: ClientVulnDAO,
+        library_service: LibraryService,
+    ) -> None:
+        self._project_dao = project_dao
+        self._dep_dao = project_dependency_dao
+        self._client_vuln_dao = client_vuln_dao
+        self._library_service = library_service
+
+    async def get(self, session: AsyncSession, project_id: uuid.UUID) -> dict:
+        """Return project detail with deps_count and vuln_count.
+
+        Raises :class:`NotFoundError` if the project does not exist.
+        """
+        project = await self._project_dao.get_by_id(session, project_id)
+        if project is None:
+            raise NotFoundError("project not found")
+
+        deps_count = await self._dep_dao.count_by_project(session, project.id)
+        vuln_count = await self._client_vuln_dao.active_count_by_project(session, project.id)
+
+        return {
+            "project": project,
+            "deps_count": deps_count,
+            "vuln_count": vuln_count,
+        }
+
+    async def list(
+        self,
+        session: AsyncSession,
+        cursor: str | None = None,
+        page_size: int = 20,
+    ) -> dict:
+        """Return paginated project list with deps_count and vuln_count per project."""
+        page = await self._project_dao.list_paginated(session, cursor, page_size)
+        total = await self._project_dao.count(session)
+
+        # v1: loop per project for counts; v2: batch subquery
+        items = []
+        for project in page.data:
+            deps_count = await self._dep_dao.count_by_project(session, project.id)
+            vuln_count = await self._client_vuln_dao.active_count_by_project(session, project.id)
+            items.append(
+                {
+                    "project": project,
+                    "deps_count": deps_count,
+                    "vuln_count": vuln_count,
+                }
+            )
+
+        return {
+            "data": items,
+            "next_cursor": page.next_cursor,
+            "has_more": page.has_more,
+            "total": total,
+        }
+
+    async def count(self, session: AsyncSession) -> int:
+        """Return total number of projects."""
+        return await self._project_dao.count(session)
+
+    async def create(
+        self,
+        session: AsyncSession,
+        *,
+        name: str,
+        repo_url: str,
+        organization: str | None = None,
+        contact: str | None = None,
+        platform: str = "github",
+        default_branch: str = "main",
+        dependencies: list[DependencyInput] | None = None,
+    ) -> Project:
+        """Create a project and register its dependencies (single transaction).
+
+        For each dependency, the corresponding library is upserted via
+        LibraryService (idempotent). Dependencies are batch-upserted via
+        ON CONFLICT DO UPDATE (idempotent).
+        """
+        # 1. Create project
+        project = await self._project_dao.create(
+            session,
+            name=name,
+            repo_url=repo_url,
+            organization=organization,
+            contact=contact,
+            platform=platform,
+            default_branch=default_branch,
+        )
+
+        # 2. Register dependencies
+        if dependencies:
+            deps_rows = []
+            for dep in dependencies:
+                library = await self._library_service.upsert(
+                    session,
+                    name=dep.library_name,
+                    repo_url=dep.library_repo_url,
+                    platform=dep.platform,
+                    default_branch=dep.default_branch,
+                )
+                deps_rows.append(
+                    {
+                        "project_id": project.id,
+                        "library_id": library.id,
+                        "constraint_expr": dep.constraint_expr,
+                        "resolved_version": dep.resolved_version,
+                        "constraint_source": dep.constraint_source,
+                    }
+                )
+
+            # 3. Batch upsert dependencies
+            await self._dep_dao.batch_create(session, deps_rows)
+
+        return project

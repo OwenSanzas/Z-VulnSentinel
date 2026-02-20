@@ -6,9 +6,12 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 from vulnsentinel.api.deps import dispose_engine, get_auth_service, init_session_factory
 from vulnsentinel.api.errors import register_error_handlers
+from vulnsentinel.api.middleware.request_id import RequestIDMiddleware
+from vulnsentinel.core.logging import setup_logging
 from vulnsentinel.api.routers import (
     auth,
     client_vulns,
@@ -35,6 +38,8 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 def create_app() -> FastAPI:
     """Build and return the FastAPI application."""
+    setup_logging()
+
     app = FastAPI(
         title="VulnSentinel",
         docs_url="/api/v1/docs",
@@ -43,6 +48,11 @@ def create_app() -> FastAPI:
     )
 
     register_error_handlers(app)
+    app.add_middleware(RequestIDMiddleware)
+
+    @app.get("/health", tags=["ops"])
+    async def health() -> JSONResponse:
+        return JSONResponse({"status": "ok"})
 
     app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
     app.include_router(libraries.router, prefix="/api/v1/libraries", tags=["libraries"])

@@ -19,6 +19,7 @@ dependencies = [
     "bcrypt>=4.0",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
+    "structlog>=24.0",
 ]
 
 [project.optional-dependencies]

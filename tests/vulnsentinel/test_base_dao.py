@@ -388,7 +388,7 @@ class TestPaginate:
         query = select(User)
 
         page1 = await dao.paginate(session, query, page_size=3)
-        page2 = await dao.paginate(session, query, cursor_str=page1.next_cursor, page_size=3)
+        page2 = await dao.paginate(session, query, cursor=page1.next_cursor, page_size=3)
 
         assert len(page2.data) == 2
         assert page2.has_more is False
@@ -399,7 +399,7 @@ class TestPaginate:
         query = select(User)
 
         page1 = await dao.paginate(session, query, page_size=3)
-        page2 = await dao.paginate(session, query, cursor_str=page1.next_cursor, page_size=3)
+        page2 = await dao.paginate(session, query, cursor=page1.next_cursor, page_size=3)
 
         ids1 = {u.id for u in page1.data}
         ids2 = {u.id for u in page2.data}
@@ -424,7 +424,7 @@ class TestPaginate:
     async def test_invalid_cursor_raises(self, dao, session):
         query = select(User)
         with pytest.raises(InvalidCursorError):
-            await dao.paginate(session, query, cursor_str="bad_cursor")
+            await dao.paginate(session, query, cursor="bad_cursor")
 
     async def test_page_size_clamped_to_max(self, dao, session):
         await self._seed_users(dao, session, 5)
@@ -484,7 +484,7 @@ class TestPaginate:
 
         query = select(User).where(User.role == "admin")
         page1 = await dao.paginate(session, query, page_size=2)
-        page2 = await dao.paginate(session, query, cursor_str=page1.next_cursor, page_size=2)
+        page2 = await dao.paginate(session, query, cursor=page1.next_cursor, page_size=2)
 
         all_data = page1.data + page2.data
         assert len(all_data) == 4

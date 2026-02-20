@@ -20,12 +20,12 @@ class ProjectDependencyDAO(BaseDAO[ProjectDependency]):
         self,
         session: AsyncSession,
         project_id: uuid.UUID,
-        cursor_str: str | None = None,
+        cursor: str | None = None,
         page_size: int = 20,
     ) -> Page[ProjectDependency]:
         """Paginated dependencies for a project (API — Dependencies tab)."""
         query = select(ProjectDependency).where(ProjectDependency.project_id == project_id)
-        return await self.paginate(session, query, cursor_str, page_size)
+        return await self.paginate(session, query, cursor, page_size)
 
     async def list_by_library(
         self,

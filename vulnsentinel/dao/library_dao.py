@@ -23,12 +23,12 @@ class LibraryDAO(BaseDAO[Library]):
     async def list_paginated(
         self,
         session: AsyncSession,
-        cursor_str: str | None = None,
+        cursor: str | None = None,
         page_size: int = 20,
     ) -> Page[Library]:
         """Paginated library list for the API."""
         query = select(Library)
-        return await self.paginate(session, query, cursor_str, page_size)
+        return await self.paginate(session, query, cursor, page_size)
 
     async def get_all_monitored(self, session: AsyncSession) -> list[Library]:
         """Return all libraries ordered by name (MonitorEngine full scan)."""

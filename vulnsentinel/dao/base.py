@@ -195,7 +195,7 @@ class BaseDAO(Generic[ModelT]):
         self,
         session: AsyncSession,
         query: Select,
-        cursor_str: str | None = None,
+        cursor: str | None = None,
         page_size: int = PAGE_SIZE_DEFAULT,
     ) -> Page[ModelT]:
         """Apply cursor-based pagination to *query*.
@@ -204,13 +204,13 @@ class BaseDAO(Generic[ModelT]):
         columns. Ordering (created_at DESC, id DESC) and LIMIT are appended
         by this method — callers should NOT add their own ORDER BY / LIMIT.
 
-        Raises ``InvalidCursorError`` if *cursor_str* is malformed.
+        Raises ``InvalidCursorError`` if *cursor* is malformed.
         """
         page_size = _clamp_page_size(page_size)
         table = self.model.__table__
 
-        if cursor_str:
-            cur = decode_cursor(cursor_str)
+        if cursor:
+            cur = decode_cursor(cursor)
             query = query.where(tuple_(table.c.created_at, table.c.id) < (cur.created_at, cur.id))
 
         query = query.order_by(

@@ -18,7 +18,7 @@ class UpstreamVulnDAO(BaseDAO[UpstreamVuln]):
     async def list_paginated(
         self,
         session: AsyncSession,
-        cursor_str: str | None = None,
+        cursor: str | None = None,
         page_size: int = 20,
         library_id: uuid.UUID | None = None,
     ) -> Page[UpstreamVuln]:
@@ -26,7 +26,7 @@ class UpstreamVulnDAO(BaseDAO[UpstreamVuln]):
         query = select(UpstreamVuln)
         if library_id is not None:
             query = query.where(UpstreamVuln.library_id == library_id)
-        return await self.paginate(session, query, cursor_str, page_size)
+        return await self.paginate(session, query, cursor, page_size)
 
     async def count(
         self,

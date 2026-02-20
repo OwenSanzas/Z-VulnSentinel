@@ -146,7 +146,7 @@ class TestListPaginated:
         assert len(page1.data) == 3
         assert page1.has_more is True
 
-        page2 = await dao.list_paginated(session, cursor_str=page1.next_cursor, page_size=3)
+        page2 = await dao.list_paginated(session, cursor=page1.next_cursor, page_size=3)
         assert len(page2.data) == 2
         assert page2.has_more is False
 

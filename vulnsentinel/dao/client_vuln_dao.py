@@ -60,7 +60,7 @@ class ClientVulnDAO(BaseDAO[ClientVuln]):
     async def list_paginated(
         self,
         session: AsyncSession,
-        cursor_str: str | None = None,
+        cursor: str | None = None,
         page_size: int = 20,
         filters: ClientVulnFilters | None = None,
     ) -> Page[ClientVuln]:
@@ -68,7 +68,7 @@ class ClientVulnDAO(BaseDAO[ClientVuln]):
         query = select(ClientVuln)
         if filters:
             query = self._apply_filters(query, filters)
-        return await self.paginate(session, query, cursor_str, page_size)
+        return await self.paginate(session, query, cursor, page_size)
 
     async def count(
         self,
@@ -133,12 +133,12 @@ class ClientVulnDAO(BaseDAO[ClientVuln]):
         self,
         session: AsyncSession,
         project_id: uuid.UUID,
-        cursor_str: str | None = None,
+        cursor: str | None = None,
         page_size: int = 20,
     ) -> Page[ClientVuln]:
         """Paginated vulns for a project (API — Vulnerabilities tab)."""
         query = select(ClientVuln).where(ClientVuln.project_id == project_id)
-        return await self.paginate(session, query, cursor_str, page_size)
+        return await self.paginate(session, query, cursor, page_size)
 
     async def active_count_by_project(self, session: AsyncSession, project_id: uuid.UUID) -> int:
         """Count active vulns for a project (excludes fixed / not_affect)."""

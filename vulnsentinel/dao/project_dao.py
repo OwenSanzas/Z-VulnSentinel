@@ -13,9 +13,9 @@ class ProjectDAO(BaseDAO[Project]):
     async def list_paginated(
         self,
         session: AsyncSession,
-        cursor_str: str | None = None,
+        cursor: str | None = None,
         page_size: int = 20,
     ) -> Page[Project]:
         """Paginated project list for the API."""
         query = select(Project)
-        return await self.paginate(session, query, cursor_str, page_size)
+        return await self.paginate(session, query, cursor, page_size)

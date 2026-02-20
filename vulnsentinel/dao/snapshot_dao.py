@@ -18,12 +18,12 @@ class SnapshotDAO(BaseDAO[Snapshot]):
         self,
         session: AsyncSession,
         project_id: uuid.UUID,
-        cursor_str: str | None = None,
+        cursor: str | None = None,
         page_size: int = 20,
     ) -> Page[Snapshot]:
         """Paginated snapshots for a project (API — Snapshots tab)."""
         query = select(Snapshot).where(Snapshot.project_id == project_id)
-        return await self.paginate(session, query, cursor_str, page_size)
+        return await self.paginate(session, query, cursor, page_size)
 
     async def get_active_by_project(
         self, session: AsyncSession, project_id: uuid.UUID

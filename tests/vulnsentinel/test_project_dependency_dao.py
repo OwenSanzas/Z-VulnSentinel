@@ -202,7 +202,7 @@ class TestListByProject:
         assert page1.has_more is True
 
         page2 = await dao.list_by_project(
-            session, project.id, cursor_str=page1.next_cursor, page_size=3
+            session, project.id, cursor=page1.next_cursor, page_size=3
         )
         assert len(page2.data) == 2
         assert page2.has_more is False

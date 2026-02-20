@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, Index, Text, desc, func, text
+from sqlalchemy import Boolean, DateTime, Index, Text, desc, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -28,5 +28,8 @@ class Project(TimestampMixin, Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     last_update_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    auto_sync_deps: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("true")
+    )
 
     __table_args__ = (Index("idx_projects_cursor", desc("created_at"), desc("id")),)

@@ -73,6 +73,7 @@ def _project(proj_id: uuid.UUID | None = None) -> Project:
         current_version="1.0.0",
         monitoring_since=NOW,
         last_update_at=NOW,
+        auto_sync_deps=True,
         created_at=NOW,
         updated_at=NOW,
     )

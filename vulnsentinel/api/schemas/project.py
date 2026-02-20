@@ -43,6 +43,7 @@ class ProjectResponse(BaseModel):
     current_version: str | None
     monitoring_since: datetime
     last_update_at: datetime | None
+    auto_sync_deps: bool
     created_at: datetime
 
 

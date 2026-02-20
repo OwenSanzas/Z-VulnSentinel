@@ -526,7 +526,8 @@ class TestProjectsRouter:
         from vulnsentinel.api import deps
 
         mock_svc = AsyncMock()
-        mock_svc.create = AsyncMock(side_effect=ConflictError("project with repo_url 'https://github.com/acme/myapp' already exists"))
+        msg = "project with repo_url 'https://github.com/acme/myapp' already exists"
+        mock_svc.create = AsyncMock(side_effect=ConflictError(msg))
         app.dependency_overrides[deps.get_project_service] = lambda: mock_svc
 
         resp = await client.post(

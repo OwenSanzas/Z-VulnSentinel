@@ -55,6 +55,7 @@ class ProjectResponse(BaseModel):
     last_update_at: datetime | None
     auto_sync_deps: bool
     pinned_ref: str | None
+    last_scanned_at: datetime | None
     created_at: datetime
 
 

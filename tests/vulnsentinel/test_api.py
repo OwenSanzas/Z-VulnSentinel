@@ -75,6 +75,7 @@ def _project(proj_id: uuid.UUID | None = None) -> Project:
         last_update_at=NOW,
         auto_sync_deps=True,
         pinned_ref=None,
+        last_scanned_at=None,
         created_at=NOW,
         updated_at=NOW,
     )

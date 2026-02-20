@@ -207,3 +207,49 @@ Event Collector → Event Classifier → Vuln Analyzer → Impact Engine → Rea
 - **链式触发为主**：上游引擎完成后直接触发下游，减少延迟
 - **定时兜底为辅**：防止链式触发丢失（进程重启、异常中断等）
 - **幂等性**：所有引擎必须支持重复执行不产生副作用（Service 层已保证 batch_create ON CONFLICT DO NOTHING）
+
+
+
+
+# 逻辑示例
+
+## 第一步：用户注册需要被监控的 Project
+
+客户调用 `POST /api/v1/projects/`，提供项目信息。
+
+- 必填：`name`、`repo_url`
+- 可选：`organization`、`contact`、`dependencies[]`
+- 默认：`auto_sync_deps=true`
+
+两种情况：
+- **带 dependencies**：依赖立刻写入，Libraries 自动 upsert
+- **不带 dependencies**：等待 Dependency Scanner 扫描 repo 自动发现依赖
+
+额外选项：
+- `pinned_ref`：锁定某个 tag 或 commit SHA。设置后依赖只扫描一次，后续不再重扫。不设置则跟踪默认分支最新代码。
+
+### 依赖扫描（Dependency Scanner）
+
+| 项目 | 说明 |
+|------|------|
+| 做什么 | 扫描 Project 的 manifest 文件，同步依赖列表 |
+| 触发 | 注册时立即扫一次 + per-project 每 6 小时重扫（基于 `last_scanned_at`） |
+| 速度 | 快 — 只读文件，不需要编译 |
+
+特殊情况：
+- `pinned_ref` 设置时：只扫一次该 ref 的 manifest，后续不再重扫
+- `auto_sync_deps=false` 时：跳过自动扫描，依赖只能手动管理
+
+### Library 监控（Event Collector）
+
+| 项目 | 说明 |
+|------|------|
+| 做什么 | 拉取依赖 Library repo 的新 commit / PR / tag |
+| 触发 | 每几分钟轮询 |
+| 速度 | 快 — GitHub API 调用 |
+
+Library 监控是高频的 — 安全修复 commit 需要尽快捕获。这是整个 pipeline 的数据入口。
+
+### Snapshot（按需构建，不在此步）
+
+Snapshot 是 call graph 静态分析的产物，供 Reachability Analyzer 使用。不在注册时构建，等 pipeline 需要做可达性分析时才按需构建/查缓存。与依赖扫描完全独立。

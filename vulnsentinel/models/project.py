@@ -32,5 +32,6 @@ class Project(TimestampMixin, Base):
         Boolean, nullable=False, server_default=text("true")
     )
     pinned_ref: Mapped[Optional[str]] = mapped_column(Text)
+    last_scanned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (Index("idx_projects_cursor", desc("created_at"), desc("id")),)

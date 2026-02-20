@@ -25,7 +25,15 @@ class CreateProjectRequest(BaseModel):
     contact: str | None = None
     platform: str = "github"
     default_branch: str = "main"
+    auto_sync_deps: bool = True
     dependencies: list[DependencyInputSchema] | None = None
+
+
+class UpdateProjectRequest(BaseModel):
+    name: str | None = None
+    organization: str | None = None
+    contact: str | None = None
+    auto_sync_deps: bool | None = None
 
 
 class ProjectResponse(BaseModel):

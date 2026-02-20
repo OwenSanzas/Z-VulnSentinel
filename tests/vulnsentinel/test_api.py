@@ -575,6 +575,47 @@ class TestProjectsRouter:
         assert "already exists" in resp.json()["detail"]
 
     @pytest.mark.asyncio
+    async def test_update_project(self, app, client):
+        from vulnsentinel.api import deps
+
+        proj_id = uuid.uuid4()
+        proj = _project(proj_id)
+        proj.auto_sync_deps = False
+
+        mock_svc = AsyncMock()
+        mock_svc.update = AsyncMock(
+            return_value={
+                "project": proj,
+                "deps_count": 3,
+                "vuln_count": 1,
+            }
+        )
+        app.dependency_overrides[deps.get_project_service] = lambda: mock_svc
+
+        resp = await client.patch(
+            f"/api/v1/projects/{proj_id}",
+            json={"auto_sync_deps": False, "contact": "new@acme.com"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["auto_sync_deps"] is False
+        assert data["deps_count"] == 3
+
+    @pytest.mark.asyncio
+    async def test_update_project_not_found(self, app, client):
+        from vulnsentinel.api import deps
+
+        mock_svc = AsyncMock()
+        mock_svc.update = AsyncMock(side_effect=NotFoundError("project not found"))
+        app.dependency_overrides[deps.get_project_service] = lambda: mock_svc
+
+        resp = await client.patch(
+            f"/api/v1/projects/{uuid.uuid4()}",
+            json={"name": "new-name"},
+        )
+        assert resp.status_code == 404
+
+    @pytest.mark.asyncio
     async def test_list_project_snapshots(self, app, client):
         from vulnsentinel.api import deps
 

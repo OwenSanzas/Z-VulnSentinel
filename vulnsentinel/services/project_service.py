@@ -107,6 +107,7 @@ class ProjectService:
         contact: str | None = None,
         platform: str = "github",
         default_branch: str = "main",
+        auto_sync_deps: bool = True,
         dependencies: list[DependencyInput] | None = None,
     ) -> Project:
         """Create a project and register its dependencies (single transaction).
@@ -129,6 +130,7 @@ class ProjectService:
             contact=contact,
             platform=platform,
             default_branch=default_branch,
+            auto_sync_deps=auto_sync_deps,
         )
 
         # 3. Register dependencies
@@ -156,6 +158,27 @@ class ProjectService:
             await self._dep_dao.batch_create(session, deps_rows)
 
         return project
+
+    async def update(
+        self,
+        session: AsyncSession,
+        project_id: uuid.UUID,
+        **fields: object,
+    ) -> dict:
+        """Update mutable project fields (name, organization, contact, auto_sync_deps)."""
+        project = await self._ensure_project(session, project_id)
+        # Filter out None values — only update explicitly provided fields
+        updates = {k: v for k, v in fields.items() if v is not None}
+        if not updates:
+            return await self.get(session, project_id)
+        updated = await self._project_dao.update(session, project.id, **updates)
+        deps_count = await self._dep_dao.count_by_project(session, project_id)
+        vuln_count = await self._client_vuln_dao.active_count_by_project(session, project_id)
+        return {
+            "project": updated,
+            "deps_count": deps_count,
+            "vuln_count": vuln_count,
+        }
 
     # ── dependency management ─────────────────────────────────────────
 

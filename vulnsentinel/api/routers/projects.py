@@ -24,6 +24,7 @@ from vulnsentinel.api.schemas.project import (
     ProjectListItem,
     ProjectResponse,
     UpdateDependencyRequest,
+    UpdateProjectRequest,
 )
 from vulnsentinel.api.schemas.snapshot import CreateSnapshotRequest, SnapshotResponse
 from vulnsentinel.models.user import User
@@ -105,9 +106,34 @@ async def create_project(
         contact=body.contact,
         platform=body.platform,
         default_branch=body.default_branch,
+        auto_sync_deps=body.auto_sync_deps,
         dependencies=deps,
     )
     return ProjectResponse.model_validate(project)
+
+
+@router.patch("/{project_id}", response_model=ProjectDetail)
+async def update_project(
+    project_id: uuid.UUID,
+    body: UpdateProjectRequest,
+    session: AsyncSession = Depends(get_session),
+    _user: User = Depends(get_current_user),
+    svc: ProjectService = Depends(get_project_service),
+) -> ProjectDetail:
+    result = await svc.update(
+        session,
+        project_id,
+        name=body.name,
+        organization=body.organization,
+        contact=body.contact,
+        auto_sync_deps=body.auto_sync_deps,
+    )
+    proj = result["project"]
+    return ProjectDetail(
+        **{k: getattr(proj, k) for k in ProjectResponse.model_fields},
+        deps_count=result["deps_count"],
+        vuln_count=result["vuln_count"],
+    )
 
 
 @router.get(

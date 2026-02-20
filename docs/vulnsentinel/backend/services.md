@@ -307,7 +307,7 @@ SnapshotDAO.activate(id)
   → 事务内两步：
      1. UPDATE snapshots SET is_active=FALSE WHERE project_id=:pid AND is_active=TRUE
      2. UPDATE snapshots SET is_active=TRUE, status='completed' WHERE id=:id
-  → 快照不存在 → ValueError（DAO 层抛出）
+  → 快照不存在 → NotFoundError（Service 层捕获 DAO ValueError 转换）
 ```
 
 ### Snapshot 状态机

@@ -295,5 +295,5 @@ class TestActivate:
         service, dao = _make_service()
         dao.activate = AsyncMock(side_effect=ValueError("Snapshot xxx not found"))
 
-        with pytest.raises(ValueError, match="not found"):
+        with pytest.raises(NotFoundError, match="not found"):
             await service.activate(AsyncMock(), uuid.uuid4())

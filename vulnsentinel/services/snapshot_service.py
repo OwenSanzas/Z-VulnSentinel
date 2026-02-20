@@ -104,6 +104,9 @@ class SnapshotService:
         """Set a snapshot as the active one for its project.
 
         Deactivates any previously active snapshot for the same project.
-        Raises ``ValueError`` (from DAO) if snapshot does not exist.
+        Raises :class:`NotFoundError` if snapshot does not exist.
         """
-        await self._snapshot_dao.activate(session, snapshot_id)
+        try:
+            await self._snapshot_dao.activate(session, snapshot_id)
+        except ValueError as exc:
+            raise NotFoundError(str(exc)) from exc

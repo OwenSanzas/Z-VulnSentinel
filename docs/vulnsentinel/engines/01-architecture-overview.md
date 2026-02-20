@@ -217,39 +217,105 @@ Event Collector → Event Classifier → Vuln Analyzer → Impact Engine → Rea
 
 客户调用 `POST /api/v1/projects/`，提供项目信息。
 
-- 必填：`name`、`repo_url`
-- 可选：`organization`、`contact`、`dependencies[]`
-- 默认：`auto_sync_deps=true`
+**请求参数：**
 
-两种情况：
-- **带 dependencies**：依赖立刻写入，Libraries 自动 upsert
-- **不带 dependencies**：等待 Dependency Scanner 扫描 repo 自动发现依赖
+| 参数 | 必填 | 默认值 | 说明 |
+|------|------|--------|------|
+| `name` | 是 | — | 项目名称 |
+| `repo_url` | 是 | — | 项目 Git 仓库地址 |
+| `organization` | 否 | `null` | 所属组织 |
+| `contact` | 否 | `null` | 联系人 |
+| `platform` | 否 | `"github"` | 代码托管平台 |
+| `default_branch` | 否 | `"main"` | 默认分支 |
+| `auto_sync_deps` | 否 | `true` | 是否自动扫描 manifest 同步依赖 |
+| `pinned_ref` | 否 | `null` | 锁定某个 tag 或 commit SHA（Service 层校验是否存在） |
+| `dependencies[]` | 否 | `null` | 手动提供依赖列表（见下方字段说明） |
 
-额外选项：
-- `pinned_ref`：锁定某个 tag 或 commit SHA。设置后依赖只扫描一次，后续不再重扫。不设置则跟踪默认分支最新代码。
+**`dependencies[]` 每项字段：**
+
+| 字段 | 必填 | 默认值 | 说明 |
+|------|------|--------|------|
+| `library_name` | 是 | — | 库名，如 `libpng`、`requests`、`lodash` |
+| `library_repo_url` | 否 | `null` | 库的 Git 仓库地址；不填则由 Engine 从包注册表（PyPI、npm 等）自动解析 |
+| `constraint_expr` | 否 | `null` | 版本约束表达式，如 `>=1.6.0`、`^2.0.0` |
+| `resolved_version` | 否 | `null` | 实际锁定的版本，如 `1.6.37` |
+| `platform` | 否 | `"github"` | 库的代码托管平台 |
+| `default_branch` | 否 | `"main"` | 库的默认分支 |
+
+用户通过此字段手动添加的依赖，`constraint_source` 自动设为 `manual`（不由用户控制）。
+
+**注册后依赖的来源（二选一）：**
+
+- **带 `dependencies[]`**：依赖立刻写入，Libraries 自动 upsert
+- **不带 `dependencies[]`**（更常见）：Dependency Scanner 异步扫描 repo manifest 自动发现
+
+**注册后可修改（`PATCH /api/v1/projects/{id}`）：**
+
+`name`、`organization`、`contact`、`auto_sync_deps`、`pinned_ref`（支持传 `null` 清空）
 
 ### 依赖扫描（Dependency Scanner）
 
-| 项目 | 说明 |
-|------|------|
-| 做什么 | 扫描 Project 的 manifest 文件，同步依赖列表 |
-| 触发 | 注册时立即扫一次 + per-project 每 6 小时重扫（基于 `last_scanned_at`） |
-| 速度 | 快 — 只读文件，不需要编译 |
+扫描 Project repo 的 manifest 文件（`package.json`、`requirements.txt` 等），同步依赖列表。
 
-特殊情况：
-- `pinned_ref` 设置时：只扫一次该 ref 的 manifest，后续不再重扫
-- `auto_sync_deps=false` 时：跳过自动扫描，依赖只能手动管理
+| 触发时机 | 条件 |
+|---------|------|
+| 注册时 | 立即异步触发一次 |
+| 定时重扫 | per-project 每 1 小时（基于 `last_scanned_at`） |
 
-### Library 监控（Event Collector）
+**用户不能手动触发 scan。** Scan 只由系统定时自动执行。
 
-| 项目 | 说明 |
-|------|------|
-| 做什么 | 拉取依赖 Library repo 的新 commit / PR / tag |
-| 触发 | 每几分钟轮询 |
-| 速度 | 快 — GitHub API 调用 |
+**Scheduler 查询条件：**
 
-Library 监控是高频的 — 安全修复 commit 需要尽快捕获。这是整个 pipeline 的数据入口。
+```sql
+WHERE auto_sync_deps = true
+  AND pinned_ref IS NULL
+  AND (last_scanned_at IS NULL OR last_scanned_at < now() - interval '1 hour')
+```
 
-### Snapshot（按需构建，不在此步）
+即：`auto_sync_deps=false` 或 `pinned_ref` 已设置的项目不会被定时重扫。
 
-Snapshot 是 call graph 静态分析的产物，供 Reachability Analyzer 使用。不在注册时构建，等 pipeline 需要做可达性分析时才按需构建/查缓存。与依赖扫描完全独立。
+### 手动 vs 自动依赖管理
+
+两种来源的依赖通过 `constraint_source` 区分，互不干扰：
+
+| `constraint_source` | 来源 | Scanner 行为 |
+|---------------------|------|-------------|
+| `manifest`（如 `package.json`） | Scanner 自动扫描写入 | Scanner 管理：manifest 里没有就删除 |
+| `manual` | 用户通过 API 手动添加 | Scanner 不动：跳过 |
+
+- **`auto_sync_deps=true`**：Scanner 每小时扫一次，只管 `constraint_source=manifest` 的记录。用户仍可通过 API 手动增删 `constraint_source=manual` 的依赖
+- **`auto_sync_deps=false`**：Scanner 不扫，所有依赖由用户手动管理
+
+**没有竞态问题** — 手动 CRUD 和 Scanner 操作不同 `constraint_source` 的记录，互不冲突。
+
+### Manifest 检测策略
+
+Scanner 按语言/生态检测依赖，难度不同：
+
+| 语言 | 检测源 | 难度 |
+|------|--------|------|
+| **Python** | `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` | 简单 |
+| **JavaScript** | `package.json`, `yarn.lock`, `pnpm-lock.yaml` | 简单 |
+| **Java** | `pom.xml` (Maven), `build.gradle` (Gradle) | 中等 |
+| **C/C++** | 见下方 | 困难 |
+
+**C/C++ 没有统一的包管理器**，Scanner 分层尝试：
+
+1. 查包管理器配置：`conanfile.txt` / `conanfile.py`（Conan）、`vcpkg.json`（vcpkg）
+2. 查 git submodule：`.gitmodules`
+3. 查 CMake：`CMakeLists.txt` 中的 `FetchContent` / `find_package`
+4. 都没有 → 标记"无法自动检测"，用户需手动添加（`constraint_source=manual`）
+
+### 第一步的产出
+
+| 表 | 数据 |
+|----|------|
+| `projects` | 项目记录 |
+| `libraries` | 所有依赖的 library（upsert） |
+| `project_dependencies` | 项目 ↔ library 关联，含版本约束 |
+
+此时系统知道了每个项目依赖哪些库、用的什么版本。下一步：监控这些 library 的代码变更。
+
+### 注意：Snapshot 不在此步
+
+Snapshot（call graph 静态分析）是独立的重量级操作，供 Reachability Analyzer 按需构建/查缓存。与依赖扫描完全解耦。

@@ -10,10 +10,9 @@ from pydantic import BaseModel, ConfigDict
 
 class DependencyInputSchema(BaseModel):
     library_name: str
-    library_repo_url: str
+    library_repo_url: str | None = None
     constraint_expr: str | None = None
     resolved_version: str | None = None
-    constraint_source: str = "manifest"
     platform: str = "github"
     default_branch: str = "main"
 

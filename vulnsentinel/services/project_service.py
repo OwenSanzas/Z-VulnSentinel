@@ -7,13 +7,14 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from vulnsentinel.core.github import verify_git_ref
 from vulnsentinel.dao.client_vuln_dao import ClientVulnDAO
 from vulnsentinel.dao.project_dao import ProjectDAO
 from vulnsentinel.dao.project_dependency_dao import ProjectDependencyDAO
 from vulnsentinel.models.library import Library
 from vulnsentinel.models.project import Project
 from vulnsentinel.models.project_dependency import ProjectDependency
-from vulnsentinel.services import ConflictError, NotFoundError
+from vulnsentinel.services import ConflictError, NotFoundError, ValidationError
 from vulnsentinel.services.library_service import LibraryService
 
 
@@ -108,6 +109,7 @@ class ProjectService:
         platform: str = "github",
         default_branch: str = "main",
         auto_sync_deps: bool = True,
+        pinned_ref: str | None = None,
         dependencies: list[DependencyInput] | None = None,
     ) -> Project:
         """Create a project and register its dependencies (single transaction).
@@ -121,7 +123,11 @@ class ProjectService:
         if existing is not None:
             raise ConflictError(f"project with repo_url '{repo_url}' already exists")
 
-        # 2. Create project
+        # 2. Validate pinned_ref against GitHub
+        if pinned_ref is not None:
+            await self._validate_ref(repo_url, pinned_ref)
+
+        # 3. Create project
         project = await self._project_dao.create(
             session,
             name=name,
@@ -131,6 +137,7 @@ class ProjectService:
             platform=platform,
             default_branch=default_branch,
             auto_sync_deps=auto_sync_deps,
+            pinned_ref=pinned_ref,
         )
 
         # 3. Register dependencies
@@ -163,14 +170,34 @@ class ProjectService:
         self,
         session: AsyncSession,
         project_id: uuid.UUID,
+        *,
+        fields_set: set[str],
         **fields: object,
     ) -> dict:
-        """Update mutable project fields (name, organization, contact, auto_sync_deps)."""
+        """Update mutable project fields.
+
+        *fields_set* contains the field names the user explicitly provided
+        (from Pydantic's ``model_fields_set``).  This distinguishes
+        "user sent null" (clear the value) from "user didn't send this field"
+        (leave unchanged).
+        """
         project = await self._ensure_project(session, project_id)
-        # Filter out None values — only update explicitly provided fields
-        updates = {k: v for k, v in fields.items() if v is not None}
+
+        # Only include fields the user explicitly sent
+        updates = {k: v for k, v in fields.items() if k in fields_set}
+        # For non-nullable fields, still skip None (user can't null-out name)
+        updates = {
+            k: v
+            for k, v in updates.items()
+            if v is not None or k in ("pinned_ref", "contact", "organization")
+        }
         if not updates:
             return await self.get(session, project_id)
+
+        # Validate pinned_ref against GitHub if being set (not cleared)
+        if "pinned_ref" in updates and updates["pinned_ref"] is not None:
+            await self._validate_ref(project.repo_url, str(updates["pinned_ref"]))
+
         updated = await self._project_dao.update(session, project.id, **updates)
         deps_count = await self._dep_dao.count_by_project(session, project_id)
         vuln_count = await self._client_vuln_dao.active_count_by_project(session, project_id)
@@ -258,6 +285,12 @@ class ProjectService:
         return {"dep": updated, "library_name": lib.name if lib else ""}
 
     # ── private helpers ───────────────────────────────────────────────
+
+    @staticmethod
+    async def _validate_ref(repo_url: str, ref: str) -> None:
+        """Validate that a git ref exists in the remote repo."""
+        if not await verify_git_ref(repo_url, ref):
+            raise ValidationError(f"ref '{ref}' not found in {repo_url}")
 
     async def _ensure_project(self, session: AsyncSession, project_id: uuid.UUID) -> Project:
         project = await self._project_dao.get_by_id(session, project_id)

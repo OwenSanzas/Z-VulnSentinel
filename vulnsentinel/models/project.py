@@ -31,5 +31,6 @@ class Project(TimestampMixin, Base):
     auto_sync_deps: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("true")
     )
+    pinned_ref: Mapped[Optional[str]] = mapped_column(Text)
 
     __table_args__ = (Index("idx_projects_cursor", desc("created_at"), desc("id")),)

@@ -26,6 +26,7 @@ class CreateProjectRequest(BaseModel):
     platform: str = "github"
     default_branch: str = "main"
     auto_sync_deps: bool = True
+    pinned_ref: str | None = None
     dependencies: list[DependencyInputSchema] | None = None
 
 
@@ -34,6 +35,7 @@ class UpdateProjectRequest(BaseModel):
     organization: str | None = None
     contact: str | None = None
     auto_sync_deps: bool | None = None
+    pinned_ref: str | None = None
 
 
 class ProjectResponse(BaseModel):
@@ -52,6 +54,7 @@ class ProjectResponse(BaseModel):
     monitoring_since: datetime
     last_update_at: datetime | None
     auto_sync_deps: bool
+    pinned_ref: str | None
     created_at: datetime
 
 

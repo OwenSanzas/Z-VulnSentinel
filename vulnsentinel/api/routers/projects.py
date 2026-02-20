@@ -107,6 +107,7 @@ async def create_project(
         platform=body.platform,
         default_branch=body.default_branch,
         auto_sync_deps=body.auto_sync_deps,
+        pinned_ref=body.pinned_ref,
         dependencies=deps,
     )
     return ProjectResponse.model_validate(project)
@@ -123,10 +124,12 @@ async def update_project(
     result = await svc.update(
         session,
         project_id,
+        fields_set=body.model_fields_set,
         name=body.name,
         organization=body.organization,
         contact=body.contact,
         auto_sync_deps=body.auto_sync_deps,
+        pinned_ref=body.pinned_ref,
     )
     proj = result["project"]
     return ProjectDetail(

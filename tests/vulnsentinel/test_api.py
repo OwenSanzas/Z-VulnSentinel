@@ -74,6 +74,7 @@ def _project(proj_id: uuid.UUID | None = None) -> Project:
         monitoring_since=NOW,
         last_update_at=NOW,
         auto_sync_deps=True,
+        pinned_ref=None,
         created_at=NOW,
         updated_at=NOW,
     )
@@ -614,6 +615,100 @@ class TestProjectsRouter:
             json={"name": "new-name"},
         )
         assert resp.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_create_project_with_pinned_ref(self, app, client):
+        from vulnsentinel.api import deps
+
+        proj = _project()
+        proj.pinned_ref = "v1.0.0"
+        mock_svc = AsyncMock()
+        mock_svc.create = AsyncMock(return_value=proj)
+        app.dependency_overrides[deps.get_project_service] = lambda: mock_svc
+
+        resp = await client.post(
+            "/api/v1/projects/",
+            json={
+                "name": "myapp",
+                "repo_url": "https://github.com/acme/myapp",
+                "pinned_ref": "v1.0.0",
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["pinned_ref"] == "v1.0.0"
+
+    @pytest.mark.asyncio
+    async def test_create_project_invalid_pinned_ref(self, app, client):
+        from vulnsentinel.api import deps
+
+        mock_svc = AsyncMock()
+        mock_svc.create = AsyncMock(
+            side_effect=ValidationError(
+                "ref 'nonexistent' not found in https://github.com/acme/myapp"
+            )
+        )
+        app.dependency_overrides[deps.get_project_service] = lambda: mock_svc
+
+        resp = await client.post(
+            "/api/v1/projects/",
+            json={
+                "name": "myapp",
+                "repo_url": "https://github.com/acme/myapp",
+                "pinned_ref": "nonexistent",
+            },
+        )
+        assert resp.status_code == 422
+        assert "not found" in resp.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_update_project_pinned_ref(self, app, client):
+        from vulnsentinel.api import deps
+
+        proj_id = uuid.uuid4()
+        proj = _project(proj_id)
+        proj.pinned_ref = "abc123"
+
+        mock_svc = AsyncMock()
+        mock_svc.update = AsyncMock(
+            return_value={
+                "project": proj,
+                "deps_count": 3,
+                "vuln_count": 1,
+            }
+        )
+        app.dependency_overrides[deps.get_project_service] = lambda: mock_svc
+
+        resp = await client.patch(
+            f"/api/v1/projects/{proj_id}",
+            json={"pinned_ref": "abc123"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["pinned_ref"] == "abc123"
+
+    @pytest.mark.asyncio
+    async def test_update_project_clear_pinned_ref(self, app, client):
+        from vulnsentinel.api import deps
+
+        proj_id = uuid.uuid4()
+        proj = _project(proj_id)
+        proj.pinned_ref = None
+
+        mock_svc = AsyncMock()
+        mock_svc.update = AsyncMock(
+            return_value={
+                "project": proj,
+                "deps_count": 3,
+                "vuln_count": 1,
+            }
+        )
+        app.dependency_overrides[deps.get_project_service] = lambda: mock_svc
+
+        resp = await client.patch(
+            f"/api/v1/projects/{proj_id}",
+            json={"pinned_ref": None},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["pinned_ref"] is None
 
     @pytest.mark.asyncio
     async def test_list_project_snapshots(self, app, client):

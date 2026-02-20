@@ -28,7 +28,7 @@ class ProjectDependency(TimestampMixin, Base):
     )
     constraint_expr: Mapped[Optional[str]] = mapped_column(Text)
     resolved_version: Mapped[Optional[str]] = mapped_column(Text)
-    constraint_source: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    constraint_source: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'manual'"))
     notify_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("true")
     )
@@ -37,8 +37,7 @@ class ProjectDependency(TimestampMixin, Base):
         UniqueConstraint(
             "project_id",
             "library_id",
-            "constraint_source",
-            name="uq_projdeps_project_library_source",
+            name="uq_projdeps_project_library",
         ),
         Index("idx_projdeps_project", "project_id"),
         Index("idx_projdeps_library", "library_id"),

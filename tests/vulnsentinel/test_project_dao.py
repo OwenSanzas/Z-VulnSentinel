@@ -141,6 +141,63 @@ class TestListPaginated:
         assert timestamps == sorted(timestamps, reverse=True)
 
 
+# ── list_due_for_scan ────────────────────────────────────────────────────
+
+
+class TestListDueForScan:
+    async def test_includes_never_scanned(self, dao, session):
+        """Project with last_scanned_at=NULL should be due."""
+        await dao.create(session, **_proj("never-scanned", auto_sync_deps=True))
+        result = await dao.list_due_for_scan(session)
+        assert len(result) == 1
+        assert result[0].name == "never-scanned"
+
+    async def test_includes_stale_scan(self, dao, session):
+        """Project scanned >1 hour ago should be due."""
+        proj = await dao.create(session, **_proj("stale"))
+        proj.last_scanned_at = datetime.now(timezone.utc) - timedelta(hours=2)
+        await session.flush()
+        result = await dao.list_due_for_scan(session)
+        assert any(p.id == proj.id for p in result)
+
+    async def test_excludes_recently_scanned(self, dao, session):
+        """Project scanned <1 hour ago should NOT be due."""
+        proj = await dao.create(session, **_proj("fresh"))
+        proj.last_scanned_at = datetime.now(timezone.utc) - timedelta(minutes=30)
+        await session.flush()
+        result = await dao.list_due_for_scan(session)
+        assert not any(p.id == proj.id for p in result)
+
+    async def test_excludes_auto_sync_disabled(self, dao, session):
+        """Project with auto_sync_deps=false should NOT be due."""
+        await dao.create(session, **_proj("no-sync", auto_sync_deps=False))
+        result = await dao.list_due_for_scan(session)
+        assert len(result) == 0
+
+    async def test_excludes_pinned_ref(self, dao, session):
+        """Project with pinned_ref set should NOT be due."""
+        await dao.create(session, **_proj("pinned", pinned_ref="v1.0.0"))
+        result = await dao.list_due_for_scan(session)
+        assert len(result) == 0
+
+    async def test_mixed_projects(self, dao, session):
+        """Only eligible projects should be returned."""
+        # Eligible: auto_sync=true, no pinned_ref, never scanned
+        await dao.create(session, **_proj("eligible"))
+        # Not eligible: auto_sync=false
+        await dao.create(session, **_proj("disabled", auto_sync_deps=False))
+        # Not eligible: pinned
+        await dao.create(session, **_proj("pinned", pinned_ref="abc123"))
+        # Not eligible: recently scanned
+        fresh = await dao.create(session, **_proj("fresh"))
+        fresh.last_scanned_at = datetime.now(timezone.utc) - timedelta(minutes=10)
+        await session.flush()
+
+        result = await dao.list_due_for_scan(session)
+        names = {p.name for p in result}
+        assert names == {"eligible"}
+
+
 # ── count ─────────────────────────────────────────────────────────────────
 
 

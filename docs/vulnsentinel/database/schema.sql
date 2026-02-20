@@ -103,11 +103,11 @@ CREATE TABLE project_dependencies (
     library_id        UUID        NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
     constraint_expr   TEXT,                               -- e.g. ">= 8.10, < 9.0"
     resolved_version  TEXT,                               -- actual version in use
-    constraint_source TEXT        NOT NULL DEFAULT '',      -- file the constraint came from (conanfile.txt, CMakeLists.txt, …)
+    constraint_source TEXT        NOT NULL DEFAULT 'manual', -- 'manual' = user-added; scanner overwrites with file path
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    UNIQUE (project_id, library_id, constraint_source)
+    UNIQUE (project_id, library_id)
 );
 
 CREATE INDEX idx_projdeps_project ON project_dependencies (project_id);

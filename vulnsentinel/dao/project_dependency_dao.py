@@ -3,7 +3,7 @@
 import uuid
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import case, delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,20 +40,6 @@ class ProjectDependencyDAO(BaseDAO[ProjectDependency]):
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
-    async def find_projects_by_library(
-        self,
-        session: AsyncSession,
-        library_id: uuid.UUID,
-    ) -> list[ProjectDependency]:
-        """Find all project dependencies for a library (ImpactEngine).
-
-        Returns lightweight rows with project_id, constraint_expr,
-        resolved_version, and constraint_source.
-        """
-        stmt = select(ProjectDependency).where(ProjectDependency.library_id == library_id)
-        result = await session.execute(stmt)
-        return list(result.scalars().all())
-
     async def count_by_project(
         self,
         session: AsyncSession,
@@ -70,15 +56,16 @@ class ProjectDependencyDAO(BaseDAO[ProjectDependency]):
 
     # ── write ─────────────────────────────────────────────────────────────
 
-    async def batch_create(
+    async def batch_upsert(
         self,
         session: AsyncSession,
         deps: list[dict[str, Any]],
     ) -> list[ProjectDependency]:
         """Batch upsert dependencies.
 
-        ON CONFLICT (project_id, library_id, constraint_source) updates
-        constraint_expr and resolved_version.
+        ON CONFLICT (project_id, library_id) updates constraint_expr,
+        resolved_version, and constraint_source — but preserves
+        constraint_source = 'manual' when it already exists.
 
         Returns all upserted rows.
         """
@@ -87,11 +74,38 @@ class ProjectDependencyDAO(BaseDAO[ProjectDependency]):
 
         ins = insert(ProjectDependency).values(deps)
         stmt = ins.on_conflict_do_update(
-            constraint="uq_projdeps_project_library_source",
+            constraint="uq_projdeps_project_library",
             set_={
                 "constraint_expr": ins.excluded.constraint_expr,
                 "resolved_version": ins.excluded.resolved_version,
+                "constraint_source": case(
+                    (
+                        ProjectDependency.__table__.c.constraint_source == "manual",
+                        "manual",
+                    ),
+                    else_=ins.excluded.constraint_source,
+                ),
             },
         ).returning(ProjectDependency)
         result = await session.execute(stmt)
         return list(result.scalars().all())
+
+    async def delete_stale_scanner_deps(
+        self,
+        session: AsyncSession,
+        project_id: uuid.UUID,
+        keep_library_ids: set[uuid.UUID],
+    ) -> int:
+        """Delete non-manual dependencies not in *keep_library_ids*.
+
+        Returns the number of deleted rows.
+        """
+        stmt = (
+            delete(ProjectDependency)
+            .where(ProjectDependency.project_id == project_id)
+            .where(ProjectDependency.constraint_source != "manual")
+        )
+        if keep_library_ids:
+            stmt = stmt.where(ProjectDependency.library_id.notin_(keep_library_ids))
+        result = await session.execute(stmt)
+        return result.rowcount

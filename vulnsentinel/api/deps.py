@@ -49,9 +49,7 @@ _client_vuln_dao = ClientVulnDAO()
 # Service singletons
 # ---------------------------------------------------------------------------
 _auth_service = AuthService(_user_dao)
-_library_service = LibraryService(
-    _library_dao, _project_dao, _project_dependency_dao, _event_dao
-)
+_library_service = LibraryService(_library_dao, _project_dao, _project_dependency_dao, _event_dao)
 _project_service = ProjectService(
     _project_dao, _project_dependency_dao, _client_vuln_dao, _library_service
 )

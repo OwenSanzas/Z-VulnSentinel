@@ -29,9 +29,7 @@ async def list_upstream_vulns(
     _user: User = Depends(get_current_user),
     svc: UpstreamVulnService = Depends(get_upstream_vuln_service),
 ) -> PaginatedResponse[UpstreamVulnListItem]:
-    result = await svc.list(
-        session, cursor=cursor, page_size=page_size, library_id=library_id
-    )
+    result = await svc.list(session, cursor=cursor, page_size=page_size, library_id=library_id)
     return PaginatedResponse(
         data=[UpstreamVulnListItem.model_validate(v) for v in result["data"]],
         meta=PageMeta(

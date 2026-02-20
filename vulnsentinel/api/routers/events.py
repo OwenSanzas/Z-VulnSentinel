@@ -26,9 +26,7 @@ async def list_events(
     _user: User = Depends(get_current_user),
     svc: EventService = Depends(get_event_service),
 ) -> PaginatedResponse[EventListItem]:
-    result = await svc.list(
-        session, cursor=cursor, page_size=page_size, library_id=library_id
-    )
+    result = await svc.list(session, cursor=cursor, page_size=page_size, library_id=library_id)
     return PaginatedResponse(
         data=[EventListItem.model_validate(e) for e in result["data"]],
         meta=PageMeta(

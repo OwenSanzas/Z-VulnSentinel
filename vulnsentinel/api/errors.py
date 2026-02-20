@@ -32,9 +32,7 @@ async def _service_error_handler(_request: Request, exc: ServiceError) -> JSONRe
     return JSONResponse(status_code=status, content={"detail": str(exc)})
 
 
-async def _validation_error_handler(
-    _request: Request, exc: RequestValidationError
-) -> JSONResponse:
+async def _validation_error_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
     errors = exc.errors()
     messages = []
     for err in errors:
@@ -46,9 +44,7 @@ async def _validation_error_handler(
     )
 
 
-async def _invalid_cursor_handler(
-    _request: Request, exc: InvalidCursorError
-) -> JSONResponse:
+async def _invalid_cursor_handler(_request: Request, exc: InvalidCursorError) -> JSONResponse:
     return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 

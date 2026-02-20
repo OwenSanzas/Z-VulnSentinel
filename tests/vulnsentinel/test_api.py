@@ -248,9 +248,7 @@ class TestAuthRouter:
         from vulnsentinel.api import deps
 
         mock_svc = AsyncMock()
-        mock_svc.login = AsyncMock(
-            return_value=TokenPair("access_tok", "refresh_tok")
-        )
+        mock_svc.login = AsyncMock(return_value=TokenPair("access_tok", "refresh_tok"))
         app.dependency_overrides[deps.get_auth_service] = lambda: mock_svc
 
         resp = await client.post(
@@ -299,9 +297,7 @@ class TestAuthRouter:
         from vulnsentinel.api import deps
 
         mock_svc = MagicMock()
-        mock_svc.refresh = MagicMock(
-            side_effect=AuthenticationError("invalid refresh token")
-        )
+        mock_svc.refresh = MagicMock(side_effect=AuthenticationError("invalid refresh token"))
         app.dependency_overrides[deps.get_auth_service] = lambda: mock_svc
 
         resp = await client.post(
@@ -331,12 +327,14 @@ class TestLibrariesRouter:
 
         lib = _library()
         mock_svc = AsyncMock()
-        mock_svc.list = AsyncMock(return_value={
-            "data": [lib],
-            "next_cursor": None,
-            "has_more": False,
-            "total": 1,
-        })
+        mock_svc.list = AsyncMock(
+            return_value={
+                "data": [lib],
+                "next_cursor": None,
+                "has_more": False,
+                "total": 1,
+            }
+        )
         app.dependency_overrides[deps.get_library_service] = lambda: mock_svc
 
         resp = await client.get("/api/v1/libraries/")
@@ -352,12 +350,14 @@ class TestLibrariesRouter:
         from vulnsentinel.api import deps
 
         mock_svc = AsyncMock()
-        mock_svc.list = AsyncMock(return_value={
-            "data": [_library()],
-            "next_cursor": "abc",
-            "has_more": True,
-            "total": 5,
-        })
+        mock_svc.list = AsyncMock(
+            return_value={
+                "data": [_library()],
+                "next_cursor": "abc",
+                "has_more": True,
+                "total": 5,
+            }
+        )
         app.dependency_overrides[deps.get_library_service] = lambda: mock_svc
 
         resp = await client.get("/api/v1/libraries/?page_size=1")
@@ -386,19 +386,21 @@ class TestLibrariesRouter:
         lib_id = uuid.uuid4()
         lib = _library(lib_id)
         mock_svc = AsyncMock()
-        mock_svc.get = AsyncMock(return_value={
-            "library": lib,
-            "used_by": [
-                {
-                    "project_id": uuid.uuid4(),
-                    "project_name": "myapp",
-                    "constraint_expr": ">=7.0",
-                    "resolved_version": "8.4.0",
-                    "constraint_source": "manifest",
-                }
-            ],
-            "events_tracked": 42,
-        })
+        mock_svc.get = AsyncMock(
+            return_value={
+                "library": lib,
+                "used_by": [
+                    {
+                        "project_id": uuid.uuid4(),
+                        "project_name": "myapp",
+                        "constraint_expr": ">=7.0",
+                        "resolved_version": "8.4.0",
+                        "constraint_source": "manifest",
+                    }
+                ],
+                "events_tracked": 42,
+            }
+        )
         app.dependency_overrides[deps.get_library_service] = lambda: mock_svc
 
         resp = await client.get(f"/api/v1/libraries/{lib_id}")
@@ -433,23 +435,36 @@ class TestProjectsRouter:
 
         proj = _project()
         mock_svc = AsyncMock()
-        mock_svc.list = AsyncMock(return_value={
-            "data": [
-                {
-                    "project": proj,
-                    "deps_count": 3,
-                    "vuln_count": 1,
-                    **{k: getattr(proj, k) for k in [
-                        "id", "name", "organization", "repo_url", "platform",
-                        "default_branch", "contact", "current_version",
-                        "monitoring_since", "last_update_at", "created_at",
-                    ]},
-                }
-            ],
-            "next_cursor": None,
-            "has_more": False,
-            "total": 1,
-        })
+        mock_svc.list = AsyncMock(
+            return_value={
+                "data": [
+                    {
+                        "project": proj,
+                        "deps_count": 3,
+                        "vuln_count": 1,
+                        **{
+                            k: getattr(proj, k)
+                            for k in [
+                                "id",
+                                "name",
+                                "organization",
+                                "repo_url",
+                                "platform",
+                                "default_branch",
+                                "contact",
+                                "current_version",
+                                "monitoring_since",
+                                "last_update_at",
+                                "created_at",
+                            ]
+                        },
+                    }
+                ],
+                "next_cursor": None,
+                "has_more": False,
+                "total": 1,
+            }
+        )
         app.dependency_overrides[deps.get_project_service] = lambda: mock_svc
 
         resp = await client.get("/api/v1/projects/")
@@ -464,11 +479,13 @@ class TestProjectsRouter:
         proj_id = uuid.uuid4()
         proj = _project(proj_id)
         mock_svc = AsyncMock()
-        mock_svc.get = AsyncMock(return_value={
-            "project": proj,
-            "deps_count": 5,
-            "vuln_count": 2,
-        })
+        mock_svc.get = AsyncMock(
+            return_value={
+                "project": proj,
+                "deps_count": 5,
+                "vuln_count": 2,
+            }
+        )
         app.dependency_overrides[deps.get_project_service] = lambda: mock_svc
 
         resp = await client.get(f"/api/v1/projects/{proj_id}")
@@ -546,17 +563,23 @@ class TestProjectsRouter:
         snap = _snapshot(project_id=proj_id)
 
         mock_proj_svc = AsyncMock()
-        mock_proj_svc.get = AsyncMock(return_value={
-            "project": proj, "deps_count": 0, "vuln_count": 0,
-        })
+        mock_proj_svc.get = AsyncMock(
+            return_value={
+                "project": proj,
+                "deps_count": 0,
+                "vuln_count": 0,
+            }
+        )
         app.dependency_overrides[deps.get_project_service] = lambda: mock_proj_svc
 
         mock_svc = AsyncMock()
-        mock_svc.list_by_project = AsyncMock(return_value={
-            "data": [snap],
-            "next_cursor": None,
-            "has_more": False,
-        })
+        mock_svc.list_by_project = AsyncMock(
+            return_value={
+                "data": [snap],
+                "next_cursor": None,
+                "has_more": False,
+            }
+        )
         app.dependency_overrides[deps.get_snapshot_service] = lambda: mock_svc
 
         resp = await client.get(f"/api/v1/projects/{proj_id}/snapshots")
@@ -573,9 +596,13 @@ class TestProjectsRouter:
         snap = _snapshot(project_id=proj_id)
 
         mock_proj_svc = AsyncMock()
-        mock_proj_svc.get = AsyncMock(return_value={
-            "project": proj, "deps_count": 0, "vuln_count": 0,
-        })
+        mock_proj_svc.get = AsyncMock(
+            return_value={
+                "project": proj,
+                "deps_count": 0,
+                "vuln_count": 0,
+            }
+        )
         app.dependency_overrides[deps.get_project_service] = lambda: mock_proj_svc
 
         mock_svc = AsyncMock()
@@ -605,17 +632,23 @@ class TestProjectsRouter:
         cv = _client_vuln()
 
         mock_proj_svc = AsyncMock()
-        mock_proj_svc.get = AsyncMock(return_value={
-            "project": proj, "deps_count": 0, "vuln_count": 0,
-        })
+        mock_proj_svc.get = AsyncMock(
+            return_value={
+                "project": proj,
+                "deps_count": 0,
+                "vuln_count": 0,
+            }
+        )
         app.dependency_overrides[deps.get_project_service] = lambda: mock_proj_svc
 
         mock_svc = AsyncMock()
-        mock_svc.list_by_project = AsyncMock(return_value={
-            "data": [cv],
-            "next_cursor": None,
-            "has_more": False,
-        })
+        mock_svc.list_by_project = AsyncMock(
+            return_value={
+                "data": [cv],
+                "next_cursor": None,
+                "has_more": False,
+            }
+        )
         app.dependency_overrides[deps.get_client_vuln_service] = lambda: mock_svc
 
         resp = await client.get(f"/api/v1/projects/{proj_id}/vulnerabilities")
@@ -669,12 +702,14 @@ class TestEventsRouter:
 
         ev = _event()
         mock_svc = AsyncMock()
-        mock_svc.list = AsyncMock(return_value={
-            "data": [ev],
-            "next_cursor": None,
-            "has_more": False,
-            "total": 1,
-        })
+        mock_svc.list = AsyncMock(
+            return_value={
+                "data": [ev],
+                "next_cursor": None,
+                "has_more": False,
+                "total": 1,
+            }
+        )
         app.dependency_overrides[deps.get_event_service] = lambda: mock_svc
 
         resp = await client.get("/api/v1/events/")
@@ -689,12 +724,14 @@ class TestEventsRouter:
 
         lib_id = uuid.uuid4()
         mock_svc = AsyncMock()
-        mock_svc.list = AsyncMock(return_value={
-            "data": [],
-            "next_cursor": None,
-            "has_more": False,
-            "total": 0,
-        })
+        mock_svc.list = AsyncMock(
+            return_value={
+                "data": [],
+                "next_cursor": None,
+                "has_more": False,
+                "total": 0,
+            }
+        )
         app.dependency_overrides[deps.get_event_service] = lambda: mock_svc
 
         resp = await client.get(f"/api/v1/events/?library_id={lib_id}")
@@ -711,10 +748,12 @@ class TestEventsRouter:
         ev = _event(ev_id)
         vuln = _upstream_vuln()
         mock_svc = AsyncMock()
-        mock_svc.get = AsyncMock(return_value={
-            "event": ev,
-            "related_vulns": [vuln],
-        })
+        mock_svc.get = AsyncMock(
+            return_value={
+                "event": ev,
+                "related_vulns": [vuln],
+            }
+        )
         app.dependency_overrides[deps.get_event_service] = lambda: mock_svc
 
         resp = await client.get(f"/api/v1/events/{ev_id}")
@@ -747,12 +786,14 @@ class TestUpstreamVulnsRouter:
 
         vuln = _upstream_vuln()
         mock_svc = AsyncMock()
-        mock_svc.list = AsyncMock(return_value={
-            "data": [vuln],
-            "next_cursor": None,
-            "has_more": False,
-            "total": 1,
-        })
+        mock_svc.list = AsyncMock(
+            return_value={
+                "data": [vuln],
+                "next_cursor": None,
+                "has_more": False,
+                "total": 1,
+            }
+        )
         app.dependency_overrides[deps.get_upstream_vuln_service] = lambda: mock_svc
 
         resp = await client.get("/api/v1/upstream-vulns/")
@@ -769,10 +810,12 @@ class TestUpstreamVulnsRouter:
         vuln = _upstream_vuln(vuln_id)
         cv = _client_vuln()
         mock_svc = AsyncMock()
-        mock_svc.get = AsyncMock(return_value={
-            "vuln": vuln,
-            "client_impact": [cv],
-        })
+        mock_svc.get = AsyncMock(
+            return_value={
+                "vuln": vuln,
+                "client_impact": [cv],
+            }
+        )
         app.dependency_overrides[deps.get_upstream_vuln_service] = lambda: mock_svc
 
         resp = await client.get(f"/api/v1/upstream-vulns/{vuln_id}")
@@ -805,12 +848,14 @@ class TestClientVulnsRouter:
         from vulnsentinel.api import deps
 
         mock_svc = AsyncMock()
-        mock_svc.get_stats = AsyncMock(return_value={
-            "total_recorded": 10,
-            "total_reported": 8,
-            "total_confirmed": 5,
-            "total_fixed": 2,
-        })
+        mock_svc.get_stats = AsyncMock(
+            return_value={
+                "total_recorded": 10,
+                "total_reported": 8,
+                "total_confirmed": 5,
+                "total_fixed": 2,
+            }
+        )
         app.dependency_overrides[deps.get_client_vuln_service] = lambda: mock_svc
 
         resp = await client.get("/api/v1/client-vulns/stats")
@@ -825,12 +870,14 @@ class TestClientVulnsRouter:
 
         proj_id = uuid.uuid4()
         mock_svc = AsyncMock()
-        mock_svc.get_stats = AsyncMock(return_value={
-            "total_recorded": 3,
-            "total_reported": 2,
-            "total_confirmed": 1,
-            "total_fixed": 0,
-        })
+        mock_svc.get_stats = AsyncMock(
+            return_value={
+                "total_recorded": 3,
+                "total_reported": 2,
+                "total_confirmed": 1,
+                "total_fixed": 0,
+            }
+        )
         app.dependency_overrides[deps.get_client_vuln_service] = lambda: mock_svc
 
         resp = await client.get(f"/api/v1/client-vulns/stats?project_id={proj_id}")
@@ -843,18 +890,20 @@ class TestClientVulnsRouter:
 
         cv = _client_vuln()
         mock_svc = AsyncMock()
-        mock_svc.list = AsyncMock(return_value={
-            "data": [cv],
-            "next_cursor": None,
-            "has_more": False,
-            "total": 1,
-            "stats": {
-                "total_recorded": 1,
-                "total_reported": 0,
-                "total_confirmed": 0,
-                "total_fixed": 0,
-            },
-        })
+        mock_svc.list = AsyncMock(
+            return_value={
+                "data": [cv],
+                "next_cursor": None,
+                "has_more": False,
+                "total": 1,
+                "stats": {
+                    "total_recorded": 1,
+                    "total_reported": 0,
+                    "total_confirmed": 0,
+                    "total_fixed": 0,
+                },
+            }
+        )
         app.dependency_overrides[deps.get_client_vuln_service] = lambda: mock_svc
 
         resp = await client.get("/api/v1/client-vulns/")
@@ -868,23 +917,23 @@ class TestClientVulnsRouter:
         from vulnsentinel.api import deps
 
         mock_svc = AsyncMock()
-        mock_svc.list = AsyncMock(return_value={
-            "data": [],
-            "next_cursor": None,
-            "has_more": False,
-            "total": 0,
-            "stats": {
-                "total_recorded": 0,
-                "total_reported": 0,
-                "total_confirmed": 0,
-                "total_fixed": 0,
-            },
-        })
+        mock_svc.list = AsyncMock(
+            return_value={
+                "data": [],
+                "next_cursor": None,
+                "has_more": False,
+                "total": 0,
+                "stats": {
+                    "total_recorded": 0,
+                    "total_reported": 0,
+                    "total_confirmed": 0,
+                    "total_fixed": 0,
+                },
+            }
+        )
         app.dependency_overrides[deps.get_client_vuln_service] = lambda: mock_svc
 
-        resp = await client.get(
-            "/api/v1/client-vulns/?status=recorded&severity=high"
-        )
+        resp = await client.get("/api/v1/client-vulns/?status=recorded&severity=high")
         assert resp.status_code == 200
 
     @pytest.mark.asyncio
@@ -895,10 +944,12 @@ class TestClientVulnsRouter:
         cv = _client_vuln(cv_id)
         uv = _upstream_vuln()
         mock_svc = AsyncMock()
-        mock_svc.get = AsyncMock(return_value={
-            "client_vuln": cv,
-            "upstream_vuln": uv,
-        })
+        mock_svc.get = AsyncMock(
+            return_value={
+                "client_vuln": cv,
+                "upstream_vuln": uv,
+            }
+        )
         app.dependency_overrides[deps.get_client_vuln_service] = lambda: mock_svc
 
         resp = await client.get(f"/api/v1/client-vulns/{cv_id}")
@@ -960,9 +1011,7 @@ class TestClientVulnsRouter:
 
         cv_id = uuid.uuid4()
         mock_svc = AsyncMock()
-        mock_svc.update_status = AsyncMock(
-            side_effect=ValidationError("invalid transition")
-        )
+        mock_svc.update_status = AsyncMock(side_effect=ValidationError("invalid transition"))
         app.dependency_overrides[deps.get_client_vuln_service] = lambda: mock_svc
 
         resp = await client.patch(
@@ -984,14 +1033,16 @@ class TestStatsRouter:
         from vulnsentinel.api import deps
 
         mock_svc = AsyncMock()
-        mock_svc.get_dashboard = AsyncMock(return_value={
-            "projects_count": 5,
-            "libraries_count": 12,
-            "vuln_recorded": 20,
-            "vuln_reported": 15,
-            "vuln_confirmed": 8,
-            "vuln_fixed": 3,
-        })
+        mock_svc.get_dashboard = AsyncMock(
+            return_value={
+                "projects_count": 5,
+                "libraries_count": 12,
+                "vuln_recorded": 20,
+                "vuln_reported": 15,
+                "vuln_confirmed": 8,
+                "vuln_fixed": 3,
+            }
+        )
         app.dependency_overrides[deps.get_stats_service] = lambda: mock_svc
 
         resp = await client.get("/api/v1/stats/dashboard")
@@ -1026,9 +1077,7 @@ class TestErrorHandlers:
         from vulnsentinel.api import deps
 
         mock_svc = AsyncMock()
-        mock_svc.update_status = AsyncMock(
-            side_effect=ValidationError("bad transition")
-        )
+        mock_svc.update_status = AsyncMock(side_effect=ValidationError("bad transition"))
         app.dependency_overrides[deps.get_client_vuln_service] = lambda: mock_svc
 
         resp = await client.patch(
@@ -1042,9 +1091,7 @@ class TestErrorHandlers:
         from vulnsentinel.api import deps
 
         mock_svc = AsyncMock()
-        mock_svc.login = AsyncMock(
-            side_effect=AuthenticationError("invalid credentials")
-        )
+        mock_svc.login = AsyncMock(side_effect=AuthenticationError("invalid credentials"))
         app.dependency_overrides[deps.get_auth_service] = lambda: mock_svc
 
         resp = await client.post(

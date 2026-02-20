@@ -181,6 +181,7 @@ class TestCreate:
         lib_zlib = _make_library(name="zlib", repo_url="https://github.com/madler/zlib")
 
         service, proj_dao, dep_dao, _, lib_service = _make_service()
+        proj_dao.get_by_field = AsyncMock(return_value=None)
         proj_dao.create = AsyncMock(return_value=project)
         dep_dao.batch_create = AsyncMock(return_value=[])
 
@@ -235,6 +236,7 @@ class TestCreate:
     async def test_create_without_dependencies(self):
         project = _make_project()
         service, proj_dao, dep_dao, _, _ = _make_service()
+        proj_dao.get_by_field = AsyncMock(return_value=None)
         proj_dao.create = AsyncMock(return_value=project)
         dep_dao.batch_create = AsyncMock()
 
@@ -250,6 +252,7 @@ class TestCreate:
     async def test_create_empty_dependencies_list(self):
         project = _make_project()
         service, proj_dao, dep_dao, _, _ = _make_service()
+        proj_dao.get_by_field = AsyncMock(return_value=None)
         proj_dao.create = AsyncMock(return_value=project)
         dep_dao.batch_create = AsyncMock()
 
@@ -266,6 +269,7 @@ class TestCreate:
     async def test_create_passes_all_project_fields(self):
         project = _make_project()
         service, proj_dao, _, _, _ = _make_service()
+        proj_dao.get_by_field = AsyncMock(return_value=None)
         proj_dao.create = AsyncMock(return_value=project)
 
         await service.create(

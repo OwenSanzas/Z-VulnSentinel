@@ -83,9 +83,7 @@ def create_app() -> FastAPI:
     app.include_router(
         upstream_vulns.router, prefix="/api/v1/upstream-vulns", tags=["upstream-vulns"]
     )
-    app.include_router(
-        client_vulns.router, prefix="/api/v1/client-vulns", tags=["client-vulns"]
-    )
+    app.include_router(client_vulns.router, prefix="/api/v1/client-vulns", tags=["client-vulns"])
     app.include_router(stats.router, prefix="/api/v1/stats", tags=["stats"])
 
     return app

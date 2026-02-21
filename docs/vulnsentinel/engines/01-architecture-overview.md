@@ -124,27 +124,28 @@ LLM 改变了这一点。它能在语义层面理解 diff：
 
 ## 引擎定义
 
-7 个引擎 + 1 个调度层，覆盖从"监控上游代码变更"到"通知下游项目负责人"的完整链路。
+8 个引擎 + 1 个调度层，覆盖从"提取依赖"到"通知下游项目负责人"的完整链路。
 
 ### 引擎流水线
 
 ```
-Event Collector → Event Classifier → Vuln Analyzer → Impact Engine → Reachability Analyzer → Notification Engine
-                                                                            ↑
-                                                                     Snapshot Builder
+Dependency Scanner → Event Collector → Event Classifier → Vuln Analyzer → Impact Engine → Reachability Analyzer → Notification Engine
+                                                                                                ↑
+                                                                                         Snapshot Builder
 ```
 
 ### 引擎列表
 
-| # | 引擎 | 对应十步流程 | 输入 | 输出 | 核心能力 |
-|---|------|-------------|------|------|---------|
-| 1 | **Event Collector** | 步骤 4-5 | Library 列表 | Event 记录 | GitHub API 拉取 commit / PR / tag / issue |
-| 2 | **Event Classifier** | 步骤 6 | 未分类 Event | classification + confidence | LLM 语义分析 diff，判断是否为 security_bugfix |
-| 3 | **Vuln Analyzer** | 步骤 7 | security_bugfix Event | UpstreamVuln 记录 | LLM 分析漏洞类型、严重度、影响版本、上游 PoC |
-| 4 | **Impact Engine** | 步骤 8（版本匹配部分） | 已 publish 的 UpstreamVuln | ClientVuln 记录 | 版本约束比对，判断哪些项目受影响 |
-| 5 | **Reachability Analyzer** | 步骤 8-9 | pending ClientVuln + Snapshot | 可达路径 + PoC 结果 | 调用图 BFS + PoC 生成 |
-| 6 | **Snapshot Builder** | （基础设施） | Project 信息 | Snapshot 记录 | SVF/Joern 静态分析，构建调用图 |
-| 7 | **Notification Engine** | 步骤 10 | verified ClientVuln | 通知记录 | 邮件 / Webhook / 站内消息 |
+| # | 引擎 | 对应十步流程 | 输入 | 输出 | 核心能力 | 状态 |
+|---|------|-------------|------|------|---------|------|
+| 0 | **Dependency Scanner** | 步骤 3 | Project repo | ScannedDependency + DB 同步 | 11 个 manifest parser，自动发现依赖 | **已实现** |
+| 1 | **Event Collector** | 步骤 4-5 | Library 列表 | Event 记录 | GitHub API 拉取 commit / PR / tag / issue | 待实现 |
+| 2 | **Event Classifier** | 步骤 6 | 未分类 Event | classification + confidence | LLM 语义分析 diff，判断是否为 security_bugfix | 待实现 |
+| 3 | **Vuln Analyzer** | 步骤 7 | security_bugfix Event | UpstreamVuln 记录 | LLM 分析漏洞类型、严重度、影响版本、上游 PoC | 待实现 |
+| 4 | **Impact Engine** | 步骤 8（版本匹配部分） | 已 publish 的 UpstreamVuln | ClientVuln 记录 | 版本约束比对，判断哪些项目受影响 | 待实现 |
+| 5 | **Reachability Analyzer** | 步骤 8-9 | pending ClientVuln + Snapshot | 可达路径 + PoC 结果 | 调用图 BFS + PoC 生成 | 待实现 |
+| 6 | **Snapshot Builder** | （基础设施） | Project 信息 | Snapshot 记录 | SVF/Joern 静态分析，构建调用图 | 待实现 |
+| 7 | **Notification Engine** | 步骤 10 | verified ClientVuln | 通知记录 | 邮件 / Webhook / 站内消息 | 待实现 |
 
 ### 引擎间数据流
 
@@ -174,7 +175,8 @@ Event Collector → Event Classifier → Vuln Analyzer → Impact Engine → Rea
 
 | 引擎 | 读取 | 写入 |
 |------|------|------|
-| Event Collector | `LibraryService.list()` | `EventService.batch_create()` |
+| Dependency Scanner | `ProjectDAO.get_by_id()` | `LibraryService.upsert()` → `ProjectDependencyDAO.batch_upsert()` → `delete_stale_scanner_deps()` |
+| Event Collector | `LibraryDAO.get_all_monitored()` | `EventService.batch_create()` |
 | Event Classifier | `EventService.list_unclassified()` | `EventService.update_classification()` |
 | Vuln Analyzer | `EventService.list_bugfix_without_vuln()` | `UpstreamVulnService.create()` → `update_analysis()` → `publish()` |
 | Impact Engine | 已 publish 的 UpstreamVuln + ProjectDependency | `ClientVulnService.create()` |
@@ -192,6 +194,7 @@ Event Collector → Event Classifier → Vuln Analyzer → Impact Engine → Rea
 
 | 引擎 | 触发方式 | 说明 |
 |------|---------|------|
+| Dependency Scanner | 定时轮询 | per-project 每 1 小时，基于 `last_scanned_at`；`auto_sync_deps=false` 跳过 |
 | Event Collector | 定时轮询 | 每 N 分钟 per library，GitHub API rate limit 感知 |
 | Event Classifier | 链式触发 / 定时兜底 | Collector 完成后立即触发；定时兜底处理遗漏 |
 | Vuln Analyzer | 链式触发 | Classifier 产出 security_bugfix 后触发 |
@@ -255,7 +258,7 @@ Event Collector → Event Classifier → Vuln Analyzer → Impact Engine → Rea
 
 ### 依赖扫描（Dependency Scanner）
 
-扫描 Project repo 的 manifest 文件（`package.json`、`requirements.txt` 等），同步依赖列表。
+扫描 Project repo 的 manifest 文件，同步依赖列表。详见 [02-dependency-scanner.md](./02-dependency-scanner.md)。
 
 | 触发时机 | 条件 |
 |---------|------|
@@ -268,11 +271,10 @@ Event Collector → Event Classifier → Vuln Analyzer → Impact Engine → Rea
 
 ```sql
 WHERE auto_sync_deps = true
-  AND pinned_ref IS NULL
   AND (last_scanned_at IS NULL OR last_scanned_at < now() - interval '1 hour')
 ```
 
-即：`auto_sync_deps=false` 或 `pinned_ref` 已设置的项目不会被定时重扫。
+即：`auto_sync_deps=false` 的项目不会被定时重扫。设置了 `pinned_ref` 的项目仍然会扫描，但 clone 时使用 `pinned_ref` 指定的 tag/SHA。
 
 ### 手动 vs 自动依赖管理
 
@@ -280,31 +282,47 @@ WHERE auto_sync_deps = true
 
 | `constraint_source` | 来源 | Scanner 行为 |
 |---------------------|------|-------------|
-| `manifest`（如 `package.json`） | Scanner 自动扫描写入 | Scanner 管理：manifest 里没有就删除 |
+| manifest 文件路径（如 `requirements.txt`、`pom.xml`） | Scanner 自动扫描写入 | Scanner 管理：manifest 里没有就删除 |
 | `manual` | 用户通过 API 手动添加 | Scanner 不动：跳过 |
 
-- **`auto_sync_deps=true`**：Scanner 每小时扫一次，只管 `constraint_source=manifest` 的记录。用户仍可通过 API 手动增删 `constraint_source=manual` 的依赖
+- **`auto_sync_deps=true`**：Scanner 每小时扫一次，只管 `constraint_source != 'manual'` 的记录。用户仍可通过 API 手动增删 `constraint_source=manual` 的依赖
 - **`auto_sync_deps=false`**：Scanner 不扫，所有依赖由用户手动管理
 
 **没有竞态问题** — 手动 CRUD 和 Scanner 操作不同 `constraint_source` 的记录，互不冲突。
 
 ### Manifest 检测策略
 
-Scanner 按语言/生态检测依赖，难度不同：
+Scanner 使用可插拔的 Parser Registry，每个 parser 声明 `file_patterns` 和 `detection_method`，通过 glob 自动发现匹配的文件。
 
-| 语言 | 检测源 | 难度 |
-|------|--------|------|
-| **Python** | `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` | 简单 |
-| **JavaScript** | `package.json`, `yarn.lock`, `pnpm-lock.yaml` | 简单 |
-| **Java** | `pom.xml` (Maven), `build.gradle` (Gradle) | 中等 |
-| **C/C++** | 见下方 | 困难 |
+**已实现的 11 个 parser：**
+
+| 生态 | Parser | 检测文件 | detection_method | 版本提取 |
+|------|--------|---------|-----------------|---------|
+| **Python** | PipRequirements | `requirements.txt`, `requirements/*.txt` | `pip-requirements` | `==x.y.z` 精确版本 |
+| **Python** | PyprojectToml | `pyproject.toml` | `pyproject-toml` | PEP 508 约束 |
+| **Java/Kotlin** | MavenPom | `**/pom.xml` | `maven-pom` | 支持 `${property}` 解析 |
+| **Java/Kotlin** | GradleBuild | `**/build.gradle`, `**/build.gradle.kts` | `gradle` | Groovy / Kotlin DSL |
+| **Go** | GoMod | `go.mod` | `go-mod` | GitHub/GitLab URL 自动推导 |
+| **Rust** | CargoToml | `**/Cargo.toml` | `cargo-toml` | 支持 git 依赖 |
+| **C/C++** | Conan | `conanfile.txt` | `conan` | `name/version` 格式 |
+| **C/C++** | VcpkgJson | `vcpkg.json` | `vcpkg` | string 和 object 格式 |
+| **C/C++** | CMakeFind | `**/CMakeLists.txt` | `cmake-find-package` | `find_package()` best-effort，~70-80% 精度 |
+| **C/C++/通用** | GitSubmodule | `.gitmodules` | `git-submodule` | 提取 repo URL |
+| **Solidity** | FoundryToml | `foundry.toml` | `foundry-soldeer` | Soldeer 依赖格式 |
+
+**已知未覆盖（用户需手动添加）：**
+
+- Python: `setup.py`、`Pipfile`
+- JavaScript: `package.json`、`yarn.lock`、`pnpm-lock.yaml`
+- C/C++: `conanfile.py`（Python DSL，解析复杂）、`CMakeLists.txt` 中的 `FetchContent`
+- 其他语言的包管理器
 
 **C/C++ 没有统一的包管理器**，Scanner 分层尝试：
 
-1. 查包管理器配置：`conanfile.txt` / `conanfile.py`（Conan）、`vcpkg.json`（vcpkg）
+1. 查包管理器配置：`conanfile.txt`（Conan）、`vcpkg.json`（vcpkg）
 2. 查 git submodule：`.gitmodules`
-3. 查 CMake：`CMakeLists.txt` 中的 `FetchContent` / `find_package`
-4. 都没有 → 标记"无法自动检测"，用户需手动添加（`constraint_source=manual`）
+3. 查 CMake：`**/CMakeLists.txt` 中的 `find_package()`（best-effort，有误报）
+4. 都没有 → 用户需手动添加（`constraint_source=manual`）
 
 ### 第一步的产出
 

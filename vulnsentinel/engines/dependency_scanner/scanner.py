@@ -10,15 +10,14 @@ from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+# Ensure parsers are registered before any scan runs.
+import vulnsentinel.engines.dependency_scanner.parsers  # noqa: F401
 from vulnsentinel.dao.project_dao import ProjectDAO
 from vulnsentinel.dao.project_dependency_dao import ProjectDependencyDAO
-from vulnsentinel.engines.dependency_scanner.models import ScanResult, ScannedDependency
+from vulnsentinel.engines.dependency_scanner.models import ScannedDependency, ScanResult
 from vulnsentinel.engines.dependency_scanner.registry import discover_manifests
 from vulnsentinel.engines.dependency_scanner.repo import shallow_clone
 from vulnsentinel.services.library_service import LibraryService
-
-# Ensure parsers are registered before any scan runs.
-import vulnsentinel.engines.dependency_scanner.parsers  # noqa: F401
 
 logger = logging.getLogger(__name__)
 

@@ -74,7 +74,9 @@ async def _scan_url(repo_url: str, ref: str | None, as_json: bool) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Scan a repo for dependencies")
     parser.add_argument("target", help="Local path or git URL to scan")
-    parser.add_argument("--ref", default=None, help="Branch or tag to clone (default: remote default)")
+    parser.add_argument(
+        "--ref", default=None, help="Branch/tag to clone (default: remote default)",
+    )
     parser.add_argument("--json", action="store_true", dest="as_json", help="Output as JSON")
     args = parser.parse_args()
 

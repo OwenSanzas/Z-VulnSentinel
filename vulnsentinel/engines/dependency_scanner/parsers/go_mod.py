@@ -74,7 +74,9 @@ class GoModParser:
                         library_name=module,
                         library_repo_url=_repo_url_from_module(module),
                         constraint_expr=version,
-                        resolved_version=version.lstrip("v") if version.startswith("v") else version,
+                        resolved_version=(
+                            version.lstrip("v") if version.startswith("v") else version
+                        ),
                         source_file=file_path.name,
                         detection_method=self.detection_method,
                     )

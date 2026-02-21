@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import uuid
-from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from vulnsentinel.engines.dependency_scanner.models import ScanResult, ScannedDependency
 from vulnsentinel.engines.dependency_scanner.parsers.cargo_toml import CargoTomlParser
 from vulnsentinel.engines.dependency_scanner.parsers.cmake_find import CMakeFindPackageParser
 from vulnsentinel.engines.dependency_scanner.parsers.conan import ConanParser
@@ -18,10 +16,10 @@ from vulnsentinel.engines.dependency_scanner.parsers.foundry_toml import (
 from vulnsentinel.engines.dependency_scanner.parsers.git_submodule import (
     GitSubmoduleParser,
 )
+from vulnsentinel.engines.dependency_scanner.parsers.go_mod import GoModParser
 from vulnsentinel.engines.dependency_scanner.parsers.gradle_build import (
     GradleBuildParser,
 )
-from vulnsentinel.engines.dependency_scanner.parsers.go_mod import GoModParser
 from vulnsentinel.engines.dependency_scanner.parsers.maven_pom import MavenPomParser
 from vulnsentinel.engines.dependency_scanner.parsers.pip_requirements import (
     PipRequirementsParser,
@@ -35,7 +33,6 @@ from vulnsentinel.engines.dependency_scanner.registry import (
     discover_manifests,
 )
 from vulnsentinel.engines.dependency_scanner.scanner import DependencyScanner, scan
-
 
 # ── helpers ──────────────────────────────────────────────────────────────
 
@@ -1606,7 +1603,7 @@ class TestRunIntegrated:
             "vulnsentinel.engines.dependency_scanner.scanner.shallow_clone",
             return_value=tmp_path,
         ):
-            result = await scanner.run(session, project.id)
+            await scanner.run(session, project.id)
 
         # batch_upsert should receive exactly 1 row (deduped), not 2
         dep_dao.batch_upsert.assert_called_once()

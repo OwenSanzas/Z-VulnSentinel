@@ -1,6 +1,5 @@
 """Tests for ProjectDependencyDAO."""
 
-import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest

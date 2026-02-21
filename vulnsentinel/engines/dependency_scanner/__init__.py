@@ -1,6 +1,6 @@
 """Dependency scanner engine — detect project dependencies from manifests."""
 
 from vulnsentinel.engines.dependency_scanner.models import ScanResult, ScannedDependency
-from vulnsentinel.engines.dependency_scanner.scanner import DependencyScanner
+from vulnsentinel.engines.dependency_scanner.scanner import DependencyScanner, scan
 
-__all__ = ["DependencyScanner", "ScanResult", "ScannedDependency"]
+__all__ = ["DependencyScanner", "ScanResult", "ScannedDependency", "scan"]

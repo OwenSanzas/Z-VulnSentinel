@@ -12,8 +12,14 @@ from vulnsentinel.engines.dependency_scanner.models import ScanResult, ScannedDe
 from vulnsentinel.engines.dependency_scanner.parsers.cargo_toml import CargoTomlParser
 from vulnsentinel.engines.dependency_scanner.parsers.cmake_find import CMakeFindPackageParser
 from vulnsentinel.engines.dependency_scanner.parsers.conan import ConanParser
+from vulnsentinel.engines.dependency_scanner.parsers.foundry_toml import (
+    FoundryTomlParser,
+)
 from vulnsentinel.engines.dependency_scanner.parsers.git_submodule import (
     GitSubmoduleParser,
+)
+from vulnsentinel.engines.dependency_scanner.parsers.gradle_build import (
+    GradleBuildParser,
 )
 from vulnsentinel.engines.dependency_scanner.parsers.go_mod import GoModParser
 from vulnsentinel.engines.dependency_scanner.parsers.maven_pom import MavenPomParser
@@ -28,7 +34,7 @@ from vulnsentinel.engines.dependency_scanner.registry import (
     PARSER_REGISTRY,
     discover_manifests,
 )
-from vulnsentinel.engines.dependency_scanner.scanner import DependencyScanner
+from vulnsentinel.engines.dependency_scanner.scanner import DependencyScanner, scan
 
 
 # ── helpers ──────────────────────────────────────────────────────────────
@@ -62,6 +68,8 @@ class TestRegistry:
             "conan",
             "vcpkg",
             "cmake-find-package",
+            "gradle",
+            "foundry-soldeer",
         }
         assert expected.issubset(set(PARSER_REGISTRY.keys()))
 
@@ -131,6 +139,24 @@ class TestRegistry:
         matches = discover_manifests(tmp_path)
         methods = [p.detection_method for p, _ in matches]
         assert "cmake-find-package" in methods
+
+    def test_discover_foundry_toml(self, tmp_path):
+        (tmp_path / "foundry.toml").write_text('[profile.default]\nsrc = "src"\n')
+        matches = discover_manifests(tmp_path)
+        methods = [p.detection_method for p, _ in matches]
+        assert "foundry-soldeer" in methods
+
+    def test_discover_build_gradle(self, tmp_path):
+        (tmp_path / "build.gradle").write_text('dependencies {\n\timplementation "a:b:1"\n}\n')
+        matches = discover_manifests(tmp_path)
+        methods = [p.detection_method for p, _ in matches]
+        assert "gradle" in methods
+
+    def test_discover_build_gradle_kts(self, tmp_path):
+        (tmp_path / "build.gradle.kts").write_text('dependencies {\n\timplementation("a:b:1")\n}\n')
+        matches = discover_manifests(tmp_path)
+        methods = [p.detection_method for p, _ in matches]
+        assert "gradle" in methods
 
 
 # ── PipRequirementsParser ────────────────────────────────────────────────
@@ -598,11 +624,14 @@ class TestMavenPomParser:
         assert deps[0].constraint_expr is None
         assert deps[0].resolved_version is None
 
-    def test_property_version_placeholder(self, parser, tmp_path):
-        """${property} versions are kept as-is (we don't resolve properties)."""
+    def test_property_version_resolved(self, parser, tmp_path):
+        """${property} versions are resolved from <properties>."""
         f = tmp_path / "pom.xml"
         f.write_text(
             "<project>\n"
+            "  <properties>\n"
+            "    <spring.version>5.3.20</spring.version>\n"
+            "  </properties>\n"
             "  <dependencies>\n"
             "    <dependency>\n"
             "      <groupId>org.example</groupId>\n"
@@ -613,8 +642,25 @@ class TestMavenPomParser:
             "</project>\n"
         )
         deps = parser.parse(f, f.read_text())
-        assert deps[0].constraint_expr == "${spring.version}"
-        assert deps[0].resolved_version == "${spring.version}"
+        assert deps[0].constraint_expr == "5.3.20"
+        assert deps[0].resolved_version == "5.3.20"
+
+    def test_property_version_unresolved_kept(self, parser, tmp_path):
+        """${property} kept as-is when not defined in <properties>."""
+        f = tmp_path / "pom.xml"
+        f.write_text(
+            "<project>\n"
+            "  <dependencies>\n"
+            "    <dependency>\n"
+            "      <groupId>org.example</groupId>\n"
+            "      <artifactId>prop-ver</artifactId>\n"
+            "      <version>${unknown.version}</version>\n"
+            "    </dependency>\n"
+            "  </dependencies>\n"
+            "</project>\n"
+        )
+        deps = parser.parse(f, f.read_text())
+        assert deps[0].constraint_expr == "${unknown.version}"
 
     def test_version_range(self, parser, tmp_path):
         """Maven version ranges like [1.0,2.0)."""
@@ -939,12 +985,17 @@ class TestCMakeFindPackageParser:
         assert len(deps) == 1
         assert deps[0].library_name == "ZLIB"
 
-    def test_version_in_find_package_ignored(self, parser, tmp_path):
-        """We don't extract version from find_package — it's a minimum version hint."""
+    def test_version_extracted(self, parser, tmp_path):
         f = tmp_path / "CMakeLists.txt"
         f.write_text("find_package(OpenSSL 1.1.1 REQUIRED)\n")
         deps = parser.parse(f, f.read_text())
         assert deps[0].library_name == "OpenSSL"
+        assert deps[0].constraint_expr == ">=1.1.1"
+
+    def test_no_version(self, parser, tmp_path):
+        f = tmp_path / "CMakeLists.txt"
+        f.write_text("find_package(ZLIB REQUIRED)\n")
+        deps = parser.parse(f, f.read_text())
         assert deps[0].constraint_expr is None
 
     def test_repo_url_is_none(self, parser, tmp_path):
@@ -966,6 +1017,231 @@ class TestCMakeFindPackageParser:
         deps = parser.parse(f, f.read_text())
         assert len(deps) == 1
         assert deps[0].library_name == "OpenSSL"
+
+
+# ── GradleBuildParser ────────────────────────────────────────────────────
+
+
+class TestGradleBuildParser:
+    @pytest.fixture
+    def parser(self):
+        return GradleBuildParser()
+
+    def test_groovy_dsl_basic(self, parser, tmp_path):
+        f = tmp_path / "build.gradle"
+        f.write_text(
+            'dependencies {\n'
+            '\timplementation "org.springframework:spring-core:5.3.20"\n'
+            '\tapi "com.google.guava:guava:32.1.2-jre"\n'
+            '}\n'
+        )
+        deps = parser.parse(f, f.read_text())
+        assert len(deps) == 2
+        names = {d.library_name for d in deps}
+        assert "org.springframework:spring-core" in names
+        assert "com.google.guava:guava" in names
+        spring = next(d for d in deps if "spring-core" in d.library_name)
+        assert spring.constraint_expr == "5.3.20"
+        assert spring.resolved_version == "5.3.20"
+
+    def test_kotlin_dsl_parentheses(self, parser, tmp_path):
+        f = tmp_path / "build.gradle.kts"
+        f.write_text(
+            'dependencies {\n'
+            '\timplementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.0")\n'
+            '\ttestImplementation("junit:junit:4.13.2")\n'
+            '}\n'
+        )
+        deps = parser.parse(f, f.read_text())
+        assert len(deps) == 2
+        assert deps[0].library_name == "org.jetbrains.kotlin:kotlin-stdlib"
+        assert deps[0].resolved_version == "1.9.0"
+
+    def test_no_version(self, parser, tmp_path):
+        """Dependencies without version (managed by platform/BOM)."""
+        f = tmp_path / "build.gradle"
+        f.write_text(
+            'dependencies {\n'
+            '\tapi("org.springframework:spring-jdbc")\n'
+            '}\n'
+        )
+        deps = parser.parse(f, f.read_text())
+        assert len(deps) == 1
+        assert deps[0].library_name == "org.springframework:spring-jdbc"
+        assert deps[0].constraint_expr is None
+        assert deps[0].resolved_version is None
+
+    def test_various_configurations(self, parser, tmp_path):
+        f = tmp_path / "build.gradle"
+        f.write_text(
+            'dependencies {\n'
+            '\tcompileOnly("com.fasterxml.jackson.core:jackson-annotations:2.15.0")\n'
+            '\truntimeOnly("ch.qos.logback:logback-classic:1.4.11")\n'
+            '\tannotationProcessor("org.springframework:spring-context-indexer:6.0")\n'
+            '}\n'
+        )
+        deps = parser.parse(f, f.read_text())
+        assert len(deps) == 3
+
+    def test_custom_configurations(self, parser, tmp_path):
+        """Custom configs like dockerTestImplementation."""
+        f = tmp_path / "build.gradle"
+        f.write_text(
+            'dependencies {\n'
+            '\tdockerTestImplementation("org.testcontainers:testcontainers-junit-jupiter:1.19")\n'
+            '\tdockerTestRuntimeOnly("org.postgresql:postgresql:42.6")\n'
+            '}\n'
+        )
+        deps = parser.parse(f, f.read_text())
+        assert len(deps) == 2
+
+    def test_single_quotes_groovy(self, parser, tmp_path):
+        f = tmp_path / "build.gradle"
+        f.write_text(
+            "dependencies {\n"
+            "\timplementation 'com.zaxxer:HikariCP:5.0.1'\n"
+            "}\n"
+        )
+        deps = parser.parse(f, f.read_text())
+        assert len(deps) == 1
+        assert deps[0].library_name == "com.zaxxer:HikariCP"
+        assert deps[0].resolved_version == "5.0.1"
+
+    def test_dedup(self, parser, tmp_path):
+        f = tmp_path / "build.gradle"
+        f.write_text(
+            'dependencies {\n'
+            '\timplementation("com.zaxxer:HikariCP:5.0")\n'
+            '\ttestRuntimeOnly("com.zaxxer:HikariCP:5.0")\n'
+            '}\n'
+        )
+        deps = parser.parse(f, f.read_text())
+        assert len(deps) == 1
+
+    def test_spring_boot_real_world(self, parser, tmp_path):
+        """Realistic Spring Boot build.gradle content."""
+        f = tmp_path / "build.gradle"
+        f.write_text(
+            'plugins {\n'
+            '\tid "java-library"\n'
+            '}\n\n'
+            'dependencies {\n'
+            '\tapi("org.springframework:spring-jdbc")\n'
+            '\tcompileOnly("com.fasterxml.jackson.core:jackson-annotations")\n'
+            '\toptional("com.zaxxer:HikariCP")\n'
+            '\toptional("com.h2database:h2")\n'
+            '\ttestImplementation("com.ibm.db2:jcc")\n'
+            '\ttestRuntimeOnly("com.mysql:mysql-connector-j")\n'
+            '}\n'
+        )
+        deps = parser.parse(f, f.read_text())
+        names = {d.library_name for d in deps}
+        # optional() doesn't match our config patterns — that's fine for v1
+        assert "org.springframework:spring-jdbc" in names
+        assert "com.fasterxml.jackson.core:jackson-annotations" in names
+
+    def test_empty_build_gradle(self, parser, tmp_path):
+        f = tmp_path / "build.gradle"
+        f.write_text('plugins {\n\tid "java"\n}\n')
+        deps = parser.parse(f, f.read_text())
+        assert deps == []
+
+    def test_source_file_and_method(self, parser, tmp_path):
+        f = tmp_path / "build.gradle"
+        f.write_text('dependencies {\n\timplementation "a:b:1"\n}\n')
+        deps = parser.parse(f, f.read_text())
+        assert deps[0].source_file == "build.gradle"
+        assert deps[0].detection_method == "gradle"
+
+    def test_repo_url_is_none(self, parser, tmp_path):
+        f = tmp_path / "build.gradle"
+        f.write_text('dependencies {\n\timplementation "a:b:1"\n}\n')
+        deps = parser.parse(f, f.read_text())
+        assert deps[0].library_repo_url is None
+
+
+# ── FoundryTomlParser ────────────────────────────────────────────────────
+
+
+class TestFoundryTomlParser:
+    @pytest.fixture
+    def parser(self):
+        return FoundryTomlParser()
+
+    def test_simple_version(self, parser, tmp_path):
+        f = tmp_path / "foundry.toml"
+        f.write_text(
+            '[profile.default]\nsrc = "src"\n\n'
+            "[dependencies]\n"
+            'forge-std = "1.9.1"\n'
+            '"@openzeppelin-contracts" = "5.0.2"\n'
+        )
+        deps = parser.parse(f, f.read_text())
+        assert len(deps) == 2
+        assert deps[0].library_name == "forge-std"
+        assert deps[0].constraint_expr == "1.9.1"
+        assert deps[0].resolved_version == "1.9.1"
+        assert deps[1].library_name == "@openzeppelin-contracts"
+        assert deps[1].resolved_version == "5.0.2"
+
+    def test_table_with_url(self, parser, tmp_path):
+        f = tmp_path / "foundry.toml"
+        f.write_text(
+            "[dependencies]\n"
+            'solmate = { version = "6.7.0", url = "https://github.com/transmissions11/solmate" }\n'
+        )
+        deps = parser.parse(f, f.read_text())
+        assert len(deps) == 1
+        assert deps[0].library_name == "solmate"
+        assert deps[0].resolved_version == "6.7.0"
+        assert deps[0].library_repo_url == "https://github.com/transmissions11/solmate"
+
+    def test_no_dependencies_section(self, parser, tmp_path):
+        f = tmp_path / "foundry.toml"
+        f.write_text('[profile.default]\nsrc = "src"\nout = "out"\n')
+        deps = parser.parse(f, f.read_text())
+        assert deps == []
+
+    def test_empty_dependencies(self, parser, tmp_path):
+        f = tmp_path / "foundry.toml"
+        f.write_text("[dependencies]\n")
+        deps = parser.parse(f, f.read_text())
+        assert deps == []
+
+    def test_invalid_toml(self, parser, tmp_path):
+        f = tmp_path / "foundry.toml"
+        f.write_text("not valid [[[toml\n")
+        deps = parser.parse(f, f.read_text())
+        assert deps == []
+
+    def test_mixed_formats(self, parser, tmp_path):
+        f = tmp_path / "foundry.toml"
+        f.write_text(
+            "[dependencies]\n"
+            'forge-std = "1.9.1"\n'
+            'solady = { version = "0.0.124" }\n'
+            'murky = { version = "1.1.2", url = "https://github.com/dmfxyz/murky" }\n'
+        )
+        deps = parser.parse(f, f.read_text())
+        assert len(deps) == 3
+        names = [d.library_name for d in deps]
+        assert names == ["forge-std", "solady", "murky"]
+        assert deps[0].library_repo_url is None
+        assert deps[1].library_repo_url is None
+        assert deps[2].library_repo_url == "https://github.com/dmfxyz/murky"
+
+    def test_source_file_and_method(self, parser, tmp_path):
+        f = tmp_path / "foundry.toml"
+        f.write_text('[dependencies]\na = "1.0"\n')
+        deps = parser.parse(f, f.read_text())
+        assert deps[0].source_file == "foundry.toml"
+        assert deps[0].detection_method == "foundry-soldeer"
+
+    def test_repo_url_none_for_simple(self, parser, tmp_path):
+        f = tmp_path / "foundry.toml"
+        f.write_text('[dependencies]\nfoo = "1.0"\n')
+        deps = parser.parse(f, f.read_text())
+        assert deps[0].library_repo_url is None
 
 
 # ── VcpkgJsonParser ──────────────────────────────────────────────────────
@@ -1065,8 +1341,7 @@ class TestScan:
             "\tpath = third_party/zlib\n"
         )
 
-        scanner = DependencyScanner.__new__(DependencyScanner)
-        deps = scanner.scan(tmp_path)
+        deps = scan(tmp_path)
 
         names = {d.library_name for d in deps}
         assert "flask" in names
@@ -1075,14 +1350,12 @@ class TestScan:
         assert len(deps) == 3
 
     def test_scan_empty_repo(self, tmp_path):
-        scanner = DependencyScanner.__new__(DependencyScanner)
-        deps = scanner.scan(tmp_path)
+        deps = scan(tmp_path)
         assert deps == []
 
     def test_scan_only_requirements(self, tmp_path):
         (tmp_path / "requirements.txt").write_text("numpy==1.24\n")
-        scanner = DependencyScanner.__new__(DependencyScanner)
-        deps = scanner.scan(tmp_path)
+        deps = scan(tmp_path)
         assert len(deps) == 1
         assert deps[0].library_name == "numpy"
         assert deps[0].library_repo_url is None
@@ -1093,8 +1366,7 @@ class TestScan:
             "\turl = https://github.com/org/lib.git\n"
             "\tpath = lib\n"
         )
-        scanner = DependencyScanner.__new__(DependencyScanner)
-        deps = scanner.scan(tmp_path)
+        deps = scan(tmp_path)
         assert len(deps) == 1
         assert deps[0].library_repo_url == "https://github.com/org/lib.git"
 
@@ -1104,8 +1376,7 @@ class TestScan:
         req_dir.mkdir()
         (req_dir / "prod.txt").write_text("flask==2.0\n")
 
-        scanner = DependencyScanner.__new__(DependencyScanner)
-        deps = scanner.scan(tmp_path)
+        deps = scan(tmp_path)
         assert len(deps) == 1
         assert deps[0].source_file == "requirements/prod.txt"
 
@@ -1113,12 +1384,11 @@ class TestScan:
         """Root-level files should have just the filename as source_file."""
         (tmp_path / "requirements.txt").write_text("flask==1.0\n")
 
-        scanner = DependencyScanner.__new__(DependencyScanner)
-        deps = scanner.scan(tmp_path)
+        deps = scan(tmp_path)
         assert deps[0].source_file == "requirements.txt"
 
     def test_scan_all_manifest_types(self, tmp_path):
-        """Verify all 9 parsers work together in a single scan."""
+        """Verify all 11 parsers work together in a single scan."""
         (tmp_path / "requirements.txt").write_text("flask==2.0\n")
         (tmp_path / "pyproject.toml").write_text(
             '[project]\ndependencies = ["pydantic>=2.0"]\n'
@@ -1139,11 +1409,16 @@ class TestScan:
             "</dependencies></project>"
         )
         (tmp_path / "conanfile.txt").write_text("[requires]\nzlib/1.2.13\n")
-        (tmp_path / "vcpkg.json").write_text('{"dependencies":["curl"]}')
+        (tmp_path / "vcpkg.json").write_text('{"dependencies":["vcpkglib"]}')
         (tmp_path / "CMakeLists.txt").write_text("find_package(OpenSSL REQUIRED)\n")
+        (tmp_path / "build.gradle").write_text(
+            'dependencies {\n\timplementation "org.example:gradlelib:1.0"\n}\n'
+        )
+        (tmp_path / "foundry.toml").write_text(
+            '[dependencies]\nforge-std = "1.9.1"\n'
+        )
 
-        scanner = DependencyScanner.__new__(DependencyScanner)
-        deps = scanner.scan(tmp_path)
+        deps = scan(tmp_path)
 
         methods = {d.detection_method for d in deps}
         assert methods == {
@@ -1156,8 +1431,10 @@ class TestScan:
             "conan",
             "vcpkg",
             "cmake-find-package",
+            "gradle",
+            "foundry-soldeer",
         }
-        assert len(deps) == 9
+        assert len(deps) == 11
 
 
 # ── Integrated mode ──────────────────────────────────────────────────────

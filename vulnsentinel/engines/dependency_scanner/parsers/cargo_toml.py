@@ -27,7 +27,7 @@ def _parse_version(spec: str | dict) -> str | None:
 
 class CargoTomlParser:
     detection_method = "cargo-toml"
-    file_patterns = ["Cargo.toml"]
+    file_patterns = ["**/Cargo.toml"]
 
     def parse(self, file_path: Path, content: str) -> list[ScannedDependency]:
         try:

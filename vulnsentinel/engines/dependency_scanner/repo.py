@@ -20,7 +20,7 @@ async def shallow_clone(repo_url: str, ref: str | None, workdir: Path) -> Path:
     cmd = ["git", "clone", "--depth", "1"]
     if ref:
         cmd += ["--branch", ref, "--single-branch"]
-    cmd += [repo_url, str(target)]
+    cmd += ["--", repo_url, str(target)]
 
     proc = await asyncio.create_subprocess_exec(
         *cmd,

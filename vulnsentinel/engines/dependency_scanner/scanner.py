@@ -23,8 +23,23 @@ import vulnsentinel.engines.dependency_scanner.parsers  # noqa: F401
 logger = logging.getLogger(__name__)
 
 
+def scan(repo_path: Path) -> list[ScannedDependency]:
+    """Scan a local repo directory for dependencies (no DB required)."""
+    matches = discover_manifests(repo_path)
+    results: list[ScannedDependency] = []
+    for parser, file_path in matches:
+        content = file_path.read_text(encoding="utf-8", errors="replace")
+        parsed = parser.parse(file_path, content)
+        # Fix source_file to be relative to repo root
+        rel = str(file_path.relative_to(repo_path))
+        for dep in parsed:
+            dep.source_file = rel
+        results.extend(parsed)
+    return results
+
+
 class DependencyScanner:
-    """Scan manifest files for dependencies; optionally sync to DB."""
+    """Integrated mode: scan + sync to DB."""
 
     def __init__(
         self,
@@ -35,22 +50,6 @@ class DependencyScanner:
         self._project_dao = project_dao
         self._dep_dao = dep_dao
         self._library_service = library_service
-
-    # ── standalone mode ──────────────────────────────────────────────────
-
-    def scan(self, repo_path: Path) -> list[ScannedDependency]:
-        """Pure function: scan a local repo directory and return dependencies."""
-        matches = discover_manifests(repo_path)
-        results: list[ScannedDependency] = []
-        for parser, file_path in matches:
-            content = file_path.read_text(encoding="utf-8", errors="replace")
-            parsed = parser.parse(file_path, content)
-            # Fix source_file to be relative to repo root
-            rel = str(file_path.relative_to(repo_path))
-            for dep in parsed:
-                dep.source_file = rel
-            results.extend(parsed)
-        return results
 
     # ── integrated mode ──────────────────────────────────────────────────
 
@@ -74,7 +73,7 @@ class DependencyScanner:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_path = await shallow_clone(project.repo_url, ref, Path(tmpdir))
-            scanned = self.scan(repo_path)
+            scanned = scan(repo_path)
 
         # Split into resolvable (has repo_url) and unresolved
         resolvable = [d for d in scanned if d.library_repo_url is not None]

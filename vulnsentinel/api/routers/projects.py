@@ -92,7 +92,6 @@ async def create_project(
                 library_repo_url=d.library_repo_url,
                 constraint_expr=d.constraint_expr,
                 resolved_version=d.resolved_version,
-                constraint_source=d.constraint_source,
                 platform=d.platform,
                 default_branch=d.default_branch,
             )
@@ -272,7 +271,6 @@ async def add_project_dependency(
             library_repo_url=body.library_repo_url,
             constraint_expr=body.constraint_expr,
             resolved_version=body.resolved_version,
-            constraint_source=body.constraint_source,
             platform=body.platform,
             default_branch=body.default_branch,
         ),

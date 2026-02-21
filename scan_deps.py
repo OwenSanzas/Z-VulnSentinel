@@ -19,7 +19,7 @@ import tempfile
 from pathlib import Path
 
 from vulnsentinel.engines.dependency_scanner.repo import shallow_clone
-from vulnsentinel.engines.dependency_scanner.scanner import DependencyScanner
+from vulnsentinel.engines.dependency_scanner.scanner import scan
 
 
 def _is_url(target: str) -> bool:
@@ -63,12 +63,11 @@ def _print_deps(deps: list, as_json: bool) -> None:
 
 
 async def _scan_url(repo_url: str, ref: str | None, as_json: bool) -> None:
-    scanner = DependencyScanner.__new__(DependencyScanner)
     with tempfile.TemporaryDirectory() as tmpdir:
         ref_label = ref or "default branch"
         print(f"Cloning {repo_url} ({ref_label}) ...", file=sys.stderr)
         repo_path = await shallow_clone(repo_url, ref, Path(tmpdir))
-        deps = scanner.scan(repo_path)
+        deps = scan(repo_path)
     _print_deps(deps, as_json)
 
 
@@ -86,8 +85,7 @@ def main() -> None:
         if not repo.is_dir():
             print(f"Error: {repo} is not a directory", file=sys.stderr)
             sys.exit(1)
-        scanner = DependencyScanner.__new__(DependencyScanner)
-        deps = scanner.scan(repo)
+        deps = scan(repo)
         _print_deps(deps, args.as_json)
 
 

@@ -52,17 +52,18 @@ Event Collector 是流水线中紧跟 Dependency Scanner 的第二个 Engine。D
 
 ### 模式关系
 
-集成模式内部调用独立模式的采集逻辑，然后额外执行 DB 同步：
+Service 层调用 Engine 的独立模式采集逻辑，然后执行 DB 同步。Engine 本身不接触数据库：
 
 ```
-集成模式(session, library_id):
+EventCollectorService.run(session, library_id):
+    # ↓ Service 负责：DB 读取
     library = LibraryDAO.get_by_id(library_id)
     owner, repo = parse_repo_url(library.repo_url)
 
-    # ↓ 独立模式的核心逻辑
-    events = collect(owner, repo, since=library.latest_commit_sha, ...)
+    # ↓ Engine 核心逻辑（纯采集，不涉及 DB）
+    events = collect(owner, repo, since=library.last_activity_at, ...)
 
-    # ↓ 集成模式独有：DB 同步
+    # ↓ Service 负责：DB 写入
     inserted = EventDAO.batch_create(session, events)
     LibraryDAO.update_pointers(session, library.id, ...)
 ```
@@ -347,11 +348,11 @@ def parse_repo_url(repo_url: str) -> tuple[str, str]:
 
 ---
 
-## 集成模式完整流程
+## Service 层完整流程
 
-单个 library 的完整采集流程：
+`EventCollectorService` 编排单个 library 的完整采集流程。Engine（`collect()` 函数）只负责 GitHub API 采集，所有 DB 操作由 Service 完成。
 
-### Step 1: 获取 Library 信息
+### Step 1: 获取 Library 信息（Service — DB 读取）
 
 ```
 library = LibraryDAO.get_by_id(session, library_id)
@@ -361,7 +362,7 @@ library = LibraryDAO.get_by_id(session, library_id)
 
 从 library 中取：`repo_url`、`default_branch`、`latest_commit_sha`、`latest_tag_version`、`last_activity_at`。
 
-### Step 2: 解析 repo 信息
+### Step 2: 解析 repo 信息（Service）
 
 ```
 owner, repo = parse_repo_url(library.repo_url)
@@ -369,31 +370,21 @@ branch = library.default_branch
 since = library.last_activity_at  # 增量起点
 ```
 
-### Step 3: 采集四种事件
+### Step 3: 调用 Engine 采集（Engine — 纯 API 调用）
 
-并发采集四种事件类型，每种返回 `list[CollectedEvent]`：
+Service 调用 Engine 的 `collect()` 函数，并发采集四种事件类型：
 
 ```python
-commits, prs, tags, issues = await asyncio.gather(
-    collect_commits(client, owner, repo, branch, since=since, last_sha=library.latest_commit_sha),
-    collect_prs(client, owner, repo, since=since),
-    collect_tags(client, owner, repo, latest_tag=library.latest_tag_version),
-    collect_issues(client, owner, repo, since=since),
+events = await collect(
+    client, owner, repo,
+    branch=branch,
+    since=since,
+    last_sha=library.latest_commit_sha,
+    latest_tag=library.latest_tag_version,
 )
-all_events = commits + prs + tags + issues
 ```
 
-### Step 4: 解析相关引用
-
-对每个 commit 类型的事件，从 message 中提取 issue / PR 引用：
-
-```python
-for event in all_events:
-    if event.type == "commit":
-        parse_refs(event, owner, repo)
-```
-
-### Step 5: 批量写入 Event 表
+### Step 4: 批量写入 Event 表（Service — DB 写入）
 
 ```python
 rows = [
@@ -412,35 +403,40 @@ rows = [
         "related_commit_sha": e.related_commit_sha,
         "event_at": e.event_at,
     }
-    for e in all_events
+    for e in events
 ]
 inserted = await EventDAO.batch_create(session, rows)
 ```
 
 `ON CONFLICT (library_id, type, ref) DO NOTHING` 保证幂等。
 
-### Step 6: 更新 Library pointers
+### Step 5: 更新 Library pointers（Service — DB 写入）
 
 ```python
+commit_events = [e for e in events if e.type == "commit"]
+new_sha = max(commit_events, key=lambda e: e.event_at).ref if commit_events else None
+tag_events = [e for e in events if e.type == "tag"]
+new_tag = tag_events[0].ref if tag_events else None  # tags API 已按时间倒序
+
 await LibraryDAO.update_pointers(
     session,
     library.id,
-    latest_commit_sha=new_latest_sha,       # commits 中最新的 SHA
-    latest_tag_version=new_latest_tag,       # tags 中最新的 tag name
-    last_activity_at=utcnow(),              # 本次采集时间
+    latest_commit_sha=new_sha,
+    latest_tag_version=new_tag,
+    last_activity_at=utcnow(),
 )
 ```
 
 `update_pointers` 使用 `COALESCE` 跳过 `None` 值，只更新有变化的字段。
 
-### Step 7: 返回结果
+### Step 6: 返回结果
 
 ```python
 return CollectResult(
     library_id=library.id,
-    fetched=len(all_events),
+    fetched=len(events),
     inserted=inserted,
-    by_type=Counter(e.type for e in all_events),
+    by_type=Counter(e.type for e in events),
     errors=errors,
 )
 ```
@@ -448,6 +444,8 @@ return CollectResult(
 ### 完整伪代码
 
 ```python
+# ── Engine 层：纯 GitHub API 采集，不涉及数据库 ──
+
 async def collect(
     client: GitHubClient,
     owner: str,
@@ -472,8 +470,10 @@ async def collect(
     return all_events
 
 
-class EventCollector:
-    """集成模式：读 DB → 采集 → 写 DB。
+# ── Service 层：编排 Engine + DB 读写 ──
+
+class EventCollectorService:
+    """读 DB → 调用 Engine 采集 → 写 DB。
 
     GitHubClient 在 __init__ 中创建，所有 library 共享同一个 httpx 连接池。
     使用方通过 async with 或手动调用 close() 管理生命周期。
@@ -491,15 +491,15 @@ class EventCollector:
     async def __aexit__(self, *exc): await self.close()
 
     async def run(self, session: AsyncSession, library_id: UUID) -> CollectResult:
-        # Step 1
+        # Step 1: DB 读取
         library = await self._library_dao.get_by_id(session, library_id)
         if not library or library.platform != "github":
             return CollectResult.skipped(library_id)
 
-        # Step 2
+        # Step 2: 解析
         owner, repo = parse_repo_url(library.repo_url)
 
-        # Step 3 + 4 (独立模式核心逻辑)
+        # Step 3: 调用 Engine（纯采集，不碰 DB）
         events = await collect(
             self._client, owner, repo,
             branch=library.default_branch,
@@ -508,13 +508,15 @@ class EventCollector:
             latest_tag=library.latest_tag_version,
         )
 
-        # Step 5: 批量写入
+        # Step 4: DB 写入
         rows = [self._to_row(library.id, e) for e in events]
         inserted = await self._event_dao.batch_create(session, rows)
 
-        # Step 6: 更新游标
-        new_sha = next((e.ref for e in events if e.type == "commit"), None)
-        new_tag = next((e.ref for e in events if e.type == "tag"), None)
+        # Step 5: 更新游标
+        commit_events = [e for e in events if e.type == "commit"]
+        new_sha = max(commit_events, key=lambda e: e.event_at).ref if commit_events else None
+        tag_events = [e for e in events if e.type == "tag"]
+        new_tag = tag_events[0].ref if tag_events else None  # tags API 已按时间倒序
         await self._library_dao.update_pointers(
             session, library.id,
             latest_commit_sha=new_sha,
@@ -522,7 +524,7 @@ class EventCollector:
             last_activity_at=utcnow(),
         )
 
-        # Step 7
+        # Step 6: 返回结果
         return CollectResult(
             library_id=library.id,
             fetched=len(events),
@@ -550,7 +552,7 @@ class EventCollector:
 ### 并发控制
 
 ```python
-# per-library 并发控制
+# EventCollectorService 内部方法
 CONCURRENCY = 5  # 同时采集的 library 数
 
 async def run_all(self, session_factory: async_sessionmaker) -> list[CollectResult]:
@@ -658,10 +660,13 @@ Event Collector 依赖的 DAO/Model 已全部实现，无需新增 schema 或 DA
 ```
 vulnsentinel/engines/event_collector/
 ├── __init__.py
-├── collector.py       # collect() 独立函数 + EventCollector 集成类
+├── collector.py       # collect() 独立函数（Engine 核心，不涉及 DB）
 ├── models.py          # CollectedEvent, CollectResult dataclass
 ├── github_client.py   # GitHubClient (httpx 封装、rate limit、分页)
 └── ref_parser.py      # commit message → issue/PR 引用提取
+
+vulnsentinel/services/
+└── event_collector_service.py  # EventCollectorService（编排 Engine + DB 读写）
 ```
 
 ---
@@ -675,6 +680,9 @@ vulnsentinel/engines/event_collector/
 | Token 来源 | `GITHUB_TOKEN` 环境变量 | 简单直接，不引入额外配置系统 |
 | 事件获取方式 | 轮询 | v1 只做轮询；webhook 需要公网 endpoint + 注册流程，是后续优化 |
 | 四类事件并发采集 | `asyncio.gather` | 同一 library 的 4 种事件互不依赖，并发加速 |
+| bug label | 只认 `bug` | v1 简化；不同 repo 用不同 label，后续可配置 |
+| 不存 diff | Classifier 按需拉 | diff 数据量大，全量存浪费 |
+| since 时间缝隙 | 接受 | author date 和 push time 不一致可能极少数漏采，ON CONFLICT 保证不重复，影响极小 |
 
 ---
 
@@ -685,10 +693,10 @@ vulnsentinel/engines/event_collector/
 | 步骤 4：依赖监控 | §概述 — 对 libraries 表的 library 建立持续监控 |
 | 步骤 5：事件捕获 | §GitHub API 策略 — 四种事件类型的端点和过滤 |
 | Event Collector 触发时机 | §调度与性能 |
-| `EventService.batch_create()` | §集成模式完整流程 Step 5 |
-| `LibraryDAO.get_all_monitored()` + `update_pointers()` | §集成模式完整流程 Step 1, 6 |
+| `EventDAO.batch_create()` | §Service 层完整流程 Step 4 |
+| `LibraryDAO.get_all_monitored()` + `update_pointers()` | §Service 层完整流程 Step 1, 5 |
 | 每 N 分钟 per library，rate limit 感知 | §调度与性能 — Rate Limit 预算 |
-| 幂等性（ON CONFLICT DO NOTHING） | §概述 + §集成模式完整流程 Step 5 |
+| 幂等性（ON CONFLICT DO NOTHING） | §概述 + §Service 层完整流程 Step 4 |
 
 ---
 
@@ -737,23 +745,23 @@ vulnsentinel/engines/event_collector/
 ### 下游消费（Collector 不参与）
 
 ```
-4. Event Classifier (Engine #2):
+5. Event Classifier (Engine #2):
      Event A → LLM 分析 diff → classification=security_bugfix, confidence=0.95
      Event B → classification=refactor
      Event C → classification=other (tag 不需要分类)
 
-5. Vuln Analyzer (Engine #3):
+6. Vuln Analyzer (Engine #3):
      Event A 是 security_bugfix → 分析漏洞详情:
        类型: heap-buffer-overflow
        影响版本: curl < 8.5.0
        修复版本: 8.5.0
 
-6. Impact Engine (Engine #4):
+7. Impact Engine (Engine #4):
      curl < 8.5.0 影响谁？
        my-app: resolved_version=8.4.0 → 8.4.0 < 8.5.0 → 受影响 ✓
        （假设还有 other-app: resolved_version=8.5.0 → 不受影响 ✗）
 
-7. 后续: Reachability Analyzer → PoC → Notification
+8. 后续: Reachability Analyzer → PoC → Notification
 ```
 
 ### 解耦要点

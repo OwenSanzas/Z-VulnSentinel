@@ -1465,17 +1465,16 @@ def _fake_library(name: str, lib_id: uuid.UUID | None = None):
 class TestRunIntegrated:
     @pytest.fixture
     def scanner_deps(self):
-        project_dao = AsyncMock()
-        dep_dao = AsyncMock()
+        project_service = AsyncMock()
         library_service = AsyncMock()
-        scanner = DependencyScanner(project_dao, dep_dao, library_service)
-        return scanner, project_dao, dep_dao, library_service
+        scanner = DependencyScanner(project_service, library_service)
+        return scanner, project_service, library_service
 
     @pytest.mark.anyio
     async def test_run_skips_disabled_project(self, scanner_deps):
-        scanner, project_dao, dep_dao, library_service = scanner_deps
+        scanner, project_service, library_service = scanner_deps
         project = _fake_project(auto_sync_deps=False)
-        project_dao.get_by_id.return_value = project
+        project_service.get_project.return_value = project
         session = AsyncMock()
 
         result = await scanner.run(session, project.id)
@@ -1487,10 +1486,10 @@ class TestRunIntegrated:
 
     @pytest.mark.anyio
     async def test_run_full_pipeline(self, scanner_deps, tmp_path):
-        scanner, project_dao, dep_dao, library_service = scanner_deps
+        scanner, project_service, library_service = scanner_deps
         project = _fake_project()
-        project_dao.get_by_id.return_value = project
-        project_dao.update.return_value = project
+        project_service.get_project.return_value = project
+        project_service.sync_dependencies.return_value = (1, 0)
 
         # Prepare a fake repo dir with .gitmodules
         (tmp_path / ".gitmodules").write_text(
@@ -1502,9 +1501,6 @@ class TestRunIntegrated:
         zlib_id = uuid.uuid4()
         fake_lib = _fake_library("zlib", zlib_id)
         library_service.upsert.return_value = fake_lib
-
-        dep_dao.batch_upsert.return_value = [AsyncMock()]  # 1 upserted row
-        dep_dao.delete_stale_scanner_deps.return_value = 0
 
         session = AsyncMock()
 
@@ -1525,18 +1521,15 @@ class TestRunIntegrated:
             name="zlib",
             repo_url="https://github.com/madler/zlib.git",
         )
-        dep_dao.batch_upsert.assert_called_once()
-        dep_dao.delete_stale_scanner_deps.assert_called_once_with(
-            session, project.id, {zlib_id}
-        )
-        project_dao.update.assert_called_once()
+        project_service.sync_dependencies.assert_called_once()
+        project_service.update_scan_timestamp.assert_called_once()
 
     @pytest.mark.anyio
     async def test_run_separates_resolved_and_unresolved(self, scanner_deps, tmp_path):
-        scanner, project_dao, dep_dao, library_service = scanner_deps
+        scanner, project_service, library_service = scanner_deps
         project = _fake_project()
-        project_dao.get_by_id.return_value = project
-        project_dao.update.return_value = project
+        project_service.get_project.return_value = project
+        project_service.sync_dependencies.return_value = (1, 0)
 
         # Mix: requirements.txt (unresolved — no repo_url) + .gitmodules (resolved)
         (tmp_path / "requirements.txt").write_text("flask==2.0\n")
@@ -1548,8 +1541,6 @@ class TestRunIntegrated:
 
         lib_id = uuid.uuid4()
         library_service.upsert.return_value = _fake_library("lib", lib_id)
-        dep_dao.batch_upsert.return_value = [AsyncMock()]
-        dep_dao.delete_stale_scanner_deps.return_value = 0
 
         session = AsyncMock()
 
@@ -1566,8 +1557,8 @@ class TestRunIntegrated:
 
     @pytest.mark.anyio
     async def test_run_project_not_found(self, scanner_deps):
-        scanner, project_dao, dep_dao, library_service = scanner_deps
-        project_dao.get_by_id.return_value = None
+        scanner, project_service, library_service = scanner_deps
+        project_service.get_project.return_value = None
         session = AsyncMock()
 
         with pytest.raises(ValueError, match="not found"):
@@ -1576,10 +1567,10 @@ class TestRunIntegrated:
     @pytest.mark.anyio
     async def test_run_dedup_same_library_across_manifests(self, scanner_deps, tmp_path):
         """Same library in two manifests should produce one dep_row, not crash."""
-        scanner, project_dao, dep_dao, library_service = scanner_deps
+        scanner, project_service, library_service = scanner_deps
         project = _fake_project()
-        project_dao.get_by_id.return_value = project
-        project_dao.update.return_value = project
+        project_service.get_project.return_value = project
+        project_service.sync_dependencies.return_value = (1, 0)
 
         # Same library referenced in both .gitmodules and Cargo.toml (git dep)
         (tmp_path / ".gitmodules").write_text(
@@ -1594,8 +1585,6 @@ class TestRunIntegrated:
 
         lib_id = uuid.uuid4()
         library_service.upsert.return_value = _fake_library("mylib", lib_id)
-        dep_dao.batch_upsert.return_value = [AsyncMock()]
-        dep_dao.delete_stale_scanner_deps.return_value = 0
 
         session = AsyncMock()
 
@@ -1605,22 +1594,19 @@ class TestRunIntegrated:
         ):
             await scanner.run(session, project.id)
 
-        # batch_upsert should receive exactly 1 row (deduped), not 2
-        dep_dao.batch_upsert.assert_called_once()
-        rows = dep_dao.batch_upsert.call_args[0][1]
+        # sync_dependencies should receive exactly 1 row (deduped), not 2
+        project_service.sync_dependencies.assert_called_once()
+        call_args = project_service.sync_dependencies.call_args
+        rows = call_args[0][2]  # positional: session, project_id, rows, keep_ids
         assert len(rows) == 1
         assert rows[0]["library_id"] == lib_id
 
     @pytest.mark.anyio
     async def test_run_uses_pinned_ref(self, scanner_deps, tmp_path):
-        scanner, project_dao, dep_dao, library_service = scanner_deps
+        scanner, project_service, library_service = scanner_deps
         project = _fake_project(pinned_ref="v1.0.0")
-        project_dao.get_by_id.return_value = project
-        project_dao.update.return_value = project
-
-        # Empty repo — no manifests found
-        dep_dao.batch_upsert.return_value = []
-        dep_dao.delete_stale_scanner_deps.return_value = 0
+        project_service.get_project.return_value = project
+        project_service.sync_dependencies.return_value = (0, 0)
 
         session = AsyncMock()
 

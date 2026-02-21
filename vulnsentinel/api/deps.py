@@ -22,6 +22,8 @@ from vulnsentinel.dao.project_dependency_dao import ProjectDependencyDAO
 from vulnsentinel.dao.snapshot_dao import SnapshotDAO
 from vulnsentinel.dao.upstream_vuln_dao import UpstreamVulnDAO
 from vulnsentinel.dao.user_dao import UserDAO
+from vulnsentinel.engines.dependency_scanner.scanner import DependencyScanner
+from vulnsentinel.engines.event_collector.runner import EventCollectorRunner
 from vulnsentinel.models.user import User
 from vulnsentinel.services import AuthenticationError
 from vulnsentinel.services.auth_service import AuthService
@@ -58,6 +60,8 @@ _event_service = EventService(_event_dao, _upstream_vuln_dao)
 _upstream_vuln_service = UpstreamVulnService(_upstream_vuln_dao, _client_vuln_dao)
 _client_vuln_service = ClientVulnService(_client_vuln_dao, _upstream_vuln_dao)
 _stats_service = StatsService(_project_dao, _library_dao, _client_vuln_service)
+_dependency_scanner = DependencyScanner(_project_service, _library_service)
+_event_collector_runner = EventCollectorRunner(_library_service, _event_service)
 
 # ---------------------------------------------------------------------------
 # Engine / session factory (initialised by app lifespan)
@@ -158,3 +162,11 @@ def get_client_vuln_service() -> ClientVulnService:
 
 def get_stats_service() -> StatsService:
     return _stats_service
+
+
+def get_dependency_scanner() -> DependencyScanner:
+    return _dependency_scanner
+
+
+def get_event_collector_runner() -> EventCollectorRunner:
+    return _event_collector_runner

@@ -1,9 +1,9 @@
 """LibraryDAO — libraries table operations."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,6 +29,28 @@ class LibraryDAO(BaseDAO[Library]):
         """Paginated library list for the API."""
         query = select(Library)
         return await self.paginate(session, query, cursor, page_size)
+
+    async def list_due_for_collect(
+        self, session: AsyncSession, interval_minutes: int = 75
+    ) -> list[Library]:
+        """Return GitHub libraries that haven't been collected recently.
+
+        A library is due when last_activity_at is NULL or older than *interval_minutes*.
+        """
+        stmt = (
+            select(Library)
+            .where(
+                Library.platform == "github",
+                or_(
+                    Library.last_activity_at.is_(None),
+                    Library.last_activity_at
+                    < datetime.now(timezone.utc) - timedelta(minutes=interval_minutes),
+                ),
+            )
+            .order_by(Library.name)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
 
     async def get_all_monitored(self, session: AsyncSession) -> list[Library]:
         """Return all libraries ordered by name (MonitorEngine full scan)."""

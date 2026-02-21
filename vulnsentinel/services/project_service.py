@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -308,3 +309,32 @@ class ProjectService:
         if dep is None or dep.project_id != project_id:
             raise NotFoundError("dependency not found")
         return dep
+
+    # ── engine support ─────────────────────────────────────────────
+
+    async def get_project(self, session: AsyncSession, project_id: uuid.UUID) -> Project | None:
+        """Return raw Project model or None (no enrichment)."""
+        return await self._project_dao.get_by_id(session, project_id)
+
+    async def update_scan_timestamp(
+        self, session: AsyncSession, project_id: uuid.UUID, last_scanned_at: datetime
+    ) -> None:
+        """Update last_scanned_at after a dependency scan."""
+        await self._project_dao.update(session, project_id, last_scanned_at=last_scanned_at)
+
+    async def sync_dependencies(
+        self,
+        session: AsyncSession,
+        project_id: uuid.UUID,
+        rows: list[dict],
+        keep_library_ids: set[uuid.UUID],
+    ) -> tuple[int, int]:
+        """Batch upsert dependencies and delete stale ones.
+
+        Returns (upserted_count, deleted_count).
+        """
+        upserted = await self._dep_dao.batch_upsert(session, rows)
+        deleted = await self._dep_dao.delete_stale_scanner_deps(
+            session, project_id, keep_library_ids
+        )
+        return len(upserted), deleted

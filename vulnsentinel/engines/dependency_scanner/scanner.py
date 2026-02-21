@@ -12,12 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # Ensure parsers are registered before any scan runs.
 import vulnsentinel.engines.dependency_scanner.parsers  # noqa: F401
-from vulnsentinel.dao.project_dao import ProjectDAO
-from vulnsentinel.dao.project_dependency_dao import ProjectDependencyDAO
 from vulnsentinel.engines.dependency_scanner.models import ScannedDependency, ScanResult
 from vulnsentinel.engines.dependency_scanner.registry import discover_manifests
 from vulnsentinel.engines.dependency_scanner.repo import shallow_clone
 from vulnsentinel.services.library_service import LibraryService
+from vulnsentinel.services.project_service import ProjectService
 
 logger = logging.getLogger(__name__)
 
@@ -38,16 +37,14 @@ def scan(repo_path: Path) -> list[ScannedDependency]:
 
 
 class DependencyScanner:
-    """Integrated mode: scan + sync to DB."""
+    """Integrated mode: scan + sync to DB via Service layer."""
 
     def __init__(
         self,
-        project_dao: ProjectDAO,
-        dep_dao: ProjectDependencyDAO,
+        project_service: ProjectService,
         library_service: LibraryService,
     ) -> None:
-        self._project_dao = project_dao
-        self._dep_dao = dep_dao
+        self._project_service = project_service
         self._library_service = library_service
 
     # ── integrated mode ──────────────────────────────────────────────────
@@ -60,8 +57,11 @@ class DependencyScanner:
         """Full pipeline: clone -> scan -> upsert libraries -> upsert deps -> delete stale.
 
         Returns a :class:`ScanResult` summarising what happened.
+
+        The clone + scan phase does not perform any DB access, keeping
+        the session idle during potentially slow git I/O.
         """
-        project = await self._project_dao.get_by_id(session, project_id)
+        project = await self._project_service.get_project(session, project_id)
         if project is None:
             raise ValueError(f"project {project_id} not found")
 
@@ -70,10 +70,10 @@ class DependencyScanner:
 
         ref = project.pinned_ref or project.default_branch
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            repo_path = await shallow_clone(project.repo_url, ref, Path(tmpdir))
-            scanned = scan(repo_path)
+        # ── Clone + scan (no DB access) ──────────────────────────────────
+        scanned = await self._clone_and_scan(project.repo_url, ref)
 
+        # ── DB sync ──────────────────────────────────────────────────────
         # Split into resolvable (has repo_url) and unresolved
         resolvable = [d for d in scanned if d.library_repo_url is not None]
         unresolved = [d for d in scanned if d.library_repo_url is None]
@@ -88,10 +88,18 @@ class DependencyScanner:
             )
             lib_id_map[dep.library_name] = lib.id
 
-        # Batch upsert dependencies (dedup by library_id — last manifest wins)
+        # Batch upsert dependencies + delete stale
         dep_map: dict[uuid.UUID, dict] = {}
         for dep in resolvable:
             lib_id = lib_id_map[dep.library_name]
+            prev = dep_map.get(lib_id)
+            if prev is not None:
+                logger.debug(
+                    "dependency on library_id=%s overwritten: %s → %s",
+                    lib_id,
+                    prev["constraint_source"],
+                    dep.source_file,
+                )
             dep_map[lib_id] = {
                 "project_id": project_id,
                 "library_id": lib_id,
@@ -100,24 +108,27 @@ class DependencyScanner:
                 "constraint_source": dep.source_file,
             }
         dep_rows = list(dep_map.values())
-        upserted = await self._dep_dao.batch_upsert(session, dep_rows)
-
-        # Delete stale scanner deps
         keep_ids = set(lib_id_map.values())
-        deleted = await self._dep_dao.delete_stale_scanner_deps(
-            session, project_id, keep_ids
+
+        synced_count, deleted_count = await self._project_service.sync_dependencies(
+            session, project_id, dep_rows, keep_ids
         )
 
         # Update project timestamp
-        await self._project_dao.update(
-            session,
-            project_id,
-            last_scanned_at=datetime.now(timezone.utc),
+        await self._project_service.update_scan_timestamp(
+            session, project_id, datetime.now(timezone.utc)
         )
 
         return ScanResult(
             scanned=scanned,
-            synced_count=len(upserted),
-            deleted_count=deleted,
+            synced_count=synced_count,
+            deleted_count=deleted_count,
             unresolved=unresolved,
         )
+
+    @staticmethod
+    async def _clone_and_scan(repo_url: str, ref: str) -> list[ScannedDependency]:
+        """Clone a repo and scan for dependencies (no DB access)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_path = await shallow_clone(repo_url, ref, Path(tmpdir))
+            return scan(repo_path)

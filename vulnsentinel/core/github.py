@@ -32,16 +32,42 @@ async def verify_git_ref(repo_url: str, ref: str) -> bool:
         return resp.status_code == 200
 
 
+def parse_repo_url(repo_url: str) -> tuple[str, str]:
+    """Extract (owner, repo) from a GitHub URL.
+
+    Raises ValueError if the URL cannot be parsed.
+    """
+    result = _extract_owner_repo(repo_url)
+    if result is None:
+        raise ValueError(f"cannot parse GitHub repo URL: {repo_url!r}")
+    owner, repo = result.split("/", 1)
+    return owner, repo
+
+
 def _extract_owner_repo(repo_url: str) -> str | None:
     """Extract 'owner/repo' from a GitHub URL.
 
     Handles:
       - https://github.com/owner/repo
       - https://github.com/owner/repo.git
+      - git@github.com:owner/repo.git
     """
-    repo_url = repo_url.rstrip("/")
+    repo_url = repo_url.strip().rstrip("/")
     if repo_url.endswith(".git"):
         repo_url = repo_url[:-4]
+
+    # SSH format: git@github.com:owner/repo
+    if repo_url.startswith("git@"):
+        colon_idx = repo_url.find(":")
+        if colon_idx == -1:
+            return None
+        path = repo_url[colon_idx + 1 :]
+        parts = path.split("/")
+        if len(parts) == 2 and all(parts):
+            return f"{parts[0]}/{parts[1]}"
+        return None
+
+    # HTTPS format: https://github.com/owner/repo
     parts = repo_url.split("/")
     if len(parts) >= 2:
         return f"{parts[-2]}/{parts[-1]}"

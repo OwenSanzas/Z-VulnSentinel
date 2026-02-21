@@ -1,10 +1,12 @@
 """events table."""
 
 import uuid
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import (
     Boolean,
+    DateTime,
     Double,
     Enum,
     ForeignKey,
@@ -54,6 +56,7 @@ class Event(TimestampMixin, Base):
     ref: Mapped[str] = mapped_column(Text, nullable=False)
     source_url: Mapped[Optional[str]] = mapped_column(Text)
     author: Mapped[Optional[str]] = mapped_column(Text)
+    event_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     title: Mapped[str] = mapped_column(Text, nullable=False)
     message: Mapped[Optional[str]] = mapped_column(Text)
 

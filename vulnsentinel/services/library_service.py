@@ -1,6 +1,9 @@
 """LibraryService — library management and upsert deduplication."""
 
+from __future__ import annotations
+
 import uuid
+from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -106,3 +109,31 @@ class LibraryService:
             )
         except LibraryConflictError as exc:
             raise ConflictError(str(exc)) from exc
+
+    async def get_by_id(self, session: AsyncSession, library_id: uuid.UUID) -> Library | None:
+        """Return raw Library model or None (no enrichment)."""
+        return await self._library_dao.get_by_id(session, library_id)
+
+    async def list_due_for_collect(
+        self, session: AsyncSession, interval_minutes: int = 75
+    ) -> list[Library]:
+        """Return GitHub libraries due for event collection."""
+        return await self._library_dao.list_due_for_collect(session, interval_minutes)
+
+    async def update_pointers(
+        self,
+        session: AsyncSession,
+        pk: uuid.UUID,
+        *,
+        latest_commit_sha: str | None = None,
+        latest_tag_version: str | None = None,
+        last_activity_at: datetime | None = None,
+    ) -> None:
+        """Update monitoring pointers (COALESCE skips None values)."""
+        await self._library_dao.update_pointers(
+            session,
+            pk,
+            latest_commit_sha=latest_commit_sha,
+            latest_tag_version=latest_tag_version,
+            last_activity_at=last_activity_at,
+        )

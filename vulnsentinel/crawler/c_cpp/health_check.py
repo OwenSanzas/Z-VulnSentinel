@@ -69,15 +69,15 @@ class Report:
         """Write the full report as a Markdown file."""
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         lines: list[str] = []
-        lines.append(f"# C/C++ Library Health Report")
-        lines.append(f"")
+        lines.append("# C/C++ Library Health Report")
+        lines.append("")
         lines.append(f"> Generated: {now}  ")
         lines.append(f"> Total: {self.total} | Healthy: {self.ok} | Problems: {len(self.problems)}")
-        lines.append(f"")
+        lines.append("")
 
         # Main table
-        lines.append(f"| # | Name | URL | Platform | Commit | PR | Tag | GHSA | Notes |")
-        lines.append(f"|---|------|-----|----------|--------|----|-----|------|-------|")
+        lines.append("| # | Name | URL | Platform | Commit | PR | Tag | GHSA | Notes |")
+        lines.append("|---|------|-----|----------|--------|----|-----|------|-------|")
 
         for i, r in enumerate(self.results, 1):
             ep = r.endpoints
@@ -97,14 +97,14 @@ class Report:
 
         # Problems summary
         if self.problems:
-            lines.append(f"")
-            lines.append(f"## Problems")
-            lines.append(f"")
+            lines.append("")
+            lines.append("## Problems")
+            lines.append("")
             for r in self.problems:
                 notes = self._notes(r)
                 lines.append(f"- **{r.name}**: {notes}")
 
-        lines.append(f"")
+        lines.append("")
         path.write_text("\n".join(lines), encoding="utf-8")
 
     @staticmethod

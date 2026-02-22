@@ -317,7 +317,10 @@ class TestGitHubClient:
         page2_resp.raise_for_status = MagicMock()
 
         with patch.object(
-            client, "_request_with_retry", new_callable=AsyncMock, side_effect=[page1_resp, page2_resp]
+            client,
+            "_request_with_retry",
+            new_callable=AsyncMock,
+            side_effect=[page1_resp, page2_resp],
         ), patch.object(client, "_check_rate_limit", new_callable=AsyncMock):
             items = []
             async for item in client.get_paginated("/repos/o/r/commits", {"sha": "main"}):

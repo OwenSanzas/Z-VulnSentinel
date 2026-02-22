@@ -316,12 +316,15 @@ class TestGitHubClient:
         }
         page2_resp.raise_for_status = MagicMock()
 
-        with patch.object(
-            client,
-            "_request_with_retry",
-            new_callable=AsyncMock,
-            side_effect=[page1_resp, page2_resp],
-        ), patch.object(client, "_check_rate_limit", new_callable=AsyncMock):
+        with (
+            patch.object(
+                client,
+                "_request_with_retry",
+                new_callable=AsyncMock,
+                side_effect=[page1_resp, page2_resp],
+            ),
+            patch.object(client, "_check_rate_limit", new_callable=AsyncMock),
+        ):
             items = []
             async for item in client.get_paginated("/repos/o/r/commits", {"sha": "main"}):
                 items.append(item)
@@ -343,9 +346,10 @@ class TestGitHubClient:
         }
         resp.raise_for_status = MagicMock()
 
-        with patch.object(
-            client, "_request_with_retry", new_callable=AsyncMock, return_value=resp
-        ), patch.object(client, "_check_rate_limit", new_callable=AsyncMock):
+        with (
+            patch.object(client, "_request_with_retry", new_callable=AsyncMock, return_value=resp),
+            patch.object(client, "_check_rate_limit", new_callable=AsyncMock),
+        ):
             items = []
             async for item in client.get_paginated("/repos/o/r/commits", max_pages=1):
                 items.append(item)

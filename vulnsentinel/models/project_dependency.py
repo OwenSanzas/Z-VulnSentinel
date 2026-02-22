@@ -29,7 +29,9 @@ class ProjectDependency(TimestampMixin, Base):
     constraint_expr: Mapped[Optional[str]] = mapped_column(Text)
     resolved_version: Mapped[Optional[str]] = mapped_column(Text)
     constraint_source: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default=text("'manual'"),
+        Text,
+        nullable=False,
+        server_default=text("'manual'"),
     )
     notify_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("true")

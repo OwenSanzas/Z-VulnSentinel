@@ -23,28 +23,30 @@ _FIND_PKG_RE = re.compile(
 )
 
 # CMake built-in / tool modules that are not real library dependencies
-_SKIP_PACKAGES = frozenset({
-    "perl",
-    "python",
-    "python2",
-    "python3",
-    "threads",
-    "pkgconfig",
-    "pkg-config",
-    "git",
-    "doxygen",
-    "latex",
-    "java",
-    "jni",
-    "swig",
-    "bison",
-    "flex",
-    "gperf",
-    "gettext",
-    "intl",
-    "patch",
-    "backtrace",
-})
+_SKIP_PACKAGES = frozenset(
+    {
+        "perl",
+        "python",
+        "python2",
+        "python3",
+        "threads",
+        "pkgconfig",
+        "pkg-config",
+        "git",
+        "doxygen",
+        "latex",
+        "java",
+        "jni",
+        "swig",
+        "bison",
+        "flex",
+        "gperf",
+        "gettext",
+        "intl",
+        "patch",
+        "backtrace",
+    }
+)
 
 
 class CMakeFindPackageParser:

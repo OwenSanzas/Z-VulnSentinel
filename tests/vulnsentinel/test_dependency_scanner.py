@@ -102,7 +102,7 @@ class TestRegistry:
         assert "go-mod" in methods
 
     def test_discover_cargo_toml(self, tmp_path):
-        (tmp_path / "Cargo.toml").write_text("[package]\nname = \"x\"\n")
+        (tmp_path / "Cargo.toml").write_text('[package]\nname = "x"\n')
         matches = discover_manifests(tmp_path)
         methods = [p.detection_method for p, _ in matches]
         assert "cargo-toml" in methods
@@ -114,7 +114,7 @@ class TestRegistry:
         assert "maven-pom" in methods
 
     def test_discover_pyproject_toml(self, tmp_path):
-        (tmp_path / "pyproject.toml").write_text("[project]\nname = \"x\"\n")
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n')
         matches = discover_manifests(tmp_path)
         methods = [p.detection_method for p, _ in matches]
         assert "pyproject-toml" in methods
@@ -255,9 +255,7 @@ class TestGitSubmoduleParser:
     def test_single_submodule(self, parser, tmp_path):
         f = tmp_path / ".gitmodules"
         f.write_text(
-            '[submodule "mylib"]\n'
-            "\tpath = vendor/mylib\n"
-            "\turl = https://github.com/org/mylib.git\n"
+            '[submodule "mylib"]\n\tpath = vendor/mylib\n\turl = https://github.com/org/mylib.git\n'
         )
         deps = parser.parse(f, f.read_text())
         assert len(deps) == 1
@@ -283,21 +281,13 @@ class TestGitSubmoduleParser:
 
     def test_url_without_git_suffix(self, parser, tmp_path):
         f = tmp_path / ".gitmodules"
-        f.write_text(
-            '[submodule "x"]\n'
-            "\turl = https://github.com/org/x\n"
-            "\tpath = x\n"
-        )
+        f.write_text('[submodule "x"]\n\turl = https://github.com/org/x\n\tpath = x\n')
         deps = parser.parse(f, f.read_text())
         assert deps[0].library_name == "x"
 
     def test_source_file_is_filename(self, parser, tmp_path):
         f = tmp_path / ".gitmodules"
-        f.write_text(
-            '[submodule "z"]\n'
-            "\turl = https://github.com/org/z\n"
-            "\tpath = z\n"
-        )
+        f.write_text('[submodule "z"]\n\turl = https://github.com/org/z\n\tpath = z\n')
         deps = parser.parse(f, f.read_text())
         assert deps[0].source_file == ".gitmodules"
         assert deps[0].detection_method == "git-submodule"
@@ -342,11 +332,7 @@ class TestGoModParser:
 
     def test_single_require_line(self, parser, tmp_path):
         f = tmp_path / "go.mod"
-        f.write_text(
-            "module example.com/m\n\n"
-            "go 1.21\n\n"
-            "require github.com/pkg/errors v0.9.1\n"
-        )
+        f.write_text("module example.com/m\n\ngo 1.21\n\nrequire github.com/pkg/errors v0.9.1\n")
         deps = parser.parse(f, f.read_text())
         assert len(deps) == 1
         assert deps[0].library_name == "github.com/pkg/errors"
@@ -367,42 +353,32 @@ class TestGoModParser:
 
     def test_github_repo_url(self, parser, tmp_path):
         f = tmp_path / "go.mod"
-        f.write_text(
-            "module m\nrequire github.com/stretchr/testify v1.8.4\n"
-        )
+        f.write_text("module m\nrequire github.com/stretchr/testify v1.8.4\n")
         deps = parser.parse(f, f.read_text())
         assert deps[0].library_repo_url == "https://github.com/stretchr/testify"
 
     def test_gitlab_repo_url(self, parser, tmp_path):
         f = tmp_path / "go.mod"
-        f.write_text(
-            "module m\nrequire gitlab.com/org/repo v0.1.0\n"
-        )
+        f.write_text("module m\nrequire gitlab.com/org/repo v0.1.0\n")
         deps = parser.parse(f, f.read_text())
         assert deps[0].library_repo_url == "https://gitlab.com/org/repo"
 
     def test_non_github_module_url_is_none(self, parser, tmp_path):
         f = tmp_path / "go.mod"
-        f.write_text(
-            "module m\nrequire golang.org/x/text v0.14.0\n"
-        )
+        f.write_text("module m\nrequire golang.org/x/text v0.14.0\n")
         deps = parser.parse(f, f.read_text())
         assert deps[0].library_repo_url is None
 
     def test_subpackage_url_truncated(self, parser, tmp_path):
         """github.com/org/repo/v2/sub → https://github.com/org/repo"""
         f = tmp_path / "go.mod"
-        f.write_text(
-            "module m\nrequire github.com/org/repo/v2 v2.3.0\n"
-        )
+        f.write_text("module m\nrequire github.com/org/repo/v2 v2.3.0\n")
         deps = parser.parse(f, f.read_text())
         assert deps[0].library_repo_url == "https://github.com/org/repo"
 
     def test_pseudo_version(self, parser, tmp_path):
         f = tmp_path / "go.mod"
-        f.write_text(
-            "module m\nrequire github.com/org/repo v0.0.0-20231215172524-abc123\n"
-        )
+        f.write_text("module m\nrequire github.com/org/repo v0.0.0-20231215172524-abc123\n")
         deps = parser.parse(f, f.read_text())
         assert deps[0].constraint_expr == "v0.0.0-20231215172524-abc123"
         assert deps[0].resolved_version == "0.0.0-20231215172524-abc123"
@@ -440,20 +416,14 @@ class TestCargoTomlParser:
 
     def test_table_version_with_features(self, parser, tmp_path):
         f = tmp_path / "Cargo.toml"
-        f.write_text(
-            "[dependencies]\n"
-            'tokio = { version = "1.35", features = ["full"] }\n'
-        )
+        f.write_text('[dependencies]\ntokio = { version = "1.35", features = ["full"] }\n')
         deps = parser.parse(f, f.read_text())
         assert deps[0].library_name == "tokio"
         assert deps[0].constraint_expr == "1.35"
 
     def test_git_dependency(self, parser, tmp_path):
         f = tmp_path / "Cargo.toml"
-        f.write_text(
-            "[dependencies]\n"
-            'my-crate = { git = "https://github.com/org/my-crate.git" }\n'
-        )
+        f.write_text('[dependencies]\nmy-crate = { git = "https://github.com/org/my-crate.git" }\n')
         deps = parser.parse(f, f.read_text())
         assert deps[0].library_name == "my-crate"
         assert deps[0].library_repo_url == "https://github.com/org/my-crate.git"
@@ -462,8 +432,7 @@ class TestCargoTomlParser:
     def test_git_dependency_with_version(self, parser, tmp_path):
         f = tmp_path / "Cargo.toml"
         f.write_text(
-            "[dependencies]\n"
-            'foo = { git = "https://github.com/org/foo", version = "0.5" }\n'
+            '[dependencies]\nfoo = { git = "https://github.com/org/foo", version = "0.5" }\n'
         )
         deps = parser.parse(f, f.read_text())
         assert deps[0].library_repo_url == "https://github.com/org/foo"
@@ -525,7 +494,7 @@ class TestCargoTomlParser:
 
     def test_empty_cargo_toml(self, parser, tmp_path):
         f = tmp_path / "Cargo.toml"
-        f.write_text("[package]\nname = \"x\"\nversion = \"0.1.0\"\n")
+        f.write_text('[package]\nname = "x"\nversion = "0.1.0"\n')
         deps = parser.parse(f, f.read_text())
         assert deps == []
 
@@ -727,11 +696,7 @@ class TestPyprojectTomlParser:
 
     def test_pinned_version(self, parser, tmp_path):
         f = tmp_path / "pyproject.toml"
-        f.write_text(
-            "[project]\n"
-            'name = "myapp"\n'
-            'dependencies = ["flask==2.3.1"]\n'
-        )
+        f.write_text('[project]\nname = "myapp"\ndependencies = ["flask==2.3.1"]\n')
         deps = parser.parse(f, f.read_text())
         assert len(deps) == 1
         assert deps[0].library_name == "flask"
@@ -740,11 +705,7 @@ class TestPyprojectTomlParser:
 
     def test_range_constraint(self, parser, tmp_path):
         f = tmp_path / "pyproject.toml"
-        f.write_text(
-            "[project]\ndependencies = [\n"
-            '  "requests>=2.28,<3.0",\n'
-            "]\n"
-        )
+        f.write_text('[project]\ndependencies = [\n  "requests>=2.28,<3.0",\n]\n')
         deps = parser.parse(f, f.read_text())
         assert deps[0].constraint_expr == ">=2.28,<3.0"
         assert deps[0].resolved_version is None
@@ -770,12 +731,7 @@ class TestPyprojectTomlParser:
 
     def test_environment_marker_stripped(self, parser, tmp_path):
         f = tmp_path / "pyproject.toml"
-        f.write_text(
-            "[project]\n"
-            "dependencies = [\n"
-            '  "tomli>=2.0;python_version<\'3.11\'",\n'
-            "]\n"
-        )
+        f.write_text("[project]\ndependencies = [\n  \"tomli>=2.0;python_version<'3.11'\",\n]\n")
         deps = parser.parse(f, f.read_text())
         assert deps[0].library_name == "tomli"
         assert deps[0].constraint_expr == ">=2.0"
@@ -795,7 +751,7 @@ class TestPyprojectTomlParser:
 
     def test_no_project_section(self, parser, tmp_path):
         f = tmp_path / "pyproject.toml"
-        f.write_text("[build-system]\nrequires = [\"hatchling\"]\n")
+        f.write_text('[build-system]\nrequires = ["hatchling"]\n')
         deps = parser.parse(f, f.read_text())
         assert deps == []
 
@@ -855,9 +811,7 @@ class TestConanParser:
     def test_skips_other_sections(self, parser, tmp_path):
         f = tmp_path / "conanfile.txt"
         f.write_text(
-            "[requires]\nzlib/1.2.13\n\n"
-            "[generators]\ncmake\n\n"
-            "[options]\nzlib:shared=True\n"
+            "[requires]\nzlib/1.2.13\n\n[generators]\ncmake\n\n[options]\nzlib:shared=True\n"
         )
         deps = parser.parse(f, f.read_text())
         assert len(deps) == 1
@@ -1027,10 +981,10 @@ class TestGradleBuildParser:
     def test_groovy_dsl_basic(self, parser, tmp_path):
         f = tmp_path / "build.gradle"
         f.write_text(
-            'dependencies {\n'
+            "dependencies {\n"
             '\timplementation "org.springframework:spring-core:5.3.20"\n'
             '\tapi "com.google.guava:guava:32.1.2-jre"\n'
-            '}\n'
+            "}\n"
         )
         deps = parser.parse(f, f.read_text())
         assert len(deps) == 2
@@ -1044,10 +998,10 @@ class TestGradleBuildParser:
     def test_kotlin_dsl_parentheses(self, parser, tmp_path):
         f = tmp_path / "build.gradle.kts"
         f.write_text(
-            'dependencies {\n'
+            "dependencies {\n"
             '\timplementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.0")\n'
             '\ttestImplementation("junit:junit:4.13.2")\n'
-            '}\n'
+            "}\n"
         )
         deps = parser.parse(f, f.read_text())
         assert len(deps) == 2
@@ -1057,11 +1011,7 @@ class TestGradleBuildParser:
     def test_no_version(self, parser, tmp_path):
         """Dependencies without version (managed by platform/BOM)."""
         f = tmp_path / "build.gradle"
-        f.write_text(
-            'dependencies {\n'
-            '\tapi("org.springframework:spring-jdbc")\n'
-            '}\n'
-        )
+        f.write_text('dependencies {\n\tapi("org.springframework:spring-jdbc")\n}\n')
         deps = parser.parse(f, f.read_text())
         assert len(deps) == 1
         assert deps[0].library_name == "org.springframework:spring-jdbc"
@@ -1071,11 +1021,11 @@ class TestGradleBuildParser:
     def test_various_configurations(self, parser, tmp_path):
         f = tmp_path / "build.gradle"
         f.write_text(
-            'dependencies {\n'
+            "dependencies {\n"
             '\tcompileOnly("com.fasterxml.jackson.core:jackson-annotations:2.15.0")\n'
             '\truntimeOnly("ch.qos.logback:logback-classic:1.4.11")\n'
             '\tannotationProcessor("org.springframework:spring-context-indexer:6.0")\n'
-            '}\n'
+            "}\n"
         )
         deps = parser.parse(f, f.read_text())
         assert len(deps) == 3
@@ -1084,21 +1034,17 @@ class TestGradleBuildParser:
         """Custom configs like dockerTestImplementation."""
         f = tmp_path / "build.gradle"
         f.write_text(
-            'dependencies {\n'
+            "dependencies {\n"
             '\tdockerTestImplementation("org.testcontainers:testcontainers-junit-jupiter:1.19")\n'
             '\tdockerTestRuntimeOnly("org.postgresql:postgresql:42.6")\n'
-            '}\n'
+            "}\n"
         )
         deps = parser.parse(f, f.read_text())
         assert len(deps) == 2
 
     def test_single_quotes_groovy(self, parser, tmp_path):
         f = tmp_path / "build.gradle"
-        f.write_text(
-            "dependencies {\n"
-            "\timplementation 'com.zaxxer:HikariCP:5.0.1'\n"
-            "}\n"
-        )
+        f.write_text("dependencies {\n\timplementation 'com.zaxxer:HikariCP:5.0.1'\n}\n")
         deps = parser.parse(f, f.read_text())
         assert len(deps) == 1
         assert deps[0].library_name == "com.zaxxer:HikariCP"
@@ -1107,10 +1053,10 @@ class TestGradleBuildParser:
     def test_dedup(self, parser, tmp_path):
         f = tmp_path / "build.gradle"
         f.write_text(
-            'dependencies {\n'
+            "dependencies {\n"
             '\timplementation("com.zaxxer:HikariCP:5.0")\n'
             '\ttestRuntimeOnly("com.zaxxer:HikariCP:5.0")\n'
-            '}\n'
+            "}\n"
         )
         deps = parser.parse(f, f.read_text())
         assert len(deps) == 1
@@ -1119,17 +1065,17 @@ class TestGradleBuildParser:
         """Realistic Spring Boot build.gradle content."""
         f = tmp_path / "build.gradle"
         f.write_text(
-            'plugins {\n'
+            "plugins {\n"
             '\tid "java-library"\n'
-            '}\n\n'
-            'dependencies {\n'
+            "}\n\n"
+            "dependencies {\n"
             '\tapi("org.springframework:spring-jdbc")\n'
             '\tcompileOnly("com.fasterxml.jackson.core:jackson-annotations")\n'
             '\toptional("com.zaxxer:HikariCP")\n'
             '\toptional("com.h2database:h2")\n'
             '\ttestImplementation("com.ibm.db2:jcc")\n'
             '\ttestRuntimeOnly("com.mysql:mysql-connector-j")\n'
-            '}\n'
+            "}\n"
         )
         deps = parser.parse(f, f.read_text())
         names = {d.library_name for d in deps}
@@ -1260,9 +1206,7 @@ class TestVcpkgJsonParser:
 
     def test_object_dependency_with_version(self, parser, tmp_path):
         f = tmp_path / "vcpkg.json"
-        f.write_text(
-            '{"dependencies": [{"name": "openssl", "version>=": "3.0"}]}'
-        )
+        f.write_text('{"dependencies": [{"name": "openssl", "version>=": "3.0"}]}')
         deps = parser.parse(f, f.read_text())
         assert len(deps) == 1
         assert deps[0].library_name == "openssl"
@@ -1270,9 +1214,7 @@ class TestVcpkgJsonParser:
 
     def test_mixed_string_and_object(self, parser, tmp_path):
         f = tmp_path / "vcpkg.json"
-        f.write_text(
-            '{"dependencies": ["zlib", {"name": "curl", "version>=": "7.0"}]}'
-        )
+        f.write_text('{"dependencies": ["zlib", {"name": "curl", "version>=": "7.0"}]}')
         deps = parser.parse(f, f.read_text())
         assert len(deps) == 2
         assert deps[0].library_name == "zlib"
@@ -1359,9 +1301,7 @@ class TestScan:
 
     def test_scan_only_gitmodules(self, tmp_path):
         (tmp_path / ".gitmodules").write_text(
-            '[submodule "lib"]\n'
-            "\turl = https://github.com/org/lib.git\n"
-            "\tpath = lib\n"
+            '[submodule "lib"]\n\turl = https://github.com/org/lib.git\n\tpath = lib\n'
         )
         deps = scan(tmp_path)
         assert len(deps) == 1
@@ -1387,17 +1327,11 @@ class TestScan:
     def test_scan_all_manifest_types(self, tmp_path):
         """Verify all 11 parsers work together in a single scan."""
         (tmp_path / "requirements.txt").write_text("flask==2.0\n")
-        (tmp_path / "pyproject.toml").write_text(
-            '[project]\ndependencies = ["pydantic>=2.0"]\n'
-        )
+        (tmp_path / "pyproject.toml").write_text('[project]\ndependencies = ["pydantic>=2.0"]\n')
         (tmp_path / ".gitmodules").write_text(
-            '[submodule "sub"]\n'
-            "\turl = https://github.com/org/sub.git\n"
-            "\tpath = sub\n"
+            '[submodule "sub"]\n\turl = https://github.com/org/sub.git\n\tpath = sub\n'
         )
-        (tmp_path / "go.mod").write_text(
-            "module m\nrequire github.com/gin-gonic/gin v1.9.1\n"
-        )
+        (tmp_path / "go.mod").write_text("module m\nrequire github.com/gin-gonic/gin v1.9.1\n")
         (tmp_path / "Cargo.toml").write_text('[dependencies]\nserde = "1.0"\n')
         (tmp_path / "pom.xml").write_text(
             "<project><dependencies>"
@@ -1411,9 +1345,7 @@ class TestScan:
         (tmp_path / "build.gradle").write_text(
             'dependencies {\n\timplementation "org.example:gradlelib:1.0"\n}\n'
         )
-        (tmp_path / "foundry.toml").write_text(
-            '[dependencies]\nforge-std = "1.9.1"\n'
-        )
+        (tmp_path / "foundry.toml").write_text('[dependencies]\nforge-std = "1.9.1"\n')
 
         deps = scan(tmp_path)
 
@@ -1534,9 +1466,7 @@ class TestRunIntegrated:
         # Mix: requirements.txt (unresolved — no repo_url) + .gitmodules (resolved)
         (tmp_path / "requirements.txt").write_text("flask==2.0\n")
         (tmp_path / ".gitmodules").write_text(
-            '[submodule "lib"]\n'
-            "\turl = https://github.com/org/lib\n"
-            "\tpath = lib\n"
+            '[submodule "lib"]\n\turl = https://github.com/org/lib\n\tpath = lib\n'
         )
 
         lib_id = uuid.uuid4()
@@ -1574,13 +1504,10 @@ class TestRunIntegrated:
 
         # Same library referenced in both .gitmodules and Cargo.toml (git dep)
         (tmp_path / ".gitmodules").write_text(
-            '[submodule "mylib"]\n'
-            "\turl = https://github.com/org/mylib.git\n"
-            "\tpath = mylib\n"
+            '[submodule "mylib"]\n\turl = https://github.com/org/mylib.git\n\tpath = mylib\n'
         )
         (tmp_path / "Cargo.toml").write_text(
-            "[dependencies]\n"
-            'mylib = { git = "https://github.com/org/mylib.git" }\n'
+            '[dependencies]\nmylib = { git = "https://github.com/org/mylib.git" }\n'
         )
 
         lib_id = uuid.uuid4()

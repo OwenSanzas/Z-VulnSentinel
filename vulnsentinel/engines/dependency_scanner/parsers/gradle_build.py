@@ -32,12 +32,12 @@ _CONFIGS = (
 _DEP_RE = re.compile(
     rf"{_CONFIGS}"
     r"\s*\(?\s*"
-    r"""["']"""                          # opening quote
-    r"([A-Za-z0-9._-]+)"                # group
+    r"""["']"""  # opening quote
+    r"([A-Za-z0-9._-]+)"  # group
     r":"
-    r"([A-Za-z0-9._-]+)"                # artifact
-    r"(?::([A-Za-z0-9._+\-]+))?"        # optional version
-    r"""["']"""                          # closing quote
+    r"([A-Za-z0-9._-]+)"  # artifact
+    r"(?::([A-Za-z0-9._+\-]+))?"  # optional version
+    r"""["']"""  # closing quote
 )
 
 

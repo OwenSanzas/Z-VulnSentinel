@@ -243,15 +243,11 @@ class TestDeleteStaleScannerDeps:
         ]
         await dao.batch_upsert(session, deps)
 
-        deleted = await dao.delete_stale_scanner_deps(
-            session, project.id, keep_library_ids=set()
-        )
+        deleted = await dao.delete_stale_scanner_deps(session, project.id, keep_library_ids=set())
         assert deleted == 1  # only scanner dep deleted
         assert await dao.count_by_project(session, project.id) == 1  # manual remains
 
-    async def test_does_not_affect_other_projects(
-        self, dao, session, project, project2, library
-    ):
+    async def test_does_not_affect_other_projects(self, dao, session, project, project2, library):
         """Deletion must be scoped to the given project_id."""
         deps = [
             {
@@ -267,9 +263,7 @@ class TestDeleteStaleScannerDeps:
         ]
         await dao.batch_upsert(session, deps)
 
-        deleted = await dao.delete_stale_scanner_deps(
-            session, project.id, keep_library_ids=set()
-        )
+        deleted = await dao.delete_stale_scanner_deps(session, project.id, keep_library_ids=set())
         assert deleted == 1
         # project2's dep untouched
         assert await dao.count_by_project(session, project2.id) == 1

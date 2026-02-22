@@ -27,9 +27,9 @@ BATCH_PAUSE = 1.5  # seconds between batches
 
 EVENT_ENDPOINTS = {
     "commit": "/repos/{owner}/{repo}/commits?per_page=1",
-    "pr":     "/repos/{owner}/{repo}/pulls?state=closed&per_page=1",
-    "tag":    "/repos/{owner}/{repo}/tags?per_page=1",
-    "ghsa":   "/repos/{owner}/{repo}/security-advisories?per_page=1",
+    "pr": "/repos/{owner}/{repo}/pulls?state=closed&per_page=1",
+    "tag": "/repos/{owner}/{repo}/tags?per_page=1",
+    "ghsa": "/repos/{owner}/{repo}/security-advisories?per_page=1",
 }
 
 
@@ -157,7 +157,9 @@ def _gh_api_raw(endpoint: str) -> tuple[int, str]:
     try:
         result = subprocess.run(
             ["gh", "api", endpoint],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
         return result.returncode, result.stdout if result.returncode == 0 else result.stderr
     except subprocess.TimeoutExpired:
@@ -171,7 +173,9 @@ def _gh_api_jq(endpoint: str, jq: str) -> dict | None:
     try:
         result = subprocess.run(
             ["gh", "api", endpoint, "--jq", jq],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
         if result.returncode != 0:
             return None
@@ -197,7 +201,10 @@ def check_one(entry: dict) -> CheckResult:
     parsed = parse_owner_repo(repo_url)
     if not parsed:
         return CheckResult(
-            name=name, repo_url=repo_url, platform=platform, ok=False,
+            name=name,
+            repo_url=repo_url,
+            platform=platform,
+            ok=False,
             expected_branch=expected_branch,
             error=f"Cannot parse URL: {repo_url}",
         )
@@ -211,8 +218,12 @@ def check_one(entry: dict) -> CheckResult:
     )
     if not data:
         return CheckResult(
-            name=name, repo_url=repo_url, platform=platform, ok=False,
-            expected_branch=expected_branch, not_found=True,
+            name=name,
+            repo_url=repo_url,
+            platform=platform,
+            ok=False,
+            expected_branch=expected_branch,
+            not_found=True,
         )
 
     actual_branch = data.get("default_branch")
@@ -222,14 +233,22 @@ def check_one(entry: dict) -> CheckResult:
 
     if is_disabled:
         return CheckResult(
-            name=name, repo_url=repo_url, platform=platform, ok=False,
-            expected_branch=expected_branch, disabled=True,
+            name=name,
+            repo_url=repo_url,
+            platform=platform,
+            ok=False,
+            expected_branch=expected_branch,
+            disabled=True,
         )
 
     result = CheckResult(
-        name=name, repo_url=repo_url, platform=platform, ok=True,
+        name=name,
+        repo_url=repo_url,
+        platform=platform,
+        ok=True,
         expected_branch=expected_branch,
-        actual_branch=actual_branch, actual_url=actual_url,
+        actual_branch=actual_branch,
+        actual_url=actual_url,
     )
 
     # Step 2: redirect check
@@ -255,9 +274,7 @@ def check_one(entry: dict) -> CheckResult:
 def auto_fix_branches(problems: list[CheckResult]) -> int:
     """Update repos.json to fix branch mismatches. Returns count fixed."""
     branch_fixes = {
-        r.name: r.actual_branch
-        for r in problems
-        if r.branch_mismatch and r.actual_branch
+        r.name: r.actual_branch for r in problems if r.branch_mismatch and r.actual_branch
     }
     if not branch_fixes:
         return 0
@@ -281,7 +298,8 @@ def auto_fix_branches(problems: list[CheckResult]) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(description="C/C++ library health checker")
     parser.add_argument(
-        "--fix", action="store_true",
+        "--fix",
+        action="store_true",
         help="Auto-fix branch mismatches in repos.json",
     )
     args = parser.parse_args()

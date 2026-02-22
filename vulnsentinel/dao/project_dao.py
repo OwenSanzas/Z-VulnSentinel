@@ -35,9 +35,7 @@ class ProjectDAO(BaseDAO[Project]):
             select(Project)
             .where(Project.auto_sync_deps.is_(True))
             .where(Project.pinned_ref.is_(None))
-            .where(
-                (Project.last_scanned_at.is_(None)) | (Project.last_scanned_at < cutoff)
-            )
+            .where((Project.last_scanned_at.is_(None)) | (Project.last_scanned_at < cutoff))
         )
         result = await session.execute(stmt)
         return list(result.scalars().all())

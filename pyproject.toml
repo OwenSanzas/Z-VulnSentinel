@@ -43,7 +43,7 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W"]
+select = ["E", "F", "I", "W", "B"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/test_bitcode.py" = ["E501"]

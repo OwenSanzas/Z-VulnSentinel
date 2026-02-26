@@ -119,6 +119,10 @@ class ClientVulnService:
         """Return client vulns with pending pipeline work for ImpactEngine."""
         return await self._cv_dao.list_pending_pipeline(session, limit)
 
+    async def list_verified_unnotified(self, session: AsyncSession, limit: int) -> list[ClientVuln]:
+        """Return verified client vulns that have not been notified yet."""
+        return await self._cv_dao.list_verified_unnotified(session, limit)
+
     async def update_pipeline(
         self,
         session: AsyncSession,
@@ -171,6 +175,16 @@ class ClientVulnService:
                 status="not_affect",
                 is_affected=False,
             )
+
+    async def set_report(
+        self,
+        session: AsyncSession,
+        vuln_id: uuid.UUID,
+        *,
+        report: dict[str, Any],
+    ) -> None:
+        """Store notification report JSONB on a client vuln."""
+        await self._cv_dao.set_report(session, vuln_id, report=report)
 
     # ── Maintainer feedback ───────────────────────────────────────────────
 

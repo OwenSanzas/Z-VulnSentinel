@@ -170,6 +170,21 @@ class ClientVulnDAO(BaseDAO[ClientVuln]):
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
+    async def list_verified_unnotified(self, session: AsyncSession, limit: int) -> list[ClientVuln]:
+        """Find verified vulns that have not been notified yet (NotificationEngine polling)."""
+        stmt = (
+            select(ClientVuln)
+            .where(
+                ClientVuln.pipeline_status == "verified",
+                ClientVuln.status == "recorded",
+                ClientVuln.reported_at.is_(None),
+            )
+            .order_by(ClientVuln.created_at.asc())
+            .limit(limit)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
     # ── write ─────────────────────────────────────────────────────────────
 
     async def update_pipeline(
@@ -228,6 +243,18 @@ class ClientVulnDAO(BaseDAO[ClientVuln]):
             "not_affect_at": func.now() if status == "not_affect" else None,
         }
         stmt = update(ClientVuln).where(ClientVuln.id == pk).values(**values)
+        await session.execute(stmt)
+
+    async def set_report(
+        self,
+        session: AsyncSession,
+        pk: uuid.UUID,
+        *,
+        report: dict[str, Any],
+    ) -> None:
+        """Store notification report JSONB on a client vuln."""
+        self._require_pk(pk)
+        stmt = update(ClientVuln).where(ClientVuln.id == pk).values(report=report)
         await session.execute(stmt)
 
     async def update_status(

@@ -19,7 +19,8 @@ class ReachabilityResult:
 
     is_reachable: bool
     searched_functions: list[str]
-    snapshot_id: str | None = None
+    client_snapshot_id: str | None = None
+    library_snapshot_id: str | None = None
     depth: int | None = None
     paths: list[dict] | None = None
     strategy: str = ""
@@ -49,7 +50,7 @@ class ReachabilityChecker:
 
     Callers only need::
 
-        result = await checker.check(repo_url, version, vuln_dict)
+        result = await checker.check(client_repo, client_ver, lib_repo, lib_ver, vuln)
 
     Internal details of zca (Neo4j, snapshot lookup, fuzzer edges) are hidden.
     """
@@ -64,18 +65,24 @@ class ReachabilityChecker:
 
     async def check(
         self,
-        repo_url: str,
-        version: str,
+        client_repo_url: str,
+        client_version: str,
+        library_repo_url: str,
+        library_version: str,
         vuln: dict,
     ) -> ReachabilityResult:
         """Check whether *vuln*'s affected functions are reachable in the call graph.
 
         Parameters
         ----------
-        repo_url:
+        client_repo_url:
             Repository URL of the client project (must match a snapshot).
-        version:
+        client_version:
             Version / tag / commit of the client project.
+        library_repo_url:
+            Repository URL of the library containing the vulnerability.
+        library_version:
+            Commit SHA of the vulnerability fix in the library.
         vuln:
             Dict with at least ``affected_functions: list[str]``.
 
@@ -83,35 +90,49 @@ class ReachabilityChecker:
         -------
         ReachabilityResult
         """
-        # 1. Find snapshot
-        snapshot = await asyncio.to_thread(
-            self._sm.find_snapshot, repo_url, version
+        # 1. Find client snapshot
+        client_snapshot = await asyncio.to_thread(
+            self._sm.find_snapshot, client_repo_url, client_version
         )
-        if snapshot is None:
-            return _error_result("snapshot_not_found")
+        if client_snapshot is None:
+            return _error_result("client_snapshot_not_found")
 
-        sid = str(snapshot.id)
+        client_sid = str(client_snapshot.id)
 
-        # 2. Extract target functions
+        # 2. Find library snapshot
+        library_snapshot = await asyncio.to_thread(
+            self._sm.find_snapshot, library_repo_url, library_version
+        )
+        if library_snapshot is None:
+            return _error_result("library_snapshot_not_found")
+
+        library_sid = str(library_snapshot.id)
+
+        # 3. Extract target functions
         targets = _extract_target_functions(vuln)
         if not targets:
             return _error_result("no_affected_functions")
 
-        # 3. Try fuzzer reachability first
-        result = await self._check_fuzzer_reaches(sid, targets)
+        # 4. Try fuzzer reachability first (uses library snapshot — vuln funcs live there)
+        result = await self._check_fuzzer_reaches(library_sid, targets)
         if result is not None:
+            result.client_snapshot_id = client_sid
+            result.library_snapshot_id = library_sid
             return result
 
-        # 4. Fallback to shortest_path from "main"
-        result = await self._check_shortest_path(sid, targets)
+        # 5. Fallback to shortest_path from "main"
+        result = await self._check_shortest_path(library_sid, targets)
         if result is not None:
+            result.client_snapshot_id = client_sid
+            result.library_snapshot_id = library_sid
             return result
 
-        # 5. Not reachable
+        # 6. Not reachable
         return ReachabilityResult(
             is_reachable=False,
             searched_functions=targets,
-            snapshot_id=sid,
+            client_snapshot_id=client_sid,
+            library_snapshot_id=library_sid,
             strategy="exhausted",
         )
 
@@ -159,7 +180,6 @@ class ReachabilityChecker:
                     return ReachabilityResult(
                         is_reachable=True,
                         searched_functions=targets,
-                        snapshot_id=snapshot_id,
                         depth=matched.get("depth"),
                         strategy="fuzzer_reaches",
                     )
@@ -190,7 +210,6 @@ class ReachabilityChecker:
                 return ReachabilityResult(
                     is_reachable=True,
                     searched_functions=targets,
-                    snapshot_id=snapshot_id,
                     depth=result.get("length"),
                     paths=result.get("paths"),
                     strategy="shortest_path",

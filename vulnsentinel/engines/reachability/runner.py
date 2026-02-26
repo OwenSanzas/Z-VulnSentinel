@@ -46,9 +46,10 @@ class ReachabilityRunner:
 
         Steps:
         1. Load upstream_vuln → get affected_functions and commit_sha.
-        2. If affected_functions is empty → diff fallback via GitHub API.
-        3. Call ReachabilityChecker.check() with the project's repo_url + version.
-        4. Write reachable_path + finalize pipeline.
+        2. Load library (needed for diff fallback and reachability check).
+        3. If affected_functions is empty → diff fallback via GitHub API.
+        4. Call ReachabilityChecker.check() with client + library repo info.
+        5. Write reachable_path + finalize pipeline.
         """
         # Mark pipeline as path_searching
         await self._cv_service.update_pipeline(
@@ -63,9 +64,11 @@ class ReachabilityRunner:
         upstream_vuln = uv_detail["vuln"]
         affected_functions: list[str] = upstream_vuln.affected_functions or []
 
-        # 2. Diff fallback when affected_functions is empty
+        # 2. Load library (needed for both diff fallback and reachability check)
+        library = await self._lib_service.get_by_id(session, upstream_vuln.library_id)
+
+        # 3. Diff fallback when affected_functions is empty
         if not affected_functions and upstream_vuln.commit_sha:
-            library = await self._lib_service.get_by_id(session, upstream_vuln.library_id)
             if library is not None:
                 try:
                     owner, repo = parse_repo_url(library.repo_url)
@@ -79,7 +82,7 @@ class ReachabilityRunner:
                         exc_info=True,
                     )
 
-        # 3. Build vuln dict and run reachability check
+        # 4. Build vuln dict and run reachability check
         vuln_dict = {
             "affected_functions": affected_functions,
             "commit_sha": upstream_vuln.commit_sha,
@@ -106,7 +109,15 @@ class ReachabilityRunner:
             return
 
         version = client_vuln.resolved_version or project.current_version or "main"
-        result = await self._checker.check(project.repo_url, version, vuln_dict)
+        library_repo_url = library.repo_url if library else ""
+        library_version = client_vuln.resolved_version or ""
+        result = await self._checker.check(
+            client_repo_url=project.repo_url,
+            client_version=version,
+            library_repo_url=library_repo_url,
+            library_version=library_version,
+            vuln=vuln_dict,
+        )
 
         # 4. Handle errors — stay in path_searching and record error,
         #    but do NOT revert to pending (avoids infinite retry loop).
@@ -132,7 +143,8 @@ class ReachabilityRunner:
             "found": result.is_reachable,
             "strategy": result.strategy,
             "searched_functions": result.searched_functions,
-            "snapshot_id": result.snapshot_id,
+            "client_snapshot_id": result.client_snapshot_id,
+            "library_snapshot_id": result.library_snapshot_id,
         }
         if result.depth is not None:
             reachable_path["depth"] = result.depth

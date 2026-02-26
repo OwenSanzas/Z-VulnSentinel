@@ -15,7 +15,9 @@ from z_code_analyzer.reachability import ReachabilityChecker
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-REPO_URL = "https://github.com/foo/bar"
+CLIENT_URL = "https://github.com/foo/bar"
+LIB_URL = "https://github.com/lib/vulnerable"
+LIB_VERSION = "abc123"
 
 
 @dataclass
@@ -24,7 +26,8 @@ class FakeSnapshot:
 
 
 def _make_checker(
-    snapshot=None,
+    client_snapshot=None,
+    library_snapshot=None,
     fuzzers=None,
     reachable=None,
     shortest=None,
@@ -33,7 +36,14 @@ def _make_checker(
     gs = MagicMock()
     sm = MagicMock()
 
-    sm.find_snapshot.return_value = snapshot
+    def _find_snapshot(repo_url, version):
+        if repo_url == CLIENT_URL:
+            return client_snapshot
+        if repo_url == LIB_URL:
+            return library_snapshot
+        return None
+
+    sm.find_snapshot.side_effect = _find_snapshot
     gs.list_fuzzer_info_no_code.return_value = fuzzers or []
     gs.reachable_functions_by_one_fuzzer.return_value = reachable or []
     gs.shortest_path.return_value = shortest
@@ -50,31 +60,48 @@ class TestReachabilityChecker:
     """Unit tests for z_code_analyzer.reachability.ReachabilityChecker."""
 
     @pytest.mark.asyncio
-    async def test_snapshot_not_found(self):
-        checker = _make_checker(snapshot=None)
+    async def test_client_snapshot_not_found(self):
+        checker = _make_checker(client_snapshot=None, library_snapshot=FakeSnapshot("lib-001"))
         vuln = {"affected_functions": ["parse"]}
-        result = await checker.check(REPO_URL, "v1.0", vuln)
+        result = await checker.check(CLIENT_URL, "v1.0", LIB_URL, LIB_VERSION, vuln)
         assert result.is_reachable is False
-        assert result.error == "snapshot_not_found"
+        assert result.error == "client_snapshot_not_found"
+
+    @pytest.mark.asyncio
+    async def test_library_snapshot_not_found(self):
+        checker = _make_checker(client_snapshot=FakeSnapshot(), library_snapshot=None)
+        vuln = {"affected_functions": ["parse"]}
+        result = await checker.check(CLIENT_URL, "v1.0", LIB_URL, LIB_VERSION, vuln)
+        assert result.is_reachable is False
+        assert result.error == "library_snapshot_not_found"
 
     @pytest.mark.asyncio
     async def test_no_affected_functions(self):
-        checker = _make_checker(snapshot=FakeSnapshot())
-        result = await checker.check(REPO_URL, "v1.0", {"affected_functions": []})
+        checker = _make_checker(
+            client_snapshot=FakeSnapshot(),
+            library_snapshot=FakeSnapshot("lib-001"),
+        )
+        result = await checker.check(
+            CLIENT_URL, "v1.0", LIB_URL, LIB_VERSION, {"affected_functions": []},
+        )
         assert result.is_reachable is False
         assert result.error == "no_affected_functions"
 
     @pytest.mark.asyncio
     async def test_no_affected_functions_key_missing(self):
-        checker = _make_checker(snapshot=FakeSnapshot())
-        result = await checker.check(REPO_URL, "v1.0", {})
+        checker = _make_checker(
+            client_snapshot=FakeSnapshot(),
+            library_snapshot=FakeSnapshot("lib-001"),
+        )
+        result = await checker.check(CLIENT_URL, "v1.0", LIB_URL, LIB_VERSION, {})
         assert result.is_reachable is False
         assert result.error == "no_affected_functions"
 
     @pytest.mark.asyncio
     async def test_fuzzer_reaches(self):
         checker = _make_checker(
-            snapshot=FakeSnapshot(),
+            client_snapshot=FakeSnapshot(),
+            library_snapshot=FakeSnapshot("lib-001"),
             fuzzers=[{"name": "fuzz_url"}],
             reachable=[
                 {"name": "parse_url", "file_path": "lib/url.c", "depth": 3, "is_external": False},
@@ -87,19 +114,23 @@ class TestReachabilityChecker:
             ],
         )
         result = await checker.check(
-            REPO_URL,
+            CLIENT_URL,
             "v1.0",
+            LIB_URL,
+            LIB_VERSION,
             {"affected_functions": ["parse_url"]},
         )
         assert result.is_reachable is True
         assert result.strategy == "fuzzer_reaches"
         assert result.depth == 3
-        assert result.snapshot_id == "snap-001"
+        assert result.client_snapshot_id == "snap-001"
+        assert result.library_snapshot_id == "lib-001"
 
     @pytest.mark.asyncio
     async def test_shortest_path_reachable(self):
         checker = _make_checker(
-            snapshot=FakeSnapshot(),
+            client_snapshot=FakeSnapshot(),
+            library_snapshot=FakeSnapshot("lib-001"),
             fuzzers=[],
             shortest={
                 "length": 5,
@@ -115,19 +146,24 @@ class TestReachabilityChecker:
             },
         )
         result = await checker.check(
-            REPO_URL,
+            CLIENT_URL,
             "v1.0",
+            LIB_URL,
+            LIB_VERSION,
             {"affected_functions": ["vulnerable_func"]},
         )
         assert result.is_reachable is True
         assert result.strategy == "shortest_path"
         assert result.depth == 5
         assert result.paths is not None
+        assert result.client_snapshot_id == "snap-001"
+        assert result.library_snapshot_id == "lib-001"
 
     @pytest.mark.asyncio
     async def test_not_reachable(self):
         checker = _make_checker(
-            snapshot=FakeSnapshot(),
+            client_snapshot=FakeSnapshot(),
+            library_snapshot=FakeSnapshot("lib-001"),
             fuzzers=[{"name": "fuzz_http"}],
             reachable=[
                 {"name": "http_parse", "file_path": "http.c", "depth": 1, "is_external": False},
@@ -135,8 +171,10 @@ class TestReachabilityChecker:
             shortest=None,
         )
         result = await checker.check(
-            REPO_URL,
+            CLIENT_URL,
             "v1.0",
+            LIB_URL,
+            LIB_VERSION,
             {"affected_functions": ["unrelated_func"]},
         )
         assert result.is_reachable is False
@@ -146,7 +184,8 @@ class TestReachabilityChecker:
     @pytest.mark.asyncio
     async def test_shortest_path_no_paths_found(self):
         checker = _make_checker(
-            snapshot=FakeSnapshot(),
+            client_snapshot=FakeSnapshot(),
+            library_snapshot=FakeSnapshot("lib-001"),
             fuzzers=[],
             shortest={
                 "length": 0,
@@ -156,8 +195,10 @@ class TestReachabilityChecker:
             },
         )
         result = await checker.check(
-            REPO_URL,
+            CLIENT_URL,
             "v1.0",
+            LIB_URL,
+            LIB_VERSION,
             {"affected_functions": ["target_func"]},
         )
         assert result.is_reachable is False
@@ -167,15 +208,18 @@ class TestReachabilityChecker:
     async def test_multiple_targets_first_match(self):
         """If the first target is reachable via fuzzer, stop early."""
         checker = _make_checker(
-            snapshot=FakeSnapshot(),
+            client_snapshot=FakeSnapshot(),
+            library_snapshot=FakeSnapshot("lib-001"),
             fuzzers=[{"name": "fuzz_a"}],
             reachable=[
                 {"name": "func_b", "file_path": "b.c", "depth": 2, "is_external": False},
             ],
         )
         result = await checker.check(
-            REPO_URL,
+            CLIENT_URL,
             "v1.0",
+            LIB_URL,
+            LIB_VERSION,
             {"affected_functions": ["func_a", "func_b"]},
         )
         assert result.is_reachable is True

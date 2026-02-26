@@ -151,6 +151,54 @@ class TestPreFilter:
         assert result.classification == "other"
         assert result.confidence == 0.95
 
+    # ── Security keyword bypass tests ─────────────────────────────────
+
+    def test_fix_with_buffer_overflow_in_title_skips_prefilter(self):
+        """fix: with security keywords in title must go to LLM."""
+        ev = _make_event(title="fix: heap buffer overflow in parse_url")
+        result = pre_filter(ev)
+        assert result is None
+
+    def test_fix_with_cve_in_title_skips_prefilter(self):
+        ev = _make_event(title="fix: patch CVE-2025-1234")
+        result = pre_filter(ev)
+        assert result is None
+
+    def test_fix_with_use_after_free_in_message_skips_prefilter(self):
+        """Security keywords in message (not just title) should trigger bypass."""
+        ev = _make_event(
+            title="fix: crash in parser",
+            message="This fixes a use-after-free when handling malformed input.",
+        )
+        result = pre_filter(ev)
+        assert result is None
+
+    def test_fix_with_oob_in_title_skips_prefilter(self):
+        ev = _make_event(title="fix(png): out-of-bounds read in row filter")
+        result = pre_filter(ev)
+        assert result is None
+
+    def test_fix_without_security_keywords_still_prefilters(self):
+        """Plain fix: with no security signals should still pre-filter."""
+        ev = _make_event(title="fix: correct off-by-one in loop counter")
+        result = pre_filter(ev)
+        assert result is not None
+        assert result.classification == "normal_bugfix"
+
+    def test_feat_with_security_keyword_skips_prefilter(self):
+        """Even non-fix prefixes bypass if security keywords present."""
+        ev = _make_event(title="feat: add auth bypass detection")
+        result = pre_filter(ev)
+        assert result is None
+
+    def test_double_free_in_message_skips_prefilter(self):
+        ev = _make_event(
+            title="fix: memory issue in cleanup",
+            message="Prevent double free of the connection buffer.",
+        )
+        result = pre_filter(ev)
+        assert result is None
+
 
 # ── TestPrompt ───────────────────────────────────────────────────────────────
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from vulnsentinel.agent.agents.classifier import ClassificationResult
 from vulnsentinel.core.github import parse_repo_url
@@ -59,12 +59,18 @@ class EventClassifierRunner:
 
     async def classify_batch(
         self,
-        session: AsyncSession,
+        session_factory: async_sessionmaker[AsyncSession],
         limit: int = 10,
         concurrency: int = 3,
     ) -> list[tuple[Event, ClassificationResult]]:
-        """Classify up to *limit* unclassified events with bounded concurrency."""
-        events = await self._event_service.list_unclassified(session, limit)
+        """Classify up to *limit* unclassified events with bounded concurrency.
+
+        Each concurrent task gets its own ``AsyncSession`` from *session_factory*
+        to avoid SQLAlchemy concurrent-access errors.
+        """
+        # Fetch the event list with a short-lived session.
+        async with session_factory() as session:
+            events = await self._event_service.list_unclassified(session, limit)
         if not events:
             return []
 
@@ -72,8 +78,9 @@ class EventClassifierRunner:
         results: list[tuple[Event, ClassificationResult]] = []
 
         async def _run(ev: Event) -> tuple[Event, ClassificationResult]:
-            async with sem:
-                r = await self.classify_one(session, ev)
+            async with sem, session_factory() as sess:
+                r = await self.classify_one(sess, ev)
+                await sess.commit()
                 return (ev, r)
 
         tasks = [_run(ev) for ev in events]

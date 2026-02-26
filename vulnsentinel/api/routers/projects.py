@@ -12,7 +12,6 @@ from vulnsentinel.api.deps import (
     get_current_user,
     get_project_service,
     get_session,
-    get_snapshot_service,
 )
 from vulnsentinel.api.schemas.client_vuln import ClientVulnListItem
 from vulnsentinel.api.schemas.common import PageMeta, PaginatedResponse
@@ -26,11 +25,9 @@ from vulnsentinel.api.schemas.project import (
     UpdateDependencyRequest,
     UpdateProjectRequest,
 )
-from vulnsentinel.api.schemas.snapshot import CreateSnapshotRequest, SnapshotResponse
 from vulnsentinel.models.user import User
 from vulnsentinel.services.client_vuln_service import ClientVulnService
 from vulnsentinel.services.project_service import DependencyInput, ProjectService
-from vulnsentinel.services.snapshot_service import SnapshotService
 
 router = APIRouter()
 
@@ -136,56 +133,6 @@ async def update_project(
         deps_count=result["deps_count"],
         vuln_count=result["vuln_count"],
     )
-
-
-@router.get(
-    "/{project_id}/snapshots",
-    response_model=PaginatedResponse[SnapshotResponse],
-)
-async def list_project_snapshots(
-    project_id: uuid.UUID,
-    cursor: str | None = Query(None),
-    page_size: int = Query(20, ge=1, le=100),
-    session: AsyncSession = Depends(get_session),
-    _user: User = Depends(get_current_user),
-    project_svc: ProjectService = Depends(get_project_service),
-    svc: SnapshotService = Depends(get_snapshot_service),
-) -> PaginatedResponse[SnapshotResponse]:
-    await project_svc.get(session, project_id)  # 404 if not exists
-    result = await svc.list_by_project(session, project_id, cursor=cursor, page_size=page_size)
-    return PaginatedResponse(
-        data=[SnapshotResponse.model_validate(s) for s in result["data"]],
-        meta=PageMeta(
-            next_cursor=result["next_cursor"],
-            has_more=result["has_more"],
-        ),
-    )
-
-
-@router.post(
-    "/{project_id}/snapshots",
-    response_model=SnapshotResponse,
-    status_code=201,
-)
-async def create_project_snapshot(
-    project_id: uuid.UUID,
-    body: CreateSnapshotRequest,
-    session: AsyncSession = Depends(get_session),
-    _user: User = Depends(get_current_user),
-    project_svc: ProjectService = Depends(get_project_service),
-    svc: SnapshotService = Depends(get_snapshot_service),
-) -> SnapshotResponse:
-    await project_svc.get(session, project_id)  # 404 if not exists
-    snapshot = await svc.create(
-        session,
-        project_id=project_id,
-        repo_url=body.repo_url,
-        repo_name=body.repo_name,
-        version=body.version,
-        backend=body.backend,
-        trigger_type=body.trigger_type,
-    )
-    return SnapshotResponse.model_validate(snapshot)
 
 
 @router.get(

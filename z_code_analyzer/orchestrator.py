@@ -114,15 +114,15 @@ class StaticAnalysisOrchestrator:
             repo_url, version, actual_backend
         )
 
-        if snapshot_doc and snapshot_doc["status"] == "completed":
+        if snapshot_doc and snapshot_doc.status == "completed":
             return AnalysisOutput(
-                snapshot_id=str(snapshot_doc["_id"]),
+                snapshot_id=str(snapshot_doc.id),
                 repo_url=repo_url,
                 version=version,
-                backend=snapshot_doc.get("backend", "svf"),
-                function_count=snapshot_doc.get("node_count", 0),
-                edge_count=snapshot_doc.get("edge_count", 0),
-                fuzzer_names=snapshot_doc.get("fuzzer_names", []),
+                backend=snapshot_doc.backend,
+                function_count=snapshot_doc.node_count or 0,
+                edge_count=snapshot_doc.edge_count or 0,
+                fuzzer_names=snapshot_doc.fuzzer_names or [],
                 cached=True,
             )
 
@@ -131,7 +131,7 @@ class StaticAnalysisOrchestrator:
                 "Failed to acquire snapshot lock — another worker may be processing "
                 f"({repo_url}@{version})"
             )
-        snapshot_id = str(snapshot_doc["_id"])
+        snapshot_id = str(snapshot_doc.id)
         self._snapshot_id_for_log = snapshot_id
 
         output_dir_obj = None

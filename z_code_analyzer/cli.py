@@ -21,7 +21,7 @@ import click
 
 # Default connection strings (overridable via env vars)
 _DEFAULT_NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
-_DEFAULT_MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017")
+_DEFAULT_PG_URL = os.environ.get("ZCA_DATABASE_URL", "postgresql://localhost/z_code_analyzer")
 
 
 def _parse_neo4j_auth() -> tuple[str, str] | None:
@@ -163,12 +163,12 @@ def create_work(output: str) -> None:
 @click.argument("work_file", type=click.Path(exists=True))
 @click.option("--neo4j-uri", default=_DEFAULT_NEO4J_URI, help="Neo4j URI")
 @click.option("--neo4j-auth", default=None, help="Neo4j auth ('none' or 'user:password')")
-@click.option("--mongo-uri", default=_DEFAULT_MONGO_URI, help="MongoDB URI")
+@click.option("--pg-url", default=_DEFAULT_PG_URL, help="PostgreSQL URL")
 def run(
     work_file: str,
     neo4j_uri: str,
     neo4j_auth: str | None,
-    mongo_uri: str,
+    pg_url: str,
 ) -> None:
     """Execute analysis from a work order JSON file."""
     # Load and validate work order
@@ -201,7 +201,11 @@ def run(
         click.echo(f"Cloned to: {project_path}")
 
     # Run analysis
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
     from z_code_analyzer.graph_store import GraphStore
+    from z_code_analyzer.models.snapshot import ZCABase
     from z_code_analyzer.orchestrator import StaticAnalysisOrchestrator
     from z_code_analyzer.snapshot_manager import SnapshotManager
 
@@ -209,7 +213,11 @@ def run(
 
     graph_store = GraphStore(neo4j_uri, auth)
 
-    snapshot_mgr = SnapshotManager(mongo_uri=mongo_uri, graph_store=graph_store)
+    engine = create_engine(pg_url)
+    ZCABase.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine)
+
+    snapshot_mgr = SnapshotManager(session_factory=session_factory, graph_store=graph_store)
 
     orchestrator = StaticAnalysisOrchestrator(
         snapshot_manager=snapshot_mgr,
@@ -314,7 +322,7 @@ def query_main(verbose: bool) -> None:
 @click.option("--version", required=True, help="Version/tag/commit")
 @click.option("--neo4j-uri", default=_DEFAULT_NEO4J_URI, help="Neo4j URI")
 @click.option("--neo4j-auth", default=None, help="Neo4j auth ('none' or 'user:password')")
-@click.option("--mongo-uri", default=_DEFAULT_MONGO_URI, help="MongoDB URI")
+@click.option("--pg-url", default=_DEFAULT_PG_URL, help="PostgreSQL URL")
 @click.argument("from_func")
 @click.argument("to_func")
 def query_shortest_path(
@@ -322,24 +330,28 @@ def query_shortest_path(
     version: str,
     neo4j_uri: str,
     neo4j_auth: str | None,
-    mongo_uri: str,
+    pg_url: str,
     from_func: str,
     to_func: str,
 ) -> None:
     """Find shortest path between two functions."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
     from z_code_analyzer.graph_store import GraphStore
     from z_code_analyzer.snapshot_manager import SnapshotManager
 
     auth = _resolve_auth(neo4j_auth)
     gs = GraphStore(neo4j_uri, auth)
-    sm = SnapshotManager(mongo_uri=mongo_uri)
+    engine = create_engine(pg_url)
+    sm = SnapshotManager(session_factory=sessionmaker(bind=engine))
 
     try:
         snap = sm.find_snapshot(repo_url, version)
         if not snap:
             click.echo(f"No snapshot found for {repo_url}@{version}", err=True)
             sys.exit(1)
-        sid = str(snap["_id"])
+        sid = str(snap.id)
         result = gs.shortest_path(sid, from_func, to_func)
         if result:
             click.echo(json.dumps(result, indent=2, default=str))
@@ -355,30 +367,34 @@ def query_shortest_path(
 @click.option("--version", required=True, help="Version/tag/commit")
 @click.option("--neo4j-uri", default=_DEFAULT_NEO4J_URI, help="Neo4j URI")
 @click.option("--neo4j-auth", default=None, help="Neo4j auth")
-@click.option("--mongo-uri", default=_DEFAULT_MONGO_URI, help="MongoDB URI")
+@click.option("--pg-url", default=_DEFAULT_PG_URL, help="PostgreSQL URL")
 @click.argument("pattern")
 def query_search(
     repo_url: str,
     version: str,
     neo4j_uri: str,
     neo4j_auth: str | None,
-    mongo_uri: str,
+    pg_url: str,
     pattern: str,
 ) -> None:
     """Search functions by pattern (e.g. 'parse_*')."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
     from z_code_analyzer.graph_store import GraphStore
     from z_code_analyzer.snapshot_manager import SnapshotManager
 
     auth = _resolve_auth(neo4j_auth)
     gs = GraphStore(neo4j_uri, auth)
-    sm = SnapshotManager(mongo_uri=mongo_uri)
+    engine = create_engine(pg_url)
+    sm = SnapshotManager(session_factory=sessionmaker(bind=engine))
 
     try:
         snap = sm.find_snapshot(repo_url, version)
         if not snap:
             click.echo(f"No snapshot found for {repo_url}@{version}", err=True)
             sys.exit(1)
-        results = gs.search_functions(str(snap["_id"]), pattern)
+        results = gs.search_functions(str(snap.id), pattern)
         for func in results:
             click.echo(
                 f"  {func['name']}  {func.get('file_path', '')}:{func.get('start_line', '')}"
@@ -404,12 +420,16 @@ def snapshots_main(verbose: bool) -> None:
 
 @snapshots_main.command("list")
 @click.option("--repo-url", default=None, help="Filter by repository URL")
-@click.option("--mongo-uri", default=_DEFAULT_MONGO_URI, help="MongoDB URI")
-def snapshots_list(repo_url: str | None, mongo_uri: str) -> None:
+@click.option("--pg-url", default=_DEFAULT_PG_URL, help="PostgreSQL URL")
+def snapshots_list(repo_url: str | None, pg_url: str) -> None:
     """List all analysis snapshots."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
     from z_code_analyzer.snapshot_manager import SnapshotManager
 
-    sm = SnapshotManager(mongo_uri=mongo_uri)
+    engine = create_engine(pg_url)
+    sm = SnapshotManager(session_factory=sessionmaker(bind=engine))
     try:
         snaps = sm.list_snapshots(repo_url=repo_url)
         if not snaps:
@@ -417,13 +437,13 @@ def snapshots_list(repo_url: str | None, mongo_uri: str) -> None:
             return
         for snap in snaps:
             click.echo(
-                f"  {str(snap['_id'])[:12]}  "
-                f"{snap.get('repo_name', '?'):20s}  "
-                f"{snap.get('version', '?'):15s}  "
-                f"{snap.get('backend', '?'):10s}  "
-                f"funcs={snap.get('node_count', 0):5d}  "
-                f"edges={snap.get('edge_count', 0):5d}  "
-                f"fuzzers={len(snap.get('fuzzer_names', []))}"
+                f"  {str(snap.id)[:12]}  "
+                f"{(snap.repo_name or '?'):20s}  "
+                f"{(snap.version or '?'):15s}  "
+                f"{(snap.backend or '?'):10s}  "
+                f"funcs={snap.node_count:5d}  "
+                f"edges={snap.edge_count:5d}  "
+                f"fuzzers={len(snap.fuzzer_names or [])}"
             )
     finally:
         sm.close()

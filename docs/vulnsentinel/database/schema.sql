@@ -31,9 +31,8 @@ CREATE TYPE event_type           AS ENUM ('commit', 'pr_merge', 'tag', 'bug_issu
 CREATE TYPE event_classification AS ENUM ('security_bugfix', 'normal_bugfix', 'refactor', 'feature', 'other');
 CREATE TYPE severity_level       AS ENUM ('critical', 'high', 'medium', 'low');
 CREATE TYPE upstream_vuln_status AS ENUM ('analyzing', 'published');
-CREATE TYPE snapshot_status      AS ENUM ('building', 'completed');
+CREATE TYPE snapshot_status      AS ENUM ('building', 'completed', 'failed');
 CREATE TYPE snapshot_backend     AS ENUM ('svf', 'joern', 'introspector', 'prebuild');
-CREATE TYPE snapshot_trigger     AS ENUM ('tag_push', 'manual', 'scheduled', 'on_upstream_vuln_analysis');
 CREATE TYPE client_vuln_status   AS ENUM ('recorded', 'reported', 'confirmed', 'fixed', 'not_affect');
 CREATE TYPE pipeline_status      AS ENUM ('pending', 'path_searching', 'poc_generating', 'verified', 'not_affect');
 
@@ -114,31 +113,26 @@ CREATE INDEX idx_projdeps_project ON project_dependencies (project_id);
 CREATE INDEX idx_projdeps_library ON project_dependencies (library_id);
 
 -- ---------------------------------------------------------------------------
--- 5. snapshots — migrated from MongoDB
+-- 5. snapshots — owned by z_code_analyzer (ZCA)
 -- ---------------------------------------------------------------------------
--- Original MongoDB fields preserved; new columns: project_id, trigger_type,
--- is_active, storage_path.
+-- ZCA manages this table: create, update, evict.
+-- VulnSentinel reads via zca's SnapshotManager.
 
 CREATE TABLE snapshots (
     id                    UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
-    project_id            UUID            REFERENCES projects(id) ON DELETE SET NULL,
     repo_url              TEXT            NOT NULL,
     repo_name             TEXT            NOT NULL,
     version               TEXT            NOT NULL,
     backend               snapshot_backend NOT NULL,
     status                snapshot_status  NOT NULL DEFAULT 'building',
-    trigger_type          snapshot_trigger,
-    is_active             BOOLEAN         NOT NULL DEFAULT FALSE,
-    storage_path          TEXT,
 
-    -- preserved from MongoDB
     node_count            INT             NOT NULL DEFAULT 0,
     edge_count            INT             NOT NULL DEFAULT 0,
     fuzzer_names          TEXT[]          NOT NULL DEFAULT '{}',
     analysis_duration_sec DOUBLE PRECISION NOT NULL DEFAULT 0,
     language              TEXT            NOT NULL DEFAULT '',
     size_bytes            BIGINT          NOT NULL DEFAULT 0,
-    error                 TEXT,                        -- non-NULL = build failed at current status stage
+    error                 TEXT,
 
     -- timestamps
     last_accessed_at      TIMESTAMPTZ,
@@ -149,9 +143,7 @@ CREATE TABLE snapshots (
     UNIQUE (repo_url, version, backend)
 );
 
-CREATE INDEX idx_snapshots_project  ON snapshots (project_id);
 CREATE INDEX idx_snapshots_cursor   ON snapshots (created_at DESC, id DESC);
-CREATE INDEX idx_snapshots_active   ON snapshots (project_id) WHERE is_active = TRUE;
 CREATE INDEX idx_snapshots_accessed ON snapshots (last_accessed_at);
 
 -- ---------------------------------------------------------------------------

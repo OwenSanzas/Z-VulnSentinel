@@ -1,4 +1,4 @@
-"""Tests for CLI commands — no Docker/Neo4j/MongoDB needed (mocked)."""
+"""Tests for CLI commands — no Docker/Neo4j/PostgreSQL needed (mocked)."""
 
 from __future__ import annotations
 
@@ -159,33 +159,40 @@ class TestProbe:
 
 
 class TestSnapshotsList:
+    @patch("sqlalchemy.orm.sessionmaker")
+    @patch("sqlalchemy.create_engine")
     @patch("z_code_analyzer.snapshot_manager.SnapshotManager", autospec=True)
-    def test_list_no_snapshots(self, MockSM):
+    def test_list_no_snapshots(self, MockSM, _mock_engine, _mock_sf):
         mock_instance = MockSM.return_value
         mock_instance.list_snapshots.return_value = []
         runner = CliRunner()
-        result = runner.invoke(snapshots_main, ["list", "--mongo-uri", "mongodb://fake:27017"])
+        result = runner.invoke(
+            snapshots_main, ["list", "--pg-url", "postgresql://fake/db"]
+        )
         assert result.exit_code == 0
         assert "No snapshots found" in result.output
 
+    @patch("sqlalchemy.orm.sessionmaker")
+    @patch("sqlalchemy.create_engine")
     @patch("z_code_analyzer.snapshot_manager.SnapshotManager", autospec=True)
-    def test_list_with_snapshots(self, MockSM):
-        from bson import ObjectId
+    def test_list_with_snapshots(self, MockSM, _mock_engine, _mock_sf):
+        import uuid
 
+        mock_snap = type("Snap", (), {
+            "id": uuid.uuid4(),
+            "repo_name": "curl",
+            "version": "v8.0",
+            "backend": "svf",
+            "node_count": 2334,
+            "edge_count": 18540,
+            "fuzzer_names": ["fuzz1"],
+        })()
         mock_instance = MockSM.return_value
-        mock_instance.list_snapshots.return_value = [
-            {
-                "_id": ObjectId(),
-                "repo_name": "curl",
-                "version": "v8.0",
-                "backend": "svf",
-                "node_count": 2334,
-                "edge_count": 18540,
-                "fuzzer_names": ["fuzz1"],
-            }
-        ]
+        mock_instance.list_snapshots.return_value = [mock_snap]
         runner = CliRunner()
-        result = runner.invoke(snapshots_main, ["list", "--mongo-uri", "mongodb://fake:27017"])
+        result = runner.invoke(
+            snapshots_main, ["list", "--pg-url", "postgresql://fake/db"]
+        )
         assert result.exit_code == 0
         assert "curl" in result.output
         assert "v8.0" in result.output
@@ -200,6 +207,8 @@ class TestQueryCommands:
         with (
             patch("z_code_analyzer.graph_store.GraphStore"),
             patch("z_code_analyzer.snapshot_manager.SnapshotManager") as MockSM,
+            patch("sqlalchemy.create_engine"),
+            patch("sqlalchemy.orm.sessionmaker"),
         ):
             mock_sm = MockSM.return_value
             mock_sm.find_snapshot.return_value = None
@@ -214,8 +223,8 @@ class TestQueryCommands:
                     "v1",
                     "--neo4j-uri",
                     "bolt://fake:7687",
-                    "--mongo-uri",
-                    "mongodb://fake:27017",
+                    "--pg-url",
+                    "postgresql://fake/db",
                     "func_a",
                     "func_b",
                 ],
@@ -227,6 +236,8 @@ class TestQueryCommands:
         with (
             patch("z_code_analyzer.graph_store.GraphStore"),
             patch("z_code_analyzer.snapshot_manager.SnapshotManager") as MockSM,
+            patch("sqlalchemy.create_engine"),
+            patch("sqlalchemy.orm.sessionmaker"),
         ):
             mock_sm = MockSM.return_value
             mock_sm.find_snapshot.return_value = None
@@ -241,8 +252,8 @@ class TestQueryCommands:
                     "v1",
                     "--neo4j-uri",
                     "bolt://fake:7687",
-                    "--mongo-uri",
-                    "mongodb://fake:27017",
+                    "--pg-url",
+                    "postgresql://fake/db",
                     "parse_*",
                 ],
             )

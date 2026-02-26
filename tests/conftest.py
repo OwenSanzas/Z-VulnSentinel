@@ -23,5 +23,17 @@ def neo4j_auth():
 
 
 @pytest.fixture
-def mongo_uri():
-    return os.environ.get("MONGO_URI", "mongodb://localhost:27017")
+def pg_session_factory():
+    """Create a session factory for tests that need PostgreSQL (integration tests)."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from z_code_analyzer.models.snapshot import ZCABase
+
+    pg_url = os.environ.get("ZCA_DATABASE_URL", "postgresql://localhost/z_code_analyzer_test")
+    engine = create_engine(pg_url)
+    ZCABase.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine)
+    yield factory
+    ZCABase.metadata.drop_all(engine)
+    engine.dispose()

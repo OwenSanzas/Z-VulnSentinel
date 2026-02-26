@@ -19,7 +19,6 @@ from vulnsentinel.dao.event_dao import EventDAO
 from vulnsentinel.dao.library_dao import LibraryDAO
 from vulnsentinel.dao.project_dao import ProjectDAO
 from vulnsentinel.dao.project_dependency_dao import ProjectDependencyDAO
-from vulnsentinel.dao.snapshot_dao import SnapshotDAO
 from vulnsentinel.dao.upstream_vuln_dao import UpstreamVulnDAO
 from vulnsentinel.dao.user_dao import UserDAO
 from vulnsentinel.engines.dependency_scanner.scanner import DependencyScanner
@@ -31,7 +30,6 @@ from vulnsentinel.services.client_vuln_service import ClientVulnService
 from vulnsentinel.services.event_service import EventService
 from vulnsentinel.services.library_service import LibraryService
 from vulnsentinel.services.project_service import ProjectService
-from vulnsentinel.services.snapshot_service import SnapshotService
 from vulnsentinel.services.stats_service import StatsService
 from vulnsentinel.services.upstream_vuln_service import UpstreamVulnService
 
@@ -42,7 +40,6 @@ _user_dao = UserDAO()
 _library_dao = LibraryDAO()
 _project_dao = ProjectDAO()
 _project_dependency_dao = ProjectDependencyDAO()
-_snapshot_dao = SnapshotDAO()
 _event_dao = EventDAO()
 _upstream_vuln_dao = UpstreamVulnDAO()
 _client_vuln_dao = ClientVulnDAO()
@@ -55,7 +52,6 @@ _library_service = LibraryService(_library_dao, _project_dao, _project_dependenc
 _project_service = ProjectService(
     _project_dao, _project_dependency_dao, _client_vuln_dao, _library_service
 )
-_snapshot_service = SnapshotService(_snapshot_dao)
 _event_service = EventService(_event_dao, _upstream_vuln_dao)
 _upstream_vuln_service = UpstreamVulnService(_upstream_vuln_dao, _client_vuln_dao)
 _client_vuln_service = ClientVulnService(_client_vuln_dao, _upstream_vuln_dao)
@@ -142,10 +138,6 @@ def get_library_service() -> LibraryService:
 
 def get_project_service() -> ProjectService:
     return _project_service
-
-
-def get_snapshot_service() -> SnapshotService:
-    return _snapshot_service
 
 
 def get_event_service() -> EventService:

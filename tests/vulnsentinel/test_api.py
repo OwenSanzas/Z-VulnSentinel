@@ -18,7 +18,6 @@ from vulnsentinel.models.event import Event
 from vulnsentinel.models.library import Library
 from vulnsentinel.models.project import Project
 from vulnsentinel.models.project_dependency import ProjectDependency
-from vulnsentinel.models.snapshot import Snapshot
 from vulnsentinel.models.upstream_vuln import UpstreamVuln
 from vulnsentinel.models.user import User
 from vulnsentinel.services import AuthenticationError, ConflictError, NotFoundError, ValidationError
@@ -76,30 +75,6 @@ def _project(proj_id: uuid.UUID | None = None) -> Project:
         auto_sync_deps=True,
         pinned_ref=None,
         last_scanned_at=None,
-        created_at=NOW,
-        updated_at=NOW,
-    )
-
-
-def _snapshot(snap_id: uuid.UUID | None = None, project_id: uuid.UUID | None = None) -> Snapshot:
-    return Snapshot(
-        id=snap_id or uuid.uuid4(),
-        project_id=project_id or uuid.uuid4(),
-        repo_url="https://github.com/acme/myapp",
-        repo_name="myapp",
-        version="1.0.0",
-        backend="svf",
-        status="building",
-        trigger_type="manual",
-        is_active=False,
-        storage_path=None,
-        node_count=0,
-        edge_count=0,
-        fuzzer_names=[],
-        analysis_duration_sec=0.0,
-        language="c",
-        size_bytes=0,
-        error=None,
         created_at=NOW,
         updated_at=NOW,
     )
@@ -221,7 +196,6 @@ def app():
         events,
         libraries,
         projects,
-        snapshots,
         stats,
         upstream_vulns,
     )
@@ -231,7 +205,6 @@ def app():
     application.include_router(auth.router, prefix="/api/v1/auth")
     application.include_router(libraries.router, prefix="/api/v1/libraries")
     application.include_router(projects.router, prefix="/api/v1/projects")
-    application.include_router(snapshots.router, prefix="/api/v1/snapshots")
     application.include_router(events.router, prefix="/api/v1/events")
     application.include_router(upstream_vulns.router, prefix="/api/v1/upstream-vulns")
     application.include_router(client_vulns.router, prefix="/api/v1/client-vulns")
@@ -712,75 +685,6 @@ class TestProjectsRouter:
         assert resp.json()["pinned_ref"] is None
 
     @pytest.mark.asyncio
-    async def test_list_project_snapshots(self, app, client):
-        from vulnsentinel.api import deps
-
-        proj_id = uuid.uuid4()
-        proj = _project(proj_id)
-        snap = _snapshot(project_id=proj_id)
-
-        mock_proj_svc = AsyncMock()
-        mock_proj_svc.get = AsyncMock(
-            return_value={
-                "project": proj,
-                "deps_count": 0,
-                "vuln_count": 0,
-            }
-        )
-        app.dependency_overrides[deps.get_project_service] = lambda: mock_proj_svc
-
-        mock_svc = AsyncMock()
-        mock_svc.list_by_project = AsyncMock(
-            return_value={
-                "data": [snap],
-                "next_cursor": None,
-                "has_more": False,
-            }
-        )
-        app.dependency_overrides[deps.get_snapshot_service] = lambda: mock_svc
-
-        resp = await client.get(f"/api/v1/projects/{proj_id}/snapshots")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert len(data["data"]) == 1
-
-    @pytest.mark.asyncio
-    async def test_create_project_snapshot(self, app, client):
-        from vulnsentinel.api import deps
-
-        proj_id = uuid.uuid4()
-        proj = _project(proj_id)
-        snap = _snapshot(project_id=proj_id)
-
-        mock_proj_svc = AsyncMock()
-        mock_proj_svc.get = AsyncMock(
-            return_value={
-                "project": proj,
-                "deps_count": 0,
-                "vuln_count": 0,
-            }
-        )
-        app.dependency_overrides[deps.get_project_service] = lambda: mock_proj_svc
-
-        mock_svc = AsyncMock()
-        mock_svc.create = AsyncMock(return_value=snap)
-        app.dependency_overrides[deps.get_snapshot_service] = lambda: mock_svc
-
-        resp = await client.post(
-            f"/api/v1/projects/{proj_id}/snapshots",
-            json={
-                "repo_url": "https://github.com/acme/myapp",
-                "repo_name": "myapp",
-                "version": "1.0.0",
-                "backend": "svf",
-                "trigger_type": "manual",
-            },
-        )
-        assert resp.status_code == 201
-        data = resp.json()
-        assert data["backend"] == "svf"
-
-    @pytest.mark.asyncio
     async def test_list_project_vulnerabilities(self, app, client):
         from vulnsentinel.api import deps
 
@@ -812,39 +716,6 @@ class TestProjectsRouter:
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["data"]) == 1
-
-
-# ---------------------------------------------------------------------------
-# Snapshots tests
-# ---------------------------------------------------------------------------
-
-
-class TestSnapshotsRouter:
-    @pytest.mark.asyncio
-    async def test_get_snapshot(self, app, client):
-        from vulnsentinel.api import deps
-
-        snap_id = uuid.uuid4()
-        snap = _snapshot(snap_id)
-        mock_svc = AsyncMock()
-        mock_svc.get = AsyncMock(return_value=snap)
-        app.dependency_overrides[deps.get_snapshot_service] = lambda: mock_svc
-
-        resp = await client.get(f"/api/v1/snapshots/{snap_id}")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["version"] == "1.0.0"
-
-    @pytest.mark.asyncio
-    async def test_get_snapshot_not_found(self, app, client):
-        from vulnsentinel.api import deps
-
-        mock_svc = AsyncMock()
-        mock_svc.get = AsyncMock(side_effect=NotFoundError("snapshot not found"))
-        app.dependency_overrides[deps.get_snapshot_service] = lambda: mock_svc
-
-        resp = await client.get(f"/api/v1/snapshots/{uuid.uuid4()}")
-        assert resp.status_code == 404
 
 
 # ---------------------------------------------------------------------------

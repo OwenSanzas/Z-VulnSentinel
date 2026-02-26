@@ -17,7 +17,6 @@ from vulnsentinel.api.routers import (
     events,
     libraries,
     projects,
-    snapshots,
     stats,
     upstream_vulns,
 )
@@ -78,7 +77,6 @@ def create_app() -> FastAPI:
     app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
     app.include_router(libraries.router, prefix="/api/v1/libraries", tags=["libraries"])
     app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"])
-    app.include_router(snapshots.router, prefix="/api/v1/snapshots", tags=["snapshots"])
     app.include_router(events.router, prefix="/api/v1/events", tags=["events"])
     app.include_router(
         upstream_vulns.router, prefix="/api/v1/upstream-vulns", tags=["upstream-vulns"]

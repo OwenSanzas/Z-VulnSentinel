@@ -2,15 +2,15 @@
 
 Integration tests that exercise analyze_full() path:
   mock AnalysisResult -> orchestrator -> Neo4j -> verify graph data.
-Requires Neo4j and MongoDB running.
+Requires Neo4j and PostgreSQL running.
 """
 
 from __future__ import annotations
 
 import os
+import uuid
 
 import pytest
-from bson import ObjectId
 
 from z_code_analyzer.backends.base import (
     AnalysisResult,
@@ -139,17 +139,15 @@ class TestOrchestratorAnalyzeFull:
     """Test analyze_full() — the path where SVF has already been run externally."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, neo4j_uri, neo4j_auth, mongo_uri):
-        self.snapshot_id = str(ObjectId())
+    def setup(self, neo4j_uri, neo4j_auth, pg_session_factory):
+        self.snapshot_id = str(uuid.uuid4())
         self.gs = _make_graph_store(neo4j_uri, neo4j_auth)
-        self.sm = SnapshotManager(mongo_uri=mongo_uri, graph_store=self.gs)
+        self.sm = SnapshotManager(session_factory=pg_session_factory, graph_store=self.gs)
         self.orch = StaticAnalysisOrchestrator(snapshot_manager=self.sm, graph_store=self.gs)
         yield
         # Cleanup
         self.gs.delete_snapshot(self.snapshot_id)
         self.gs.close()
-        # Clean up MongoDB snapshot document
-        self.sm._snapshots.delete_many({"_id": ObjectId(self.snapshot_id)})
         self.sm.close()
 
     def test_analyze_full_end_to_end(self, tmp_path):

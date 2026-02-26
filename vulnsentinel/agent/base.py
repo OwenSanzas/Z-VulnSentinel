@@ -42,7 +42,7 @@ class BaseAgent(ABC):
     agent_type: str = ""  # must match agent_type_enum values
     max_turns: int = 25
     temperature: float = 0.0
-    model: str = "claude-sonnet-4-20250514"
+    model: str | None = None  # None → use LLMConfig default_model
     enable_compression: bool = True
     max_tool_output_tokens: int = 4000  # truncate single tool result beyond this
     max_context_tokens: int = 16000  # hard budget — break loop when exceeded
@@ -109,9 +109,10 @@ class BaseAgent(ABC):
         **kwargs:
             Forwarded to :meth:`get_system_prompt` and :meth:`get_initial_message`.
         """
+        resolved_model = _llm.resolve_model(self.model)
         ctx = AgentContext(
             agent_type=self.agent_type,
-            model=self.model,
+            model=resolved_model,
             engine_name=engine_name,
             target_id=target_id,
             target_type=target_type,
@@ -191,7 +192,7 @@ class BaseAgent(ABC):
 
             # ── LLM call ─────────────────────────────────────────────
             response = await _llm.create(
-                model=self.model,
+                model=ctx.model,
                 system=system,
                 messages=messages,
                 tools=tools if tools else None,
@@ -280,7 +281,7 @@ class BaseAgent(ABC):
             # Trigger on: (a) every 5 turns, or (b) cumulative input tokens
             # reach 80% of the model's context window.
             if self.enable_compression and turn > 1:
-                token_threshold = int(get_context_window(self.model) * 0.8)
+                token_threshold = int(get_context_window(ctx.model) * 0.8)
                 needs_compress = (
                     turn % 5 == 0 or ctx.total_input_tokens >= token_threshold
                 )

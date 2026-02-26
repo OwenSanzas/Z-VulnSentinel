@@ -17,11 +17,17 @@ logger = logging.getLogger(__name__)
 def get_context_window(model: str) -> int:
     """Return the context window size (tokens) for a model.
 
-    Uses ``litellm.get_model_info()`` with a 128k fallback.
+    Checks FBv2's ``ModelInfo`` first, then ``litellm.get_model_info()``.
+    Falls back to 128k.
     """
+    from fuzzingbrain.llms.models import get_model_by_id
+
+    info = get_model_by_id(model)
+    if info:
+        return info.context_window
     try:
-        info = litellm.get_model_info(model)
-        return info.get("max_input_tokens") or 128_000
+        linfo = litellm.get_model_info(model)
+        return linfo.get("max_input_tokens") or 128_000
     except Exception:
         return 128_000
 
@@ -68,16 +74,54 @@ class LLMResponse:
 class LLMClient:
     """Async-only wrapper around ``litellm.acompletion()``.
 
+    Reads model config + API keys from FBv2's ``LLMConfig``.
+
     Usage::
 
-        client = LLMClient()
+        client = LLMClient()  # uses global LLMConfig
         resp = await client.create(
-            model="claude-sonnet-4-20250514",
+            model="deepseek-chat",
             system="You are a security analyst.",
             messages=[{"role": "user", "content": "..."}],
             tools=[...],
         )
     """
+
+    def __init__(self) -> None:
+        from fuzzingbrain.llms.config import get_default_config
+
+        self._config = get_default_config()
+
+    def resolve_model(self, model: str | None = None) -> str:
+        """Return a litellm-compatible model ID.
+
+        If *model* is ``None``, returns the default model from ``LLMConfig``.
+        """
+        if model is None:
+            return self._config.default_model.id
+        from fuzzingbrain.llms.models import get_model_by_id
+
+        info = get_model_by_id(model)
+        return info.id if info else model
+
+    def _get_api_key(self, model_id: str) -> str | None:
+        """Look up API key for *model_id* via LLMConfig."""
+        from fuzzingbrain.llms.models import Provider, get_model_by_id
+
+        info = get_model_by_id(model_id)
+        if info:
+            return self._config.get_api_key(info.provider)
+        # Guess provider from model id string.
+        model_lower = model_id.lower()
+        if "claude" in model_lower:
+            return self._config.get_api_key(Provider.ANTHROPIC)
+        if "gpt" in model_lower or model_lower.startswith("o"):
+            return self._config.get_api_key(Provider.OPENAI)
+        if "gemini" in model_lower:
+            return self._config.get_api_key(Provider.GOOGLE)
+        if "deepseek" in model_lower:
+            return self._config.get_api_key(Provider.DEEPSEEK)
+        return None
 
     async def create(
         self,
@@ -104,6 +148,10 @@ class LLMClient:
         }
         if tools:
             kwargs["tools"] = tools
+
+        api_key = self._get_api_key(model)
+        if api_key:
+            kwargs["api_key"] = api_key
 
         t0 = time.monotonic()
         raw = await litellm.acompletion(**kwargs)

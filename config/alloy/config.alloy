@@ -1,0 +1,67 @@
+// Discover Docker containers
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// Only collect from containers with logging=loki label
+discovery.relabel "filtered" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_logging"]
+    regex         = "loki"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    target_label  = "container"
+  }
+}
+
+// Collect container stdout logs
+loki.source.docker "default" {
+  host    = "unix:///var/run/docker.sock"
+  targets = discovery.relabel.filtered.output
+
+  forward_to = [loki.process.json.receiver]
+}
+
+// Parse JSON, extract labels
+loki.process "json" {
+  stage.json {
+    expressions = {
+      level  = "level",
+      module = "logger",
+      event  = "event",
+    }
+  }
+
+  // "vulnsentinel.agent" → "agent"
+  stage.regex {
+    expression = "vulnsentinel\\.(?P<module>\\w+)"
+    source     = "module"
+  }
+
+  stage.labels {
+    values = {
+      level  = "",
+      module = "",
+    }
+  }
+
+  stage.static_labels {
+    values = {
+      app = "vulnsentinel",
+    }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+// Push to Loki
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

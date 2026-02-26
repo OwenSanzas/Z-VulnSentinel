@@ -202,7 +202,7 @@ class VulnAnalyzerAgent(BaseAgent):
             "analysis JSON now, even if you haven't gathered all the evidence you wanted."
         )
 
-    def get_compression_criteria(self) -> str | None:
+    def get_compression_criteria(self) -> str:
         return (
             "Preserve: diff analysis findings, vulnerability discoveries, severity "
             "assessment reasoning, affected version information, PoC evidence. "

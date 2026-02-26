@@ -42,8 +42,14 @@ class VulnAnalyzerRunner:
     ) -> VulnAnalysisResult:
         """Analyze a single bugfix event, writing results to DB.
 
-        Lifecycle: create → analyze → update_analysis → publish.
+        Lifecycle: create (flush) → analyze → update_analysis → publish.
         On failure: set_error + re-raise.
+
+        The ``create`` is flushed immediately so the upstream_vuln record
+        survives even if the analysis fails and the caller does not commit.
+        This prevents ``list_bugfix_without_vuln`` from re-fetching the
+        same event on the next poll (the record exists, just with
+        ``error_message`` set).
         """
         library = await self._library_service.get_by_id(session, event.library_id)
         if library is None:
@@ -59,11 +65,14 @@ class VulnAnalyzerRunner:
             library_id=library.id,
             commit_sha=event.ref,
         )
+        # Flush create so the record persists even if analyze() fails.
+        await session.flush()
 
         try:
             result = await analyze(self._client, owner, repo, event)  # type: ignore[arg-type]
         except Exception as exc:
             await self._vuln_service.set_error(session, vuln.id, str(exc))
+            await session.commit()
             raise
 
         await self._vuln_service.update_analysis(

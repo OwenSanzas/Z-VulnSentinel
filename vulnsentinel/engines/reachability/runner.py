@@ -13,7 +13,7 @@ from vulnsentinel.services.client_vuln_service import ClientVulnService
 from vulnsentinel.services.library_service import LibraryService
 from vulnsentinel.services.project_service import ProjectService
 from vulnsentinel.services.upstream_vuln_service import UpstreamVulnService
-from z_code_analyzer.reachability import ReachabilityChecker
+from z_code_analyzer.api import CodeAnalyzer, VulnImpactRequest
 
 log = structlog.get_logger("vulnsentinel.engine.reachability")
 
@@ -27,14 +27,14 @@ class ReachabilityRunner:
         upstream_vuln_service: UpstreamVulnService,
         library_service: LibraryService,
         project_service: ProjectService,
-        reachability_checker: ReachabilityChecker,
+        code_analyzer: CodeAnalyzer,
         github_client: GitHubClient,
     ) -> None:
         self._cv_service = client_vuln_service
         self._uv_service = upstream_vuln_service
         self._lib_service = library_service
         self._project_service = project_service
-        self._checker = reachability_checker
+        self._analyzer = code_analyzer
         self._github = github_client
 
     async def analyze_one(
@@ -48,7 +48,7 @@ class ReachabilityRunner:
         1. Load upstream_vuln → get affected_functions and commit_sha.
         2. Load library (needed for diff fallback and reachability check).
         3. If affected_functions is empty → diff fallback via GitHub API.
-        4. Call ReachabilityChecker.check() with client + library repo info.
+        4. Call CodeAnalyzer.investigate_vuln() with client + library repo info.
         5. Write reachable_path + finalize pipeline.
         """
         # Mark pipeline as path_searching
@@ -82,13 +82,7 @@ class ReachabilityRunner:
                         exc_info=True,
                     )
 
-        # 4. Build vuln dict and run reachability check
-        vuln_dict = {
-            "affected_functions": affected_functions,
-            "commit_sha": upstream_vuln.commit_sha,
-        }
-
-        # Use the project's repo_url + resolved_version for snapshot lookup
+        # 4. Build request and run investigation
         project = await self._project_service.get_project(session, client_vuln.project_id)
         if project is None:
             # Unrecoverable: finalize as not_affect to avoid infinite retry
@@ -109,13 +103,16 @@ class ReachabilityRunner:
         client_version = project.current_version or "main"
         library_repo_url = library.repo_url if library else ""
         library_version = client_vuln.resolved_version or upstream_vuln.commit_sha
-        result = await self._checker.check(
+
+        request = VulnImpactRequest(
             client_repo_url=project.repo_url,
             client_version=client_version,
             library_repo_url=library_repo_url,
             library_version=library_version,
-            vuln=vuln_dict,
+            affected_functions=affected_functions,
+            commit_sha=upstream_vuln.commit_sha,
         )
+        result = await self._analyzer.investigate_vuln(request)
 
         # 4. Handle errors — stay in path_searching and record error,
         #    but do NOT revert to pending (avoids infinite retry loop).

@@ -9,6 +9,14 @@ from z_code_analyzer.backends.base import (
     CallType,
     FunctionRecord,
 )
+from z_code_analyzer.api import (
+    CodeAnalyzer,
+    SeedTreeRequest,
+    SeedTreeResult,
+    SnapshotRequest,
+    VulnImpactRequest,
+    VulnImpactResult,
+)
 from z_code_analyzer.graph_store import GraphStore
 from z_code_analyzer.orchestrator import StaticAnalysisOrchestrator
 from z_code_analyzer.reachability import ReachabilityChecker, ReachabilityResult
@@ -19,10 +27,16 @@ __all__ = [
     "AnalysisResult",
     "CallEdge",
     "CallType",
+    "CodeAnalyzer",
     "FunctionRecord",
     "GraphStore",
     "ReachabilityChecker",
     "ReachabilityResult",
+    "SeedTreeRequest",
+    "SeedTreeResult",
     "SnapshotManager",
+    "SnapshotRequest",
     "StaticAnalysisOrchestrator",
+    "VulnImpactRequest",
+    "VulnImpactResult",
 ]

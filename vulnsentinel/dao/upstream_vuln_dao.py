@@ -7,6 +7,8 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vulnsentinel.dao.base import BaseDAO, Page
+from vulnsentinel.models.client_vuln import ClientVuln
+from vulnsentinel.models.project_dependency import ProjectDependency
 from vulnsentinel.models.upstream_vuln import UpstreamVuln
 
 
@@ -43,6 +45,34 @@ class UpstreamVulnDAO(BaseDAO[UpstreamVuln]):
     async def list_by_event(self, session: AsyncSession, event_id: uuid.UUID) -> list[UpstreamVuln]:
         """Return all vulns linked to an event (API — event detail page)."""
         stmt = select(UpstreamVuln).where(UpstreamVuln.event_id == event_id)
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def list_published_without_impact(
+        self,
+        session: AsyncSession,
+        limit: int = 20,
+    ) -> list[UpstreamVuln]:
+        """Published vulns that have no client_vulns yet and whose library has dependents.
+
+        Used by ImpactEngine to find vulns needing impact assessment.
+        """
+        stmt = (
+            select(UpstreamVuln)
+            .where(
+                UpstreamVuln.status == "published",
+                ~select(ClientVuln.id)
+                .where(ClientVuln.upstream_vuln_id == UpstreamVuln.id)
+                .correlate(UpstreamVuln)
+                .exists(),
+                select(ProjectDependency.id)
+                .where(ProjectDependency.library_id == UpstreamVuln.library_id)
+                .correlate(UpstreamVuln)
+                .exists(),
+            )
+            .order_by(UpstreamVuln.published_at.asc())
+            .limit(limit)
+        )
         result = await session.execute(stmt)
         return list(result.scalars().all())
 

@@ -42,8 +42,8 @@ class AnalyzerInput:
 
 async def analyze(
     client: GitHubClient, owner: str, repo: str, event: AnalyzerInput
-) -> VulnAnalysisResult:
-    """独立模式核心函数。不涉及 DB。"""
+) -> list[VulnAnalysisResult]:
+    """独立模式核心函数。不涉及 DB。一个 event 可产出多个 vuln。"""
 ```
 
 流程：
@@ -63,22 +63,24 @@ async def analyze(
 # vulnsentinel/engines/vuln_analyzer/runner.py
 
 class VulnAnalyzerRunner:
-    async def analyze_one(self, session: AsyncSession, event: Event) -> VulnAnalysisResult
+    async def analyze_one(self, session: AsyncSession, event: Event) -> list[VulnAnalysisResult]
     async def analyze_batch(self, session_factory, limit=10, concurrency=3) -> list[...]
 ```
 
-生命周期：
+生命周期（1 event → N vulns）：
 
 ```
-create()  ──→  update_analysis()  ──→  publish()
-    │                                       │
-    └──────── set_error() ◄────── 失败 ──────┘
+create(placeholder)  ──→  analyze()  ──→  对每个 vuln:
+        │                                    create/reuse → update_analysis → publish
+        │
+        └──────── set_error(placeholder) ◄────── 分析失败
 ```
 
-1. `UpstreamVulnService.create(event_id, library_id, commit_sha)` — 创建记录，状态 `analyzing`
-2. Agent 运行 → `UpstreamVulnService.update_analysis(vuln_id, ...)` — 写入分析结果
-3. `UpstreamVulnService.publish(vuln_id)` — 状态 → `published`，`published_at` → `now()`
-4. 如果分析失败 → `UpstreamVulnService.set_error(vuln_id, error_message)` — 记录错误
+1. `UpstreamVulnService.create(event_id, library_id, commit_sha)` — 创建 placeholder 记录，防止事件被重复拉取
+2. Agent 运行 → 返回 `list[VulnAnalysisResult]`（一个或多个漏洞）
+3. 第一个结果复用 placeholder，后续结果各创建新的 upstream_vuln 记录
+4. 对每个结果：`update_analysis(vuln_id, ...)` → `publish(vuln_id)`
+5. 如果分析失败 → `set_error(placeholder_id, error_message)` — placeholder 保留，防止重复拉取
 
 `analyze_batch` 接收 `session_factory`（不是 session），每个并发协程独立创建 session，避免 SQLAlchemy 并发访问问题。
 
@@ -126,9 +128,9 @@ Classifier 只需判断"是否是安全修复"（二分类），而 Analyzer 需
 上下文压缩: 每 5 轮 或 token 达到 80% 上限时触发
 Early stop: LLM 输出中检测到完整 JSON → 立即结束
 
-注意：Analyzer 的输出 JSON 包含嵌套对象（upstream_poc），不能使用 Classifier 的
-_JSON_RE = re.compile(r"\{[^{}]*\}")（不支持嵌套大括号）。parse_result() 必须用
-更健壮的方式：从第一个 { 开始尝试 json.loads，失败则逐字符向后寻找下一个 {。
+注意：Analyzer 输出 JSON array（支持多漏洞），且包含嵌套对象（upstream_poc）。
+_extract_json() 优先尝试 [ 解析 array，fallback 到 { 解析单个 object 并包装为 list。
+parse_result() 返回 list[VulnAnalysisResult]，空 list 代表解析失败。
 ```
 
 ### VulnAnalyzerAgent 配置
@@ -195,22 +197,26 @@ Analyzer 预期比 Classifier 更多地使用工具：Classifier 可能 1-2 次�
 
 ### Agent 输出
 
-LLM 输出 JSON 格式：
+LLM 输出 JSON **array** 格式。一个 event 可能包含多个独立的安全修复（维护者常将安全修复混入普通 commit 以避免在 CVE 披露前暴露攻击面），因此 Analyzer 必须能从单个 event 中提取多个漏洞：
 
 ```json
-{
-  "vuln_type": "buffer_overflow",
-  "severity": "high",
-  "affected_versions": "< 8.12.0",
-  "summary": "Heap buffer overflow in parse_url() when handling oversized hostname.",
-  "reasoning": "The diff adds a length check before memcpy in lib/url.c:parse_url(). ...",
-  "upstream_poc": {
-    "has_poc": true,
-    "poc_type": "test_case",
-    "description": "Added test case test_long_hostname() reproduces the overflow."
+[
+  {
+    "vuln_type": "buffer_overflow",
+    "severity": "high",
+    "affected_versions": "< 8.12.0",
+    "summary": "Heap buffer overflow in parse_url() when handling oversized hostname.",
+    "reasoning": "The diff adds a length check before memcpy in lib/url.c:parse_url(). ...",
+    "upstream_poc": {
+      "has_poc": true,
+      "poc_type": "test_case",
+      "description": "Added test case test_long_hostname() reproduces the overflow."
+    }
   }
-}
+]
 ```
+
+只有一个漏洞时仍使用 array（单元素）。`_extract_json()` 同时支持 array 和单个 object（fallback 包装为 `[dict]`），保证向后兼容。
 
 ### VulnAnalysisResult
 
@@ -419,9 +425,10 @@ DeepSeek 为默认模型，成本约 $0.005-0.01/事件（比 Classifier 高，�
 每个事件分析独立。单个事件失败不影响其他事件。
 
 失败处理：
-- Agent 运行抛异常 → `set_error(vuln_id, error_message)` 记录错误
-- JSON 解析失败 → 不调用 `publish()`，记录保持 `analyzing` 状态
-- 下次轮询时，这些记录不会被重复拉取（`list_bugfix_without_vuln` 查的是无 upstream_vuln 记录的事件，已 create 的有记录）
+- Agent 运行抛异常 → `set_error(placeholder_id, error_message)` 记录错误
+- JSON 解析失败 → `analyze()` 抛 `AnalysisError`，placeholder 保持 `analyzing` 状态
+- 下次轮询时，这些记录不会被重复拉取（`list_bugfix_without_vuln` 查的是无 upstream_vuln 记录的事件，placeholder 已存在）
+- 多漏洞场景：分析成功后，第一个 vuln 复用 placeholder，后续 vuln 各创建新记录。所有 vuln 要么全部 publish，要么 placeholder 保留 analyzing 状态
 
 ### Error 状态说明
 

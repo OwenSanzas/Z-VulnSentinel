@@ -39,17 +39,16 @@ class VulnAnalyzerRunner:
         self,
         session: AsyncSession,
         event: Event,
-    ) -> VulnAnalysisResult:
+    ) -> list[VulnAnalysisResult]:
         """Analyze a single bugfix event, writing results to DB.
 
-        Lifecycle: create (flush) → analyze → update_analysis → publish.
-        On failure: set_error + re-raise.
+        A single event may contain multiple independent vulnerability fixes.
+        For each vulnerability found:
+          create (flush) → update_analysis → publish.
 
-        The ``create`` is flushed immediately so the upstream_vuln record
-        survives even if the analysis fails and the caller does not commit.
-        This prevents ``list_bugfix_without_vuln`` from re-fetching the
-        same event on the next poll (the record exists, just with
-        ``error_message`` set).
+        On analysis failure: create a placeholder vuln, set_error, re-raise.
+        The placeholder prevents ``list_bugfix_without_vuln`` from
+        re-fetching the same event on the next poll.
         """
         library = await self._library_service.get_by_id(session, event.library_id)
         if library is None:
@@ -59,42 +58,56 @@ class VulnAnalyzerRunner:
 
         owner, repo = parse_repo_url(library.repo_url)
 
-        vuln = await self._vuln_service.create(
+        # Create a placeholder vuln so the event is never re-polled,
+        # even if analyze() fails.
+        placeholder = await self._vuln_service.create(
             session,
             event_id=event.id,
             library_id=library.id,
             commit_sha=event.ref,
         )
-        # Flush create so the record persists even if analyze() fails.
         await session.flush()
 
         try:
-            result = await analyze(self._client, owner, repo, event)  # type: ignore[arg-type]
+            results = await analyze(self._client, owner, repo, event)  # type: ignore[arg-type]
         except Exception as exc:
-            await self._vuln_service.set_error(session, vuln.id, str(exc))
+            await self._vuln_service.set_error(session, placeholder.id, str(exc))
             await session.commit()
             raise
 
-        await self._vuln_service.update_analysis(
-            session,
-            vuln.id,
-            vuln_type=result.vuln_type,
-            severity=result.severity,
-            affected_versions=result.affected_versions,
-            summary=result.summary,
-            reasoning=result.reasoning,
-            upstream_poc=result.upstream_poc,
-        )
-        await self._vuln_service.publish(session, vuln.id)
+        # First result reuses the placeholder; additional results get new records.
+        for i, result in enumerate(results):
+            if i == 0:
+                vuln = placeholder
+            else:
+                vuln = await self._vuln_service.create(
+                    session,
+                    event_id=event.id,
+                    library_id=library.id,
+                    commit_sha=event.ref,
+                )
+                await session.flush()
 
-        return result
+            await self._vuln_service.update_analysis(
+                session,
+                vuln.id,
+                vuln_type=result.vuln_type,
+                severity=result.severity,
+                affected_versions=result.affected_versions,
+                summary=result.summary,
+                reasoning=result.reasoning,
+                upstream_poc=result.upstream_poc,
+            )
+            await self._vuln_service.publish(session, vuln.id)
+
+        return results
 
     async def analyze_batch(
         self,
         session_factory: async_sessionmaker[AsyncSession],
         limit: int = 10,
         concurrency: int = 3,
-    ) -> list[tuple[Event, VulnAnalysisResult]]:
+    ) -> list[tuple[Event, list[VulnAnalysisResult]]]:
         """Analyze up to *limit* bugfix events with bounded concurrency.
 
         Each concurrent task gets its own ``AsyncSession`` from *session_factory*
@@ -106,9 +119,9 @@ class VulnAnalyzerRunner:
             return []
 
         sem = asyncio.Semaphore(concurrency)
-        results: list[tuple[Event, VulnAnalysisResult]] = []
+        results: list[tuple[Event, list[VulnAnalysisResult]]] = []
 
-        async def _run(ev: Event) -> tuple[Event, VulnAnalysisResult]:
+        async def _run(ev: Event) -> tuple[Event, list[VulnAnalysisResult]]:
             async with sem, session_factory() as sess:
                 r = await self.analyze_one(sess, ev)
                 await sess.commit()

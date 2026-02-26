@@ -107,6 +107,12 @@ class UpstreamVulnService:
         """
         await self._uv_dao.publish(session, vuln_id)
 
+    async def list_published_without_impact(
+        self, session: AsyncSession, limit: int = 20
+    ) -> list[UpstreamVuln]:
+        """Published vulns needing impact assessment (passthrough to DAO)."""
+        return await self._uv_dao.list_published_without_impact(session, limit)
+
     async def set_error(
         self, session: AsyncSession, vuln_id: uuid.UUID, error_message: str
     ) -> None:

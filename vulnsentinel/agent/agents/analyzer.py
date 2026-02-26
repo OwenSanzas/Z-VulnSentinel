@@ -91,36 +91,63 @@ class VulnAnalysisResult:
     upstream_poc: dict[str, Any] | None = None
 
 
-def _extract_json(content: str) -> dict | None:
-    """Extract first valid JSON object from LLM output.
+def _extract_json(content: str) -> list[dict] | None:
+    """Extract vulnerability JSON from LLM output.
 
-    Handles nested JSON (e.g. upstream_poc) by trying json.loads from
-    each ``{`` character until a valid parse succeeds.
+    Supports two formats:
+    - JSON array: ``[{...}, {...}]`` → returned as-is
+    - Single JSON object: ``{...}`` → wrapped in a list
+
+    Returns ``None`` when no valid JSON is found.
     """
     if not content:
         return None
 
+    # --- Try array first (``[...]``) ---
+    i = 0
+    while i < len(content):
+        i = content.find("[", i)
+        if i == -1:
+            break
+
+        try:
+            data = json.loads(content[i:])
+            if isinstance(data, list) and data and all(isinstance(d, dict) for d in data):
+                return data
+        except json.JSONDecodeError:
+            pass
+
+        j = content.rfind("]", i)
+        if j > i:
+            try:
+                data = json.loads(content[i : j + 1])
+                if isinstance(data, list) and data and all(isinstance(d, dict) for d in data):
+                    return data
+            except json.JSONDecodeError:
+                pass
+
+        i += 1
+
+    # --- Fallback: single object (``{...}``) → wrap in list ---
     i = 0
     while i < len(content):
         i = content.find("{", i)
         if i == -1:
             return None
 
-        # Try parsing from this { to end of string.
         try:
             data = json.loads(content[i:])
             if isinstance(data, dict):
-                return data
+                return [data]
         except json.JSONDecodeError:
             pass
 
-        # Try truncating to the last } in the string.
         j = content.rfind("}", i)
         if j > i:
             try:
                 data = json.loads(content[i : j + 1])
                 if isinstance(data, dict):
-                    return data
+                    return [data]
             except json.JSONDecodeError:
                 pass
 
@@ -137,6 +164,7 @@ class VulnAnalyzerAgent(BaseAgent):
     temperature = 0.2
     model = "deepseek/deepseek-chat"
     enable_compression = True
+    max_context_tokens = 90000
 
     def __init__(self, client: GitHubClient, owner: str, repo: str) -> None:
         self._client = client
@@ -157,38 +185,47 @@ class VulnAnalyzerAgent(BaseAgent):
 
     # ── Result parsing ───────────────────────────────────────────────────
 
-    def parse_result(self, content: str) -> VulnAnalysisResult | None:
-        """Extract VulnAnalysisResult from the final LLM message."""
+    def parse_result(self, content: str) -> list[VulnAnalysisResult]:
+        """Extract one or more VulnAnalysisResult from the final LLM message.
+
+        Returns an empty list when parsing fails.
+        """
         if not content:
-            return None
+            return []
 
-        data = _extract_json(content)
-        if data is None:
+        items = _extract_json(content)
+        if items is None:
             log.warning("agent.parse_failed", reason="no JSON found", output=content[:200])
-            return None
+            return []
 
-        raw_type = str(data.get("vuln_type", "other")).lower().strip()
-        vuln_type = _VULN_TYPE_MAP.get(raw_type, "other")
+        results: list[VulnAnalysisResult] = []
+        for data in items:
+            raw_type = str(data.get("vuln_type", "other")).lower().strip()
+            vuln_type = _VULN_TYPE_MAP.get(raw_type, "other")
 
-        raw_severity = str(data.get("severity", "medium")).lower().strip()
-        severity = _SEVERITY_MAP.get(raw_severity, "medium")
+            raw_severity = str(data.get("severity", "medium")).lower().strip()
+            severity = _SEVERITY_MAP.get(raw_severity, "medium")
 
-        affected_versions = str(data.get("affected_versions", "unknown"))
-        summary = str(data.get("summary", ""))
-        reasoning = str(data.get("reasoning", ""))
-        upstream_poc = data.get("upstream_poc")
+            affected_versions = str(data.get("affected_versions", "unknown"))
+            summary = str(data.get("summary", ""))
+            reasoning = str(data.get("reasoning", ""))
+            upstream_poc = data.get("upstream_poc")
 
-        if upstream_poc is not None and not isinstance(upstream_poc, dict):
-            upstream_poc = None
+            if upstream_poc is not None and not isinstance(upstream_poc, dict):
+                upstream_poc = None
 
-        return VulnAnalysisResult(
-            vuln_type=vuln_type,
-            severity=severity,
-            affected_versions=affected_versions,
-            summary=summary,
-            reasoning=reasoning,
-            upstream_poc=upstream_poc,
-        )
+            results.append(
+                VulnAnalysisResult(
+                    vuln_type=vuln_type,
+                    severity=severity,
+                    affected_versions=affected_versions,
+                    summary=summary,
+                    reasoning=reasoning,
+                    upstream_poc=upstream_poc,
+                )
+            )
+
+        return results
 
     def should_stop(self, response: Any) -> bool:
         """Stop early if the LLM already emitted a JSON analysis result."""

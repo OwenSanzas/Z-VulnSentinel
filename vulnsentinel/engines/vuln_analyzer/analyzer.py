@@ -35,13 +35,13 @@ async def analyze(
     owner: str,
     repo: str,
     event: AnalyzerInput,
-) -> VulnAnalysisResult:
+) -> list[VulnAnalysisResult]:
     """Analyze a single bugfix event without touching the database.
 
-    Unlike the classifier, there is no pre-filter — all inputs are confirmed
-    security bugfixes that need LLM deep analysis.
+    A single event may contain multiple independent vulnerability fixes.
+    Returns a list of :class:`VulnAnalysisResult` (one per vulnerability).
 
-    Raises :class:`AnalysisError` if the agent fails to produce a parseable result.
+    Raises :class:`AnalysisError` if the agent fails to produce any parseable result.
     """
     agent = VulnAnalyzerAgent(client, owner, repo)
     agent_result = await agent.run(
@@ -52,7 +52,7 @@ async def analyze(
         event=event,
     )
 
-    if isinstance(agent_result.parsed, VulnAnalysisResult):
+    if isinstance(agent_result.parsed, list) and agent_result.parsed:
         return agent_result.parsed
 
     raise AnalysisError("LLM output could not be parsed into VulnAnalysisResult")

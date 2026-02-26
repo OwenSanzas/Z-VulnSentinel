@@ -9,7 +9,7 @@ from typing import Any
 import structlog
 from mcp.server.fastmcp import FastMCP
 
-from vulnsentinel.agent.base import BaseAgent
+from vulnsentinel.agent.base import VulnSentinelAgent
 from vulnsentinel.agent.prompts.analyzer import ANALYZER_SYSTEM_PROMPT, format_bugfix_message
 from vulnsentinel.agent.tools.github_tools import create_github_mcp
 from vulnsentinel.engines.event_collector.github_client import GitHubClient
@@ -157,7 +157,7 @@ def _extract_json(content: str) -> list[dict] | None:
     return None
 
 
-class VulnAnalyzerAgent(BaseAgent):
+class VulnAnalyzerAgent(VulnSentinelAgent):
     """Analyzes a confirmed security bugfix using LLM with tool access."""
 
     agent_type = "vuln_analyzer"
@@ -218,9 +218,7 @@ class VulnAnalyzerAgent(BaseAgent):
             raw_funcs = data.get("affected_functions")
             affected_functions: list[str] | None = None
             if isinstance(raw_funcs, list):
-                affected_functions = [
-                    str(f) for f in raw_funcs if isinstance(f, str) and f.strip()
-                ]
+                affected_functions = [str(f) for f in raw_funcs if isinstance(f, str) and f.strip()]
                 if not affected_functions:
                     affected_functions = None
 

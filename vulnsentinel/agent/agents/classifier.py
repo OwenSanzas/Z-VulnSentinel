@@ -10,7 +10,7 @@ from typing import Any
 import structlog
 from mcp.server.fastmcp import FastMCP
 
-from vulnsentinel.agent.base import BaseAgent
+from vulnsentinel.agent.base import VulnSentinelAgent
 from vulnsentinel.agent.prompts.classifier import CLASSIFIER_SYSTEM_PROMPT, format_event_message
 from vulnsentinel.agent.tools.github_tools import create_github_mcp
 from vulnsentinel.engines.event_collector.github_client import GitHubClient
@@ -55,7 +55,7 @@ class ClassificationResult:
     reasoning: str
 
 
-class EventClassifierAgent(BaseAgent):
+class EventClassifierAgent(VulnSentinelAgent):
     """Classifies a single GitHub event using LLM with tool access."""
 
     agent_type = "event_classifier"

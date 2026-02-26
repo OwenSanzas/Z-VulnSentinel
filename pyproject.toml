@@ -39,6 +39,9 @@ z-analyze = "z_code_analyzer.cli:main"
 z-query = "z_code_analyzer.cli:query_main"
 z-snapshots = "z_code_analyzer.cli:snapshots_main"
 
+[tool.hatch.build.targets.wheel]
+packages = ["z_code_analyzer", "vulnsentinel", "shared"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

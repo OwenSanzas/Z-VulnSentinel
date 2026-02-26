@@ -10,6 +10,14 @@ common:
       store: inmemory
   replication_factor: 1
   path_prefix: /loki
+  storage:
+    s3:
+      endpoint: minio:9000
+      bucketnames: vulnsentinel-logs
+      access_key_id: minioadmin
+      secret_access_key: minioadmin
+      insecure: true
+      s3forcepathstyle: true
 
 schema_config:
   configs:
@@ -25,9 +33,6 @@ storage_config:
   tsdb_shipper:
     active_index_directory: /loki/index
     cache_location: /loki/cache
-  aws:
-    s3: http://minioadmin:minioadmin@minio:9000/vulnsentinel-logs
-    s3forcepathstyle: true
 
 limits_config:
   retention_period: 90d

@@ -47,16 +47,25 @@ jobs:
   test-analyzer:
     runs-on: ubuntu-latest
     services:
-      mongo:
-        image: mongo:7
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: vulnsentinel
+          POSTGRES_PASSWORD: vulnsentinel
+          POSTGRES_DB: vulnsentinel_test
         ports:
-          - 27017:27017
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -e ".[dev]" tree-sitter tree-sitter-c tree-sitter-cpp
+      - run: pip install -e ".[dev]" psycopg2-binary tree-sitter tree-sitter-c tree-sitter-cpp
       - name: Run Analyzer tests (no Neo4j/Docker-dependent tests)
         run: |
           pytest tests/ \
@@ -66,4 +75,4 @@ jobs:
             --ignore=tests/test_svf_backend.py \
             -v --timeout=60
         env:
-          MONGO_URI: mongodb://localhost:27017
+          ZCA_DATABASE_URL: postgresql://vulnsentinel:vulnsentinel@localhost:5432/vulnsentinel_test

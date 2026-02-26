@@ -108,12 +108,12 @@ class ReachabilityRunner:
             )
             return
 
-        version = client_vuln.resolved_version or project.current_version or "main"
+        client_version = project.current_version or "main"
         library_repo_url = library.repo_url if library else ""
-        library_version = client_vuln.resolved_version or ""
+        library_version = client_vuln.resolved_version or upstream_vuln.commit_sha
         result = await self._checker.check(
             client_repo_url=project.repo_url,
-            client_version=version,
+            client_version=client_version,
             library_repo_url=library_repo_url,
             library_version=library_version,
             vuln=vuln_dict,

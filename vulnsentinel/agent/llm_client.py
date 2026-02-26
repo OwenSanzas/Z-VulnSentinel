@@ -162,7 +162,7 @@ class LLMClient:
 
         # Parse tool calls into plain dicts (OpenAI format).
         tool_calls: list[dict[str, Any]] = []
-        if message.tool_calls:
+        if getattr(message, "tool_calls", None):
             for tc in message.tool_calls:
                 tool_calls.append(
                     {

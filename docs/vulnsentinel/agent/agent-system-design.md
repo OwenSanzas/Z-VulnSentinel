@@ -49,7 +49,7 @@ Engine → ToolDef[] + ToolExecutor → AgentLoop(LLMClient) → AgentResult
 
 ### 1.3 升级策略
 
-**保留**现有 `LLMClient` Protocol 和双 Provider 适配（不引入 FBv2 的 LiteLLM 多 Provider 方案——过于重量级）。
+**引入** LiteLLM 统一 LLM 调用层（参照 FBv2），支持 Anthropic / OpenAI / DeepSeek 三个 Provider，后续扩展零成本。
 
 **引入** FastMCP 替代手写 ToolDef + ToolExecutor：
 
@@ -76,9 +76,9 @@ MCP 自动从函数签名 + type hints 生成 JSON Schema，`@mcp.tool()` 注册
 
 | 现有抽象 | 保留/替换 | 说明 |
 |---------|----------|------|
-| `LLMClient` Protocol | **保留** | 继续使用，BaseAgent 内部调用 |
+| `LLMClient` Protocol | **演进** → LiteLLM wrapper | 统一 Anthropic / OpenAI / DeepSeek，自带 fallback + cost |
 | `Message`, `ToolCall`, `LLMResponse` | **保留** | 消息类型不变 |
-| `TokenUsage` | **保留** | 累计 token 追踪 |
+| `TokenUsage` | **保留** | 累计 token 追踪（LiteLLM 自带计算） |
 | `ToolDef` | **替换** → FastMCP `@mcp.tool()` | 自动 schema 生成 |
 | `ToolExecutor` Protocol | **替换** → MCP Client `call_tool()` | 不再需要手写 executor |
 | `AgentLoop` | **替换** → `BaseAgent._run_loop()` | 更完整的 lifecycle |
@@ -105,8 +105,10 @@ MCP 自动从函数签名 + type hints 生成 JSON Schema，`@mcp.tool()` 注册
                                    │          │
                          ┌─────────▼──┐  ┌────▼──────────┐
                          │ LLMClient  │  │ MCP Client    │
-                         │ (Anthropic │  │ (FastMCP      │
-                         │  /OpenAI)  │  │  in-process)  │
+                         │ (LiteLLM:  │  │ (FastMCP      │
+                         │  Anthropic │  │  in-process)  │
+                         │  /OpenAI   │  │               │
+                         │  /DeepSeek)│  │               │
                          └────────────┘  └────┬──────────┘
                                               │ call_tool()
                                    ┌──────────▼──────────┐
@@ -128,7 +130,7 @@ MCP 自动从函数签名 + type hints 生成 JSON Schema，`@mcp.tool()` 注册
 | MCP Server 模式 | **in-process (stdio)** | 不需要跨进程通信，Agent 和 Server 在同一 Python 进程 |
 | Per-Agent 隔离 | **每个 Agent 实例独立 FastMCP** | 并发安全，参照 FBv2 `create_isolated_mcp_server()` |
 | 持久化 | **PostgreSQL** | VulnSentinel 已有 PostgreSQL，不引入新依赖 |
-| LLM Client | **保留现有 Protocol** | 够用，不需要 FBv2 的多 Provider fallback 链 |
+| LLM Client | **LiteLLM** | 统一 Anthropic / OpenAI / DeepSeek，自带 fallback + cost 计算 |
 | 上下文压缩 | **仅对 > 10 轮的 Agent 启用** | Classifier 5 轮不需要，Vuln Analyzer 15 轮需要 |
 
 ---
@@ -301,7 +303,7 @@ async def _run_loop(self, mcp_client, tools, messages, system, context):
 |------|------|-------------|------|
 | MCP 创建 | `create_isolated_mcp_server(agent_id, ...)` 工厂函数 | `agent.create_mcp_server()` 子类方法 | VulnSentinel 各 Agent 工具差异更大，子类控制更灵活 |
 | 持久化 | PostgreSQL (UUID) | — | — |
-| LLM Client | 自建多 Provider + fallback 链 | 保留现有 LLMClient Protocol | 不需要那么多 Provider |
+| LLM Client | 自建多 Provider + fallback 链 | LiteLLM wrapper（精简版） | 同样用 LiteLLM，去掉 Redis buffer 和 40+ 模型目录 |
 | Compression | 每 5 轮 Claude Sonnet 压缩 | 相同策略，但仅 > 10 轮 Agent 启用 | Classifier 5 轮不值得压缩 |
 | Max iterations | 100 (POV Agent) | 5~25 (视 Agent 类型) | VulnSentinel Agent 任务更聚焦 |
 | Tool filtering | 按 flag 动态注册工具子集 | 子类 `create_mcp_server()` 只注册所需工具 | 更简洁 |
@@ -1482,7 +1484,7 @@ GET /v1/agent-runs/by-target/client_vuln/{client_vuln_id}
 
 ┌────────────────────────────────────────────┐
 │ Layer 2: Agent 单元测试 (MockLLMClient)     │
-│  · 保留现有 MockLLMClient 模式               │
+│  · MockLLMClient 模式                       │
 │  · 预设 LLM 响应序列                         │
 │  · 验证 Agent 是否正确调用工具                  │
 │  · 验证 parse_result 是否正确提取结果          │
@@ -1503,7 +1505,7 @@ GET /v1/agent-runs/by-target/client_vuln/{client_vuln_id}
 └────────────────────────────────────────────┘
 ```
 
-### 12.2 MockLLMClient（保留现有设计）
+### 12.2 MockLLMClient
 
 ```python
 class MockLLMClient:
@@ -1549,11 +1551,7 @@ vulnsentinel/
     ├── context.py                   # AgentContext + DB 持久化 (~150 LOC)
     ├── result.py                    # AgentResult dataclass
     │
-    ├── llm_client.py                # LLMClient Protocol (保留现有)
-    ├── providers/
-    │   ├── __init__.py              # create_llm_client()
-    │   ├── anthropic.py             # AnthropicClient
-    │   └── openai.py                # OpenAIClient
+    ├── llm_client.py                # LiteLLM wrapper (~150 LOC)
     │
     ├── tools/                       # 工具实现（纯函数）
     │   ├── __init__.py

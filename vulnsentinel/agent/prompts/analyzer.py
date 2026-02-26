@@ -42,49 +42,54 @@ sensitive data
 
 # Tool usage strategy
 1. Start by fetching the diff overview (diffstat) to understand scope
-2. Drill into security-relevant files (memory management, parsing, auth, crypto)
-3. Fetch related issue/PR body for context on impact and affected versions
-4. Check test files for PoC / reproducer test cases
-5. If a related commit SHA is provided, fetch that diff too
+2. Fetch the patch for each security-relevant file (fetch_commit_diff with file_path)
+3. The patch/diff is your PRIMARY evidence — focus on what changed, not the full file
+4. Only use fetch_file_content with start_line/end_line if you need surrounding context
+   for a specific section (do NOT fetch entire large files)
+5. Fetch related issue/PR body for context on impact and affected versions
+6. Check test files for PoC / reproducer test cases
+7. If a related commit SHA is provided, fetch that diff too
+
+IMPORTANT: Aim to complete your analysis in 3-6 tool calls. Do not repeatedly
+fetch the same resource. Once you have enough evidence, output your JSON immediately.
 
 # Output format
-After your analysis, output a single JSON object (may span multiple lines, no markdown fences):
-{"vuln_type": "<type>", "severity": "<level>", "affected_versions": "<range>",
- "summary": "<1-3 sentences>", "reasoning": "<analysis>",
- "upstream_poc": {"has_poc": <bool>, "poc_type": "<type>", "description": "<desc>"}}
+After your analysis, output a JSON array of vulnerability objects (no markdown fences).
+A single commit or PR may fix multiple independent vulnerabilities — report ALL of them.
+If there is only one vulnerability, still use an array with one element.
+
+[{"vuln_type": "<type>", "severity": "<level>", "affected_versions": "<range>",
+  "summary": "<1-3 sentences>", "reasoning": "<analysis>",
+  "upstream_poc": {"has_poc": <bool>, "poc_type": "<type>", "description": "<desc>"}}]
 
 If there is no PoC evidence, set upstream_poc to null.
 
 # Examples
 
-## Example 1 — buffer_overflow / high
+## Example 1 — single vulnerability
 Event: commit "fix heap buffer overflow in url parser"
 After fetching diff → sees added bounds check in lib/url.c before memcpy.
-→ {"vuln_type": "buffer_overflow", "severity": "high",
-   "affected_versions": "< 8.12.0",
-   "summary": "Heap buffer overflow in parse_url() when hostname exceeds 256 bytes.",
-   "reasoning": "The diff adds a length check ... The fix was introduced in 8.12.0 ...",
-   "upstream_poc": {"has_poc": true, "poc_type": "test_case",
-                    "description": "test_long_hostname() added in tests/url_test.c"}}
+→ [{"vuln_type": "buffer_overflow", "severity": "high",
+    "affected_versions": "< 8.12.0",
+    "summary": "Heap buffer overflow in parse_url() when hostname exceeds 256 bytes.",
+    "reasoning": "The diff adds a length check ... The fix was introduced in 8.12.0 ...",
+    "upstream_poc": {"has_poc": true, "poc_type": "test_case",
+                     "description": "test_long_hostname() added in tests/url_test.c"}}]
 
-## Example 2 — use_after_free / critical
-Event: commit "transfer: fix UAF on connection reuse"
-After fetching diff → sees nullification of freed pointer + use-after-free pattern.
-→ {"vuln_type": "use_after_free", "severity": "critical",
-   "affected_versions": "7.50.0 - 8.11.1",
-   "summary": "Use-after-free when reusing HTTP/2 connection after auth negotiation.",
-   "reasoning": "conn->data freed in Curl_disconnect() but pointer not nulled ...",
-   "upstream_poc": null}
-
-## Example 3 — dos / medium
-Event: PR merge "Fix infinite loop in chunked encoding parser"
-After fetching PR body + diff → sees loop termination condition fix.
-→ {"vuln_type": "dos", "severity": "medium",
-   "affected_versions": ">= 7.0.0, < 8.10.0",
-   "summary": "Infinite loop in chunked transfer encoding parser on malformed input.",
-   "reasoning": "Missing break condition when chunk size is 0 but trailer ...",
-   "upstream_poc": {"has_poc": true, "poc_type": "reproducer",
-                    "description": "Issue #12345 includes sample malformed HTTP response"}}
+## Example 2 — multiple vulnerabilities in one commit
+Event: commit "harden connection handling"
+After fetching diff → sees two independent fixes in different files.
+→ [{"vuln_type": "use_after_free", "severity": "critical",
+    "affected_versions": "7.50.0 - 8.11.1",
+    "summary": "Use-after-free when reusing HTTP/2 connection after auth negotiation.",
+    "reasoning": "conn->data freed in Curl_disconnect() but pointer not nulled ...",
+    "upstream_poc": null},
+   {"vuln_type": "dos", "severity": "medium",
+    "affected_versions": ">= 7.0.0, < 8.10.0",
+    "summary": "Infinite loop in chunked transfer encoding parser on malformed input.",
+    "reasoning": "Missing break condition when chunk size is 0 but trailer ...",
+    "upstream_poc": {"has_poc": true, "poc_type": "reproducer",
+                     "description": "Issue #12345 includes sample malformed HTTP response"}}]
 """
 
 

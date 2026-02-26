@@ -88,16 +88,32 @@ def create_github_mcp(client: GitHubClient, owner: str, repo: str) -> FastMCP:
         return f"File '{file_path}' not found in PR #{pr_number}."
 
     @mcp.tool()
-    async def fetch_file_content(path: str, ref: str = "HEAD") -> str:
-        """Fetch a file's content at a given ref (branch, tag, or SHA)."""
+    async def fetch_file_content(
+        path: str, ref: str = "HEAD", start_line: int = 0, end_line: int = 0
+    ) -> str:
+        """Fetch a file's content at a given ref (branch, tag, or SHA).
+
+        Use start_line/end_line to fetch a specific line range (1-indexed).
+        If both are 0, returns the full file (may be truncated if large).
+        """
         data = await client.get(f"{prefix}/contents/{path}", params={"ref": ref})
         encoding = data.get("encoding", "")
         if encoding == "base64":
             content = base64.b64decode(data.get("content", "")).decode(
                 "utf-8", errors="replace"
             )
-            return _truncate(content)
-        return _truncate(data.get("content", "(unable to decode)"))
+        else:
+            content = data.get("content", "(unable to decode)")
+
+        if start_line > 0 or end_line > 0:
+            lines = content.splitlines()
+            s = max(start_line - 1, 0)
+            e = end_line if end_line > 0 else len(lines)
+            selected = lines[s:e]
+            numbered = [f"{s + i + 1:5d} | {line}" for i, line in enumerate(selected)]
+            return _truncate("\n".join(numbered))
+
+        return _truncate(content)
 
     @mcp.tool()
     async def fetch_issue_body(issue_number: int) -> str:

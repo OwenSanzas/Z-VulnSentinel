@@ -344,8 +344,9 @@ class BaseAgent(ABC):
         )
 
         try:
+            compress_model = ctx.model  # reuse the agent's own model
             resp = await _llm.create(
-                model="claude-haiku-4-20250414",
+                model=compress_model,
                 system="You are a concise summariser.",
                 messages=[{"role": "user", "content": compress_prompt}],
                 temperature=0.0,

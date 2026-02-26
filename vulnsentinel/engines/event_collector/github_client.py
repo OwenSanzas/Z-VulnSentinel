@@ -38,7 +38,7 @@ class GitHubClient:
             "X-GitHub-Api-Version": "2022-11-28",
         }
         if resolved_token:
-            headers["Authorization"] = f"Bearer {resolved_token}"
+            headers["Authorization"] = f"token {resolved_token}"
         self._client = httpx.AsyncClient(
             base_url="https://api.github.com",
             headers=headers,

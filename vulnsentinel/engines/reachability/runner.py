@@ -103,9 +103,7 @@ class ReachabilityRunner:
                 pipeline_status="path_searching",
                 error_message="project not found",
             )
-            await self._cv_service.finalize(
-                session, client_vuln.id, is_affected=False
-            )
+            await self._cv_service.finalize(session, client_vuln.id, is_affected=False)
             return
 
         client_version = project.current_version or "main"
@@ -133,9 +131,7 @@ class ReachabilityRunner:
                 pipeline_status="path_searching",
                 error_message=f"reachability: {result.error}",
             )
-            await self._cv_service.finalize(
-                session, client_vuln.id, is_affected=False
-            )
+            await self._cv_service.finalize(session, client_vuln.id, is_affected=False)
             return
 
         # 5. Write reachable_path result, then finalize in one flow
@@ -158,9 +154,7 @@ class ReachabilityRunner:
             is_affected=result.is_reachable,
             reachable_path=reachable_path,
         )
-        await self._cv_service.finalize(
-            session, client_vuln.id, is_affected=result.is_reachable
-        )
+        await self._cv_service.finalize(session, client_vuln.id, is_affected=result.is_reachable)
 
         log.info(
             "reachability.done",

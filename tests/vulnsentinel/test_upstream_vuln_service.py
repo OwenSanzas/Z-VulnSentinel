@@ -250,6 +250,7 @@ class TestUpdateAnalysis:
             summary="heap buffer overflow in curl_easy_perform",
             reasoning="The commit fixes a bounds check ...",
             upstream_poc=None,
+            affected_functions=None,
         )
 
     async def test_update_analysis_with_poc(self):

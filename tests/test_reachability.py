@@ -82,7 +82,11 @@ class TestReachabilityChecker:
             library_snapshot=FakeSnapshot("lib-001"),
         )
         result = await checker.check(
-            CLIENT_URL, "v1.0", LIB_URL, LIB_VERSION, {"affected_functions": []},
+            CLIENT_URL,
+            "v1.0",
+            LIB_URL,
+            LIB_VERSION,
+            {"affected_functions": []},
         )
         assert result.is_reachable is False
         assert result.error == "no_affected_functions"

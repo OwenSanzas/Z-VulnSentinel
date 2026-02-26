@@ -27,9 +27,7 @@ class ReachabilityResult:
     error: str | None = None
 
 
-def _error_result(
-    error: str, searched: list[str] | None = None
-) -> ReachabilityResult:
+def _error_result(error: str, searched: list[str] | None = None) -> ReachabilityResult:
     return ReachabilityResult(
         is_reachable=False,
         searched_functions=searched or [],
@@ -141,9 +139,7 @@ class ReachabilityChecker:
     ) -> ReachabilityResult | None:
         """Check if any fuzzer can reach any target function."""
         try:
-            fuzzers = await asyncio.to_thread(
-                self._gs.list_fuzzer_info_no_code, snapshot_id
-            )
+            fuzzers = await asyncio.to_thread(self._gs.list_fuzzer_info_no_code, snapshot_id)
         except Exception:
             log.debug("reachability.fuzzer_list_failed", exc_info=True)
             return None

@@ -12,9 +12,18 @@ log = structlog.get_logger("vulnsentinel.engine.reachability")
 
 _HUNK_HEADER_RE = re.compile(r"^@@.*@@[ \t]+(.+)$", re.MULTILINE)
 
-_C_CPP_EXTENSIONS = frozenset({
-    ".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx",
-})
+_C_CPP_EXTENSIONS = frozenset(
+    {
+        ".c",
+        ".cc",
+        ".cpp",
+        ".cxx",
+        ".h",
+        ".hh",
+        ".hpp",
+        ".hxx",
+    }
+)
 
 
 def _is_c_cpp_file(filename: str) -> bool:

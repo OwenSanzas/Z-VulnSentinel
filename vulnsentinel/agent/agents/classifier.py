@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-import logging
 import re
 from dataclasses import dataclass
 from typing import Any
 
+import structlog
 from mcp.server.fastmcp import FastMCP
 
 from vulnsentinel.agent.base import BaseAgent
@@ -16,7 +16,7 @@ from vulnsentinel.agent.tools.github_tools import create_github_mcp
 from vulnsentinel.engines.event_collector.github_client import GitHubClient
 from vulnsentinel.models.event import Event
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger("vulnsentinel.agent")
 
 # LLM may output extended labels — map to the 5 DB enum values.
 _LABEL_MAP: dict[str, str] = {
@@ -93,13 +93,13 @@ class EventClassifierAgent(BaseAgent):
         # Try to find a JSON object in the output.
         match = _JSON_RE.search(content)
         if not match:
-            logger.warning("no JSON found in classifier output: %s", content[:200])
+            log.warning("agent.parse_failed", reason="no JSON found", output=content[:200])
             return None
 
         try:
             data = json.loads(match.group(0))
         except json.JSONDecodeError:
-            logger.warning("invalid JSON in classifier output: %s", match.group(0)[:200])
+            log.warning("agent.parse_failed", reason="invalid JSON", output=match.group(0)[:200])
             return None
 
         raw_label = str(data.get("label", "other")).lower().strip()

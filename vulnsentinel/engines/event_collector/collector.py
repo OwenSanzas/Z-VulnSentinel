@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections import Counter
 from datetime import datetime, timedelta, timezone
+
+import structlog
 
 from vulnsentinel.engines.event_collector.github_client import GitHubClient
 from vulnsentinel.engines.event_collector.models import CollectedEvent
 from vulnsentinel.engines.event_collector.ref_parser import parse_refs
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger("vulnsentinel.engine")
 
 # Default lookback window for first-time collection.
 _FIRST_COLLECT_DAYS = 30
@@ -58,7 +59,7 @@ async def collect(
     for name, result in zip(sub_task_names, results):
         if isinstance(result, BaseException):
             msg = f"collect_{name} failed for {owner}/{repo}: {type(result).__name__}: {result}"
-            logger.error(msg)
+            log.error("collector.sub_failed", collector=name, library=f"{owner}/{repo}", error=str(result))
             errors.append(msg)
             continue
         events.extend(result)

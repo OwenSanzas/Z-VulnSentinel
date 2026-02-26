@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import time
 import uuid
 from abc import ABC, abstractmethod
@@ -18,7 +17,7 @@ from vulnsentinel.agent.context import AgentContext
 from vulnsentinel.agent.llm_client import LLMClient, LLMResponse, get_context_window
 from vulnsentinel.agent.result import AgentResult
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger("vulnsentinel.agent")
 
 # Shared LLM client — stateless, safe to reuse.
 _llm = LLMClient()
@@ -130,7 +129,7 @@ class BaseAgent(ABC):
             parsed = self.parse_result(content)
             ctx.finish("completed")
         except Exception as exc:
-            logger.exception("agent run failed run_id=%s", ctx.run_id)
+            log.error("agent.error", exc_info=True)
             content = ""
             parsed = None
             ctx.finish("failed", error=str(exc))
@@ -141,12 +140,11 @@ class BaseAgent(ABC):
             await ctx.save(session)
 
         result = ctx.to_result(content=content, parsed=parsed)
-        logger.info(
-            "agent run finished run_id=%s status=%s turns=%d cost=$%.4f",
-            ctx.run_id,
-            result.status,
-            result.total_turns,
-            result.estimated_cost,
+        log.info(
+            "agent.done",
+            status=result.status,
+            turns=result.total_turns,
+            cost=result.estimated_cost,
         )
         return result
 
@@ -170,18 +168,18 @@ class BaseAgent(ABC):
 
         while ctx.turn < self.max_turns:
             if ctx.cancelled:
-                logger.info("agent cancelled turn=%d", ctx.turn)
+                log.info("agent.cancelled", turn=ctx.turn)
                 break
 
             turn = ctx.increment_turn()
 
             # ── Token budget guard ────────────────────────────────
             if ctx.total_input_tokens >= self.max_context_tokens:
-                logger.warning(
-                    "token budget exceeded, stopping loop turn=%d tokens=%d budget=%d",
-                    turn,
-                    ctx.total_input_tokens,
-                    self.max_context_tokens,
+                log.warning(
+                    "agent.budget_exceeded",
+                    turn=turn,
+                    tokens=ctx.total_input_tokens,
+                    budget=self.max_context_tokens,
                 )
                 break
 
@@ -201,13 +199,13 @@ class BaseAgent(ABC):
             )
             ctx.add_usage(response)
 
-            logger.debug(
-                "llm response turn=%d stop=%s tools=%d in=%d out=%d",
-                turn,
-                response.stop_reason,
-                len(response.tool_calls),
-                response.input_tokens,
-                response.output_tokens,
+            log.debug(
+                "llm.response",
+                turn=turn,
+                stop_reason=response.stop_reason,
+                tools=len(response.tool_calls),
+                input_tokens=response.input_tokens,
+                output_tokens=response.output_tokens,
             )
 
             # ── No tool calls → done ─────────────────────────────────
@@ -251,7 +249,7 @@ class BaseAgent(ABC):
                 except Exception as exc:
                     is_error = True
                     output_text = f"Error: {exc}"
-                    logger.warning("tool error tool=%s: %s", tool_name, exc)
+                    log.warning("tool.error", tool=tool_name, error=str(exc))
                 duration_ms = int((time.monotonic() - t0) * 1000)
 
                 # Truncate oversized tool output (~4 chars/token heuristic).
@@ -358,14 +356,14 @@ class BaseAgent(ABC):
                 "role": "user",
                 "content": f"[Context summary of turns 1-{len(middle)}]\n{resp.content}",
             }
-            logger.debug(
-                "context compressed msgs=%d summary_chars=%d",
-                len(middle),
-                len(resp.content),
+            log.debug(
+                "agent.compressed",
+                msgs=len(middle),
+                summary_chars=len(resp.content),
             )
             return head + [summary_msg] + tail
         except Exception:
-            logger.warning("context compression failed, keeping original messages")
+            log.warning("agent.compress_failed")
             return messages
 
 

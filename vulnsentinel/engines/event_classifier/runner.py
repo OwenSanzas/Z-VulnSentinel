@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import logging
+
+import structlog
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -15,7 +16,7 @@ from vulnsentinel.models.event import Event
 from vulnsentinel.services.event_service import EventService
 from vulnsentinel.services.library_service import LibraryService
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger("vulnsentinel.engine")
 
 
 class EventClassifierRunner:
@@ -89,6 +90,6 @@ class EventClassifierRunner:
                 pair = await coro
                 results.append(pair)
             except Exception:
-                logger.exception("classify_batch: event failed")
+                log.error("classifier.batch_event_failed", exc_info=True)
 
         return results

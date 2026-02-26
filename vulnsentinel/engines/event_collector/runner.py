@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from dataclasses import asdict
 from datetime import datetime, timezone
 
+import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from vulnsentinel.core.github import parse_repo_url
@@ -17,7 +17,7 @@ from vulnsentinel.engines.event_collector.models import CollectResult
 from vulnsentinel.services.event_service import EventService
 from vulnsentinel.services.library_service import LibraryService
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger("vulnsentinel.engine")
 
 _MAX_CONCURRENCY = 5
 
@@ -136,7 +136,7 @@ class EventCollectorRunner:
                         async with session.begin():
                             return await self.run(session, lib_id, client)
                 except Exception as exc:
-                    logger.error("collect failed for %s: %s", lib_id, exc)
+                    log.error("collector.failed", library_id=str(lib_id), error=str(exc))
                     r = CollectResult(library_id=lib_id)
                     r.errors.append(str(exc))
                     return r

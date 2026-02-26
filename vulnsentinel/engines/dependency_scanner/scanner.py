@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Ensure parsers are registered before any scan runs.
@@ -18,7 +18,7 @@ from vulnsentinel.engines.dependency_scanner.repo import shallow_clone
 from vulnsentinel.services.library_service import LibraryService
 from vulnsentinel.services.project_service import ProjectService
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger("vulnsentinel.engine")
 
 
 def scan(repo_path: Path) -> list[ScannedDependency]:
@@ -94,11 +94,11 @@ class DependencyScanner:
             lib_id = lib_id_map[dep.library_name]
             prev = dep_map.get(lib_id)
             if prev is not None:
-                logger.debug(
-                    "dependency on library_id=%s overwritten: %s → %s",
-                    lib_id,
-                    prev["constraint_source"],
-                    dep.source_file,
+                log.debug(
+                    "scanner.dep_overwritten",
+                    library_id=str(lib_id),
+                    old_source=prev["constraint_source"],
+                    new_source=dep.source_file,
                 )
             dep_map[lib_id] = {
                 "project_id": project_id,

@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-import logging
 import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+import structlog
+
 from vulnsentinel.agent.llm_client import LLMResponse, estimate_cost
 from vulnsentinel.agent.result import AgentResult, ToolCallRecord
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger("vulnsentinel.agent")
 
 
 class AgentContext:
@@ -191,8 +192,8 @@ class AgentContext:
             )
 
         await session.flush()
-        logger.info(
-            "agent run saved",
+        log.info(
+            "agent.saved",
             run_id=str(self.run_id),
             agent_type=self.agent_type,
             status=self._status,

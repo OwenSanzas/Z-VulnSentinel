@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import logging
 import os
 import time
 from dataclasses import dataclass, field
 from typing import Any
 
 import litellm
+import structlog
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger("vulnsentinel.agent")
 
 # ── Provider → env-var mapping ────────────────────────────────────────────────
 

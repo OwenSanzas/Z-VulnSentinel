@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
+
+import structlog
 
 from vulnsentinel.agent.agents.classifier import ClassificationResult, EventClassifierAgent
 from vulnsentinel.agent.pre_filter import pre_filter
 from vulnsentinel.engines.event_collector.github_client import GitHubClient
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger("vulnsentinel.engine")
 
 
 @dataclass
@@ -44,10 +45,10 @@ async def classify(
     """
     pf = pre_filter(event)  # type: ignore[arg-type]  # duck-typed
     if pf is not None:
-        logger.info(
-            "pre-filter hit: classification=%s reason=%s",
-            pf.classification,
-            pf.reasoning,
+        log.info(
+            "classifier.pre_filter_hit",
+            classification=pf.classification,
+            reason=pf.reasoning,
         )
         return ClassificationResult(
             classification=pf.classification,
@@ -67,7 +68,7 @@ async def classify(
     if isinstance(agent_result.parsed, ClassificationResult):
         return agent_result.parsed
 
-    logger.warning("agent returned unparseable result, defaulting to other")
+    log.warning("classifier.parse_failed", reason="LLM output could not be parsed")
     return ClassificationResult(
         classification="other",
         confidence=0.3,

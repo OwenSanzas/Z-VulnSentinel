@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
 import re
 import time
@@ -11,8 +10,9 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 import httpx
+import structlog
 
-logger = logging.getLogger(__name__)
+log = structlog.get_logger("vulnsentinel.engine")
 
 _NEXT_LINK_RE = re.compile(r'<([^>]+)>;\s*rel="next"')
 
@@ -132,12 +132,12 @@ class GitHubClient:
                 # 403 with rate-limit headers → sleep and retry
                 if resp.status_code == 403 and self._is_rate_limited(resp):
                     wait = self._get_rate_limit_wait(resp)
-                    logger.warning(
-                        "GitHub rate limit 403 for %s, sleeping %ds (attempt %d/%d)",
-                        url,
-                        wait,
-                        attempt + 1,
-                        _MAX_RETRIES,
+                    log.warning(
+                        "github.rate_limit",
+                        url=url,
+                        wait_seconds=wait,
+                        attempt=attempt + 1,
+                        max_retries=_MAX_RETRIES,
                     )
                     await asyncio.sleep(wait)
                     last_exc = RateLimitError(wait)
@@ -148,22 +148,22 @@ class GitHubClient:
                     return resp
 
                 # 5xx — retry
-                logger.warning(
-                    "GitHub API %s returned %d (attempt %d/%d)",
-                    url,
-                    resp.status_code,
-                    attempt + 1,
-                    _MAX_RETRIES,
+                log.warning(
+                    "github.server_error",
+                    url=url,
+                    status=resp.status_code,
+                    attempt=attempt + 1,
+                    max_retries=_MAX_RETRIES,
                 )
                 last_exc = httpx.HTTPStatusError(
                     f"{resp.status_code}", request=resp.request, response=resp
                 )
             except httpx.TimeoutException as exc:
-                logger.warning(
-                    "GitHub API timeout for %s (attempt %d/%d)",
-                    url,
-                    attempt + 1,
-                    _MAX_RETRIES,
+                log.warning(
+                    "github.timeout",
+                    url=url,
+                    attempt=attempt + 1,
+                    max_retries=_MAX_RETRIES,
                 )
                 last_exc = exc
 
@@ -178,7 +178,7 @@ class GitHubClient:
         remaining = self._parse_header_int(response.headers.get("X-RateLimit-Remaining"))
         if remaining is not None and remaining == 0:
             wait = self._get_rate_limit_wait(response)
-            logger.warning("GitHub rate limit hit, sleeping %d seconds", wait)
+            log.warning("github.rate_limit_wait", wait_seconds=wait)
             await asyncio.sleep(wait)
 
     @staticmethod

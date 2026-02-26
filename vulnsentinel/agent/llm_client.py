@@ -1,8 +1,9 @@
-"""Thin async wrapper around litellm.acompletion()."""
+"""Thin async wrapper around litellm.acompletion() — fully self-contained."""
 
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -11,23 +12,46 @@ import litellm
 
 logger = logging.getLogger(__name__)
 
+# ── Provider → env-var mapping ────────────────────────────────────────────────
+
+_API_KEY_ENV: dict[str, str] = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "google": "GEMINI_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
+    "xai": "XAI_API_KEY",
+}
+
+# model-id prefix → provider
+_PROVIDER_HINTS: list[tuple[str, str]] = [
+    ("claude", "anthropic"),
+    ("deepseek", "deepseek"),
+    ("gpt", "openai"),
+    ("o3", "openai"),
+    ("o1", "openai"),
+    ("gemini", "google"),
+    ("grok", "xai"),
+]
+
+# Fallback pricing ($/1M tokens) when litellm has no info.
+_FALLBACK_PRICE_INPUT = 3.0
+_FALLBACK_PRICE_OUTPUT = 15.0
+
+# Default model when none specified.
+_DEFAULT_MODEL = "deepseek/deepseek-chat"
+
+
 # ── Model metadata ───────────────────────────────────────────────────────────
 
 
 def get_context_window(model: str) -> int:
-    """Return the context window size (tokens) for a model.
+    """Return the context window size (tokens) for *model*.
 
-    Checks FBv2's ``ModelInfo`` first, then ``litellm.get_model_info()``.
-    Falls back to 128k.
+    Queries ``litellm.get_model_info()`` first, falls back to 128k.
     """
-    from fuzzingbrain.llms.models import get_model_by_id
-
-    info = get_model_by_id(model)
-    if info:
-        return info.context_window
     try:
-        linfo = litellm.get_model_info(model)
-        return linfo.get("max_input_tokens") or 128_000
+        info = litellm.get_model_info(model)
+        return info.get("max_input_tokens") or 128_000
     except Exception:
         return 128_000
 
@@ -35,25 +59,25 @@ def get_context_window(model: str) -> int:
 def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
     """Return estimated USD cost (input + output) for a single LLM call.
 
-    Uses FBv2's ``ModelInfo`` registry for pricing. Falls back to a conservative
-    $3/$15 per 1M tokens for unknown models.
-
-    Same logic as ``fuzzingbrain.llms.client._calculate_cost()``.
+    Uses ``litellm.get_model_info()`` for pricing.  Falls back to a
+    conservative $3/$15 per 1M tokens for unknown models.
     """
-    from fuzzingbrain.llms.models import get_model_by_id
-
-    model_info = get_model_by_id(model)
-    if model_info:
-        price_input = model_info.price_input
-        price_output = model_info.price_output
-    else:
-        price_input = 3.0
-        price_output = 15.0
-
-    return (input_tokens / 1_000_000) * price_input + (output_tokens / 1_000_000) * price_output
+    price_in = _FALLBACK_PRICE_INPUT
+    price_out = _FALLBACK_PRICE_OUTPUT
+    try:
+        info = litellm.get_model_info(model)
+        if info.get("input_cost_per_token"):
+            price_in = info["input_cost_per_token"] * 1_000_000
+        if info.get("output_cost_per_token"):
+            price_out = info["output_cost_per_token"] * 1_000_000
+    except Exception:
+        pass
+    return (input_tokens / 1_000_000) * price_in + (output_tokens / 1_000_000) * price_out
 
 
 # ── LLM Response ─────────────────────────────────────────────────────────────
+
+
 @dataclass
 class LLMResponse:
     """Standardised response from a single LLM call."""
@@ -71,56 +95,42 @@ class LLMResponse:
 
 
 # ── LLM Client ───────────────────────────────────────────────────────────────
+
+
 class LLMClient:
     """Async-only wrapper around ``litellm.acompletion()``.
 
-    Reads model config + API keys from FBv2's ``LLMConfig``.
+    Reads API keys from environment variables.  No external config files
+    or parent-project dependencies required.
 
     Usage::
 
-        client = LLMClient()  # uses global LLMConfig
+        client = LLMClient()
         resp = await client.create(
-            model="deepseek-chat",
+            model="deepseek/deepseek-chat",
             system="You are a security analyst.",
             messages=[{"role": "user", "content": "..."}],
             tools=[...],
         )
     """
 
-    def __init__(self) -> None:
-        from fuzzingbrain.llms.config import get_default_config
-
-        self._config = get_default_config()
-
     def resolve_model(self, model: str | None = None) -> str:
         """Return a litellm-compatible model ID.
 
-        If *model* is ``None``, returns the default model from ``LLMConfig``.
+        If *model* is ``None``, returns ``_DEFAULT_MODEL``.
         """
-        if model is None:
-            return self._config.default_model.id
-        from fuzzingbrain.llms.models import get_model_by_id
+        return model or _DEFAULT_MODEL
 
-        info = get_model_by_id(model)
-        return info.id if info else model
-
-    def _get_api_key(self, model_id: str) -> str | None:
-        """Look up API key for *model_id* via LLMConfig."""
-        from fuzzingbrain.llms.models import Provider, get_model_by_id
-
-        info = get_model_by_id(model_id)
-        if info:
-            return self._config.get_api_key(info.provider)
-        # Guess provider from model id string.
+    @staticmethod
+    def _get_api_key(model_id: str) -> str | None:
+        """Look up API key for *model_id* from environment variables."""
         model_lower = model_id.lower()
-        if "claude" in model_lower:
-            return self._config.get_api_key(Provider.ANTHROPIC)
-        if "gpt" in model_lower or model_lower.startswith("o"):
-            return self._config.get_api_key(Provider.OPENAI)
-        if "gemini" in model_lower:
-            return self._config.get_api_key(Provider.GOOGLE)
-        if "deepseek" in model_lower:
-            return self._config.get_api_key(Provider.DEEPSEEK)
+        for prefix, provider in _PROVIDER_HINTS:
+            if prefix in model_lower:
+                env_var = _API_KEY_ENV.get(provider)
+                if env_var:
+                    return os.environ.get(env_var)
+                break
         return None
 
     async def create(
@@ -134,7 +144,6 @@ class LLMClient:
         max_tokens: int = 4096,
     ) -> LLMResponse:
         """Send a chat completion request and return a standardised response."""
-        # Prepend system prompt as messages[0].
         full_messages: list[dict[str, Any]] = [
             {"role": "system", "content": system},
             *messages,

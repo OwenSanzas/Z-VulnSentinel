@@ -89,6 +89,33 @@ class GitHubClient:
             url = self._parse_next_link(response.headers.get("Link", ""))
             page += 1
 
+    async def get(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        """Single-resource GET, returns parsed JSON.
+
+        Unlike :meth:`get_paginated`, this is a one-shot request intended for
+        endpoints that return a single object (commit detail, PR detail, etc.).
+
+        *headers* are merged on top of the client's default headers for this
+        request only (e.g. a custom ``Accept`` for diff format).
+        """
+        # Temporarily patch client headers if caller needs overrides.
+        original_headers: dict[str, str] | None = None
+        if headers:
+            original_headers = dict(self._client.headers)
+            self._client.headers.update(headers)
+        try:
+            response = await self._request_with_retry(path, params)
+            await self._check_rate_limit(response)
+            return response.json()
+        finally:
+            if original_headers is not None:
+                self._client.headers = httpx.Headers(original_headers)
+
     # ── internal ───────────────────────────────────────────────────────────
 
     async def _request_with_retry(

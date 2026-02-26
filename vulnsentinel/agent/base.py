@@ -7,6 +7,7 @@ import logging
 import time
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from typing import Any
 
 import structlog
@@ -129,7 +130,7 @@ class BaseAgent(ABC):
             parsed = self.parse_result(content)
             ctx.finish("completed")
         except Exception as exc:
-            logger.exception("agent run failed", run_id=str(ctx.run_id))
+            logger.exception("agent run failed run_id=%s", ctx.run_id)
             content = ""
             parsed = None
             ctx.finish("failed", error=str(exc))
@@ -141,11 +142,11 @@ class BaseAgent(ABC):
 
         result = ctx.to_result(content=content, parsed=parsed)
         logger.info(
-            "agent run finished",
-            run_id=str(ctx.run_id),
-            status=result.status,
-            turns=result.total_turns,
-            cost=f"${result.estimated_cost:.4f}",
+            "agent run finished run_id=%s status=%s turns=%d cost=$%.4f",
+            ctx.run_id,
+            result.status,
+            result.total_turns,
+            result.estimated_cost,
         )
         return result
 
@@ -169,7 +170,7 @@ class BaseAgent(ABC):
 
         while ctx.turn < self.max_turns:
             if ctx.cancelled:
-                logger.info("agent cancelled", turn=ctx.turn)
+                logger.info("agent cancelled turn=%d", ctx.turn)
                 break
 
             turn = ctx.increment_turn()
@@ -177,10 +178,10 @@ class BaseAgent(ABC):
             # ── Token budget guard ────────────────────────────────
             if ctx.total_input_tokens >= self.max_context_tokens:
                 logger.warning(
-                    "token budget exceeded, stopping loop",
-                    turn=turn,
-                    input_tokens=ctx.total_input_tokens,
-                    budget=self.max_context_tokens,
+                    "token budget exceeded, stopping loop turn=%d tokens=%d budget=%d",
+                    turn,
+                    ctx.total_input_tokens,
+                    self.max_context_tokens,
                 )
                 break
 
@@ -201,12 +202,12 @@ class BaseAgent(ABC):
             ctx.add_usage(response)
 
             logger.debug(
-                "llm response",
-                turn=turn,
-                stop_reason=response.stop_reason,
-                tool_calls=len(response.tool_calls),
-                tokens_in=response.input_tokens,
-                tokens_out=response.output_tokens,
+                "llm response turn=%d stop=%s tools=%d in=%d out=%d",
+                turn,
+                response.stop_reason,
+                len(response.tool_calls),
+                response.input_tokens,
+                response.output_tokens,
             )
 
             # ── No tool calls → done ─────────────────────────────────
@@ -244,11 +245,13 @@ class BaseAgent(ABC):
                 output_text = ""
                 try:
                     result = await mcp.call_tool(tool_name, tool_input)
-                    output_text = _extract_mcp_text(result)
+                    # FastMCP >=1.25 returns (list[ContentBlock], dict).
+                    content_blocks = result[0] if isinstance(result, tuple) else result
+                    output_text = _extract_mcp_text(content_blocks)
                 except Exception as exc:
                     is_error = True
                     output_text = f"Error: {exc}"
-                    logger.warning("tool error", tool=tool_name, error=str(exc))
+                    logger.warning("tool error tool=%s: %s", tool_name, exc)
                 duration_ms = int((time.monotonic() - t0) * 1000)
 
                 # Truncate oversized tool output (~4 chars/token heuristic).
@@ -298,6 +301,8 @@ class BaseAgent(ABC):
         openai_tools: list[dict[str, Any]] = []
         for tool in mcp_tools:
             schema = tool.inputSchema if tool.inputSchema else {"type": "object", "properties": {}}
+            # Strip `title` keys — some providers (DeepSeek) reject them.
+            schema = _strip_titles(schema)
             openai_tools.append(
                 {
                     "type": "function",
@@ -354,9 +359,9 @@ class BaseAgent(ABC):
                 "content": f"[Context summary of turns 1-{len(middle)}]\n{resp.content}",
             }
             logger.debug(
-                "context compressed",
-                original_msgs=len(middle),
-                summary_chars=len(resp.content),
+                "context compressed msgs=%d summary_chars=%d",
+                len(middle),
+                len(resp.content),
             )
             return head + [summary_msg] + tail
         except Exception:
@@ -367,10 +372,29 @@ class BaseAgent(ABC):
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def _extract_mcp_text(result: mcp_types.CallToolResult) -> str:
-    """Pull text from an MCP CallToolResult."""
+def _strip_titles(schema: dict[str, Any]) -> dict[str, Any]:
+    """Recursively remove ``title`` keys from a JSON Schema.
+
+    Some LLM providers (notably DeepSeek) reject tool schemas that contain
+    the ``title`` keyword generated by Pydantic / FastMCP.
+    """
+    out: dict[str, Any] = {}
+    for key, value in schema.items():
+        if key == "title":
+            continue
+        if isinstance(value, dict):
+            out[key] = _strip_titles(value)
+        elif isinstance(value, list):
+            out[key] = [_strip_titles(v) if isinstance(v, dict) else v for v in value]
+        else:
+            out[key] = value
+    return out
+
+
+def _extract_mcp_text(content: Sequence[Any]) -> str:
+    """Pull text from a sequence of MCP content blocks."""
     parts: list[str] = []
-    for block in result.content:
+    for block in content:
         if isinstance(block, mcp_types.TextContent):
             parts.append(block.text)
         elif isinstance(block, mcp_types.EmbeddedResource):

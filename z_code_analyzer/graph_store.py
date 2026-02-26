@@ -188,7 +188,14 @@ class GraphStore:
         return count
 
     def import_edges(self, snapshot_id: str, edges: list[CallEdge]) -> int:
-        """Batch create (:Function)-[:CALLS]->(:Function) edges."""
+        """Batch create (:Function)-[:CALLS]->(:Function) edges.
+
+        When caller_file / callee_file are provided (non-empty), matches by
+        (name, file_path) to avoid Cartesian products on duplicate names.
+        When empty, falls back to name-only matching — if multiple functions
+        share that name, picks the first by file_path order to stay
+        deterministic.
+        """
         if not edges:
             return 0
 
@@ -200,8 +207,6 @@ class GraphStore:
                     {
                         "caller": e.caller,
                         "callee": e.callee,
-                        # Keep empty string — consistent with import_functions
-                        # storing file_path="" for externals.
                         "caller_file": e.caller_file,
                         "callee_file": e.callee_file,
                         "call_type": e.call_type.value,
@@ -211,17 +216,35 @@ class GraphStore:
                     for e in batch
                 ]
 
-                # Match by name + file_path to avoid Cartesian product
-                # on duplicate function names (e.g., static functions in different files).
-                # Both caller_file and callee_file are always strings ("" for externals),
-                # matching the import_functions file_path="" convention.
                 result = session.run(
                     """
                     UNWIND $edges AS e
-                    MATCH (caller:Function {snapshot_id: $sid, name: e.caller,
-                                            file_path: e.caller_file})
-                    MATCH (callee:Function {snapshot_id: $sid, name: e.callee,
-                                            file_path: e.callee_file})
+                    OPTIONAL MATCH (caller_exact:Function {
+                        snapshot_id: $sid, name: e.caller, file_path: e.caller_file
+                    }) WHERE e.caller_file <> ''
+                    OPTIONAL MATCH (caller_any:Function {
+                        snapshot_id: $sid, name: e.caller
+                    }) WHERE e.caller_file = ''
+                    WITH e,
+                         CASE WHEN caller_exact IS NOT NULL THEN caller_exact
+                              ELSE caller_any END AS caller
+                    WHERE caller IS NOT NULL
+                    WITH e, caller
+                    ORDER BY caller.file_path
+                    WITH e, head(collect(caller)) AS caller
+                    OPTIONAL MATCH (callee_exact:Function {
+                        snapshot_id: $sid, name: e.callee, file_path: e.callee_file
+                    }) WHERE e.callee_file <> ''
+                    OPTIONAL MATCH (callee_any:Function {
+                        snapshot_id: $sid, name: e.callee
+                    }) WHERE e.callee_file = ''
+                    WITH e, caller,
+                         CASE WHEN callee_exact IS NOT NULL THEN callee_exact
+                              ELSE callee_any END AS callee
+                    WHERE callee IS NOT NULL
+                    WITH e, caller, callee
+                    ORDER BY callee.file_path
+                    WITH e, caller, head(collect(callee)) AS callee
                     MERGE (caller)-[r:CALLS]->(callee)
                     ON CREATE SET
                         r.call_type = e.call_type,

@@ -1,38 +1,39 @@
-"""Tests for SnapshotManager — uses SQLite in-memory (no MongoDB needed)."""
+"""Tests for SnapshotManager — uses local PostgreSQL."""
 
 from __future__ import annotations
 
 import asyncio
+import os
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import pytest
-from sqlalchemy import create_engine, event, select
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from z_code_analyzer.models.snapshot import Snapshot, ZCABase
 from z_code_analyzer.snapshot_manager import SnapshotManager
 
+_PG_URL = os.environ.get(
+    "ZCA_DATABASE_URL",
+    "postgresql://vulnsentinel:vulnsentinel@localhost:5432/vulnsentinel_test",
+)
+
 
 @pytest.fixture
 def session_factory():
-    """Create an in-memory SQLite engine with the snapshots table."""
-    engine = create_engine("sqlite://", echo=False)
-
-    # SQLite doesn't support ARRAY — render as TEXT for testing.
-    # The ARRAY column will store Python lists via SQLAlchemy's default
-    # pickling, which is sufficient for unit tests.
-    @event.listens_for(engine, "connect")
-    def _set_sqlite_pragma(dbapi_conn, _):
-        dbapi_conn.execute("PRAGMA journal_mode=WAL")
-
+    """Create a PostgreSQL engine with the snapshots table."""
+    engine = create_engine(_PG_URL, echo=False)
     ZCABase.metadata.create_all(engine)
-    return sessionmaker(bind=engine)
+    factory = sessionmaker(bind=engine)
+    yield factory
+    ZCABase.metadata.drop_all(engine)
+    engine.dispose()
 
 
 @pytest.fixture
 def sm(session_factory):
-    """Create a SnapshotManager backed by in-memory SQLite."""
+    """Create a SnapshotManager backed by PostgreSQL."""
     return SnapshotManager(session_factory=session_factory)
 
 

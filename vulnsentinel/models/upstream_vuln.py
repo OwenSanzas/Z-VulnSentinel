@@ -53,6 +53,7 @@ class UpstreamVuln(TimestampMixin, Base):
     )
     error_message: Mapped[Optional[str]] = mapped_column(Text)
     upstream_poc: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB)
+    affected_functions: Mapped[Optional[list]] = mapped_column(JSONB)
 
     detected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

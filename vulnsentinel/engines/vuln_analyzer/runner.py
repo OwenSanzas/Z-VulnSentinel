@@ -94,6 +94,7 @@ class VulnAnalyzerRunner:
                 summary=result.summary,
                 reasoning=result.reasoning,
                 upstream_poc=result.upstream_poc,
+                affected_functions=result.affected_functions,
             )
             await self._vuln_service.publish(session, vuln.id)
 

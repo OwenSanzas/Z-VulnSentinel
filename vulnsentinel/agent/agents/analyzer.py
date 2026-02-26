@@ -89,6 +89,7 @@ class VulnAnalysisResult:
     summary: str
     reasoning: str
     upstream_poc: dict[str, Any] | None = None
+    affected_functions: list[str] | None = None
 
 
 def _extract_json(content: str) -> list[dict] | None:
@@ -214,6 +215,15 @@ class VulnAnalyzerAgent(BaseAgent):
             if upstream_poc is not None and not isinstance(upstream_poc, dict):
                 upstream_poc = None
 
+            raw_funcs = data.get("affected_functions")
+            affected_functions: list[str] | None = None
+            if isinstance(raw_funcs, list):
+                affected_functions = [
+                    str(f) for f in raw_funcs if isinstance(f, str) and f.strip()
+                ]
+                if not affected_functions:
+                    affected_functions = None
+
             results.append(
                 VulnAnalysisResult(
                     vuln_type=vuln_type,
@@ -222,6 +232,7 @@ class VulnAnalyzerAgent(BaseAgent):
                     summary=summary,
                     reasoning=reasoning,
                     upstream_poc=upstream_poc,
+                    affected_functions=affected_functions,
                 )
             )
 

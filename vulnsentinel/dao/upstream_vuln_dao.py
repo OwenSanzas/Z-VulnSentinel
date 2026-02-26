@@ -89,6 +89,7 @@ class UpstreamVulnDAO(BaseDAO[UpstreamVuln]):
         summary: str,
         reasoning: str,
         upstream_poc: dict[str, Any] | None = None,
+        affected_functions: list[str] | None = None,
     ) -> None:
         """Write analysis results from AnalyzerEngine."""
         self._require_pk(pk)
@@ -101,6 +102,8 @@ class UpstreamVulnDAO(BaseDAO[UpstreamVuln]):
         }
         if upstream_poc is not None:
             values["upstream_poc"] = upstream_poc
+        if affected_functions is not None:
+            values["affected_functions"] = affected_functions
 
         stmt = update(UpstreamVuln).where(UpstreamVuln.id == pk).values(**values)
         await session.execute(stmt)

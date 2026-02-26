@@ -86,6 +86,7 @@ class UpstreamVulnService:
         summary: str,
         reasoning: str,
         upstream_poc: dict[str, Any] | None = None,
+        affected_functions: list[str] | None = None,
     ) -> None:
         """Write LLM analysis results for an upstream vuln."""
         await self._uv_dao.update_analysis(
@@ -97,6 +98,7 @@ class UpstreamVulnService:
             summary=summary,
             reasoning=reasoning,
             upstream_poc=upstream_poc,
+            affected_functions=affected_functions,
         )
 
     async def publish(self, session: AsyncSession, vuln_id: uuid.UUID) -> None:

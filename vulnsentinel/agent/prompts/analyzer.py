@@ -60,9 +60,15 @@ If there is only one vulnerability, still use an array with one element.
 
 [{"vuln_type": "<type>", "severity": "<level>", "affected_versions": "<range>",
   "summary": "<1-3 sentences>", "reasoning": "<analysis>",
-  "upstream_poc": {"has_poc": <bool>, "poc_type": "<type>", "description": "<desc>"}}]
+  "upstream_poc": {"has_poc": <bool>, "poc_type": "<type>", "description": "<desc>"},
+  "affected_functions": ["func1", "func2"]}]
 
 If there is no PoC evidence, set upstream_poc to null.
+
+**affected_functions**: List the C/C++ function names that are directly related to the \
+vulnerability fix (i.e., functions modified in the commit to fix the bug). These are used \
+for downstream reachability analysis. If you cannot determine the affected functions, \
+return an empty list [].
 
 # Examples
 
@@ -74,7 +80,8 @@ After fetching diff → sees added bounds check in lib/url.c before memcpy.
     "summary": "Heap buffer overflow in parse_url() when hostname exceeds 256 bytes.",
     "reasoning": "The diff adds a length check ... The fix was introduced in 8.12.0 ...",
     "upstream_poc": {"has_poc": true, "poc_type": "test_case",
-                     "description": "test_long_hostname() added in tests/url_test.c"}}]
+                     "description": "test_long_hostname() added in tests/url_test.c"},
+    "affected_functions": ["parse_url"]}]
 
 ## Example 2 — multiple vulnerabilities in one commit
 Event: commit "harden connection handling"
@@ -83,13 +90,15 @@ After fetching diff → sees two independent fixes in different files.
     "affected_versions": "7.50.0 - 8.11.1",
     "summary": "Use-after-free when reusing HTTP/2 connection after auth negotiation.",
     "reasoning": "conn->data freed in Curl_disconnect() but pointer not nulled ...",
-    "upstream_poc": null},
+    "upstream_poc": null,
+    "affected_functions": ["Curl_disconnect", "http2_conncheck"]},
    {"vuln_type": "dos", "severity": "medium",
     "affected_versions": ">= 7.0.0, < 8.10.0",
     "summary": "Infinite loop in chunked transfer encoding parser on malformed input.",
     "reasoning": "Missing break condition when chunk size is 0 but trailer ...",
     "upstream_poc": {"has_poc": true, "poc_type": "reproducer",
-                     "description": "Issue #12345 includes sample malformed HTTP response"}}]
+                     "description": "Issue #12345 includes sample malformed HTTP response"},
+    "affected_functions": ["Curl_httpchunk_read"]}]
 """
 
 

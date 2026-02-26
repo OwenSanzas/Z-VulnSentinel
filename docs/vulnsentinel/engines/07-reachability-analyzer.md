@@ -1,5 +1,7 @@
 # Reachability Analyzer
 
+> **初级设计文档** — 正式实现之前可随时修改。
+
 > 判断客户项目是否能通过调用图到达上游漏洞函数。对应十步流程中的**步骤 8-9（可达性分析）**。
 
 ## 概述
@@ -176,6 +178,23 @@ def check_reachability(
 
 通过 Service 层读写数据库，由调度器触发。
 
+**核心设计决策：Sentinel 通过 zca 高层接口调用，不直接操作 GraphStore / SnapshotManager。**
+
+zca 暴露一个高层 async API，Sentinel 只需传入 `(repo_url, version, upstream_vuln_dict)`，zca 内部处理 snapshot 查找/构建、target function 提取、图查询，返回 `(is_reachable, paths)`。
+
+```python
+# z_code_analyzer 暴露的高层接口
+result = await zca.check_reachability(
+    repo_url=project.repo_url,
+    version="main",
+    vuln={...upstream_vuln 的 dict 表示...},  # commit_sha, summary, reasoning, etc.
+)
+# result.is_reachable: bool
+# result.paths: list[list[str]] | None
+```
+
+Sentinel 侧的 Runner 只负责轮询 + DB 读写：
+
 ```python
 # vulnsentinel/engines/reachability/runner.py
 
@@ -185,9 +204,7 @@ class ReachabilityRunner:
         client_vuln_service: ClientVulnService,
         upstream_vuln_service: UpstreamVulnService,
         project_service: ProjectService,
-        graph_store: GraphStore,
-        snapshot_manager: SnapshotManager,
-        github_client: GitHubClient,
+        zca_reachability,              # zca 的高层接口，不是 GraphStore/SnapshotManager
     ) -> None: ...
 
     async def analyze_one(
@@ -204,6 +221,8 @@ class ReachabilityRunner:
 
 `run_batch` 接收 `session_factory`（不是 session），保持与 VulnAnalyzerRunner / ImpactRunner 一致的模式。
 
+**调用边界：** Sentinel 不 import GraphStore、SnapshotManager、orchestrator。所有分析逻辑（snapshot 管理、函数提取、图查询）封装在 zca 内部。Sentinel 传 dict，收结果。
+
 ---
 
 ## 数据流
@@ -214,57 +233,32 @@ ClientVuln(pipeline_status='pending')
         │  ClientVulnService.list_pending_pipeline(session, limit)
         │
         ▼
-  读取关联的 UpstreamVuln → 获取 affected_functions / commit_sha
+  读取关联的 UpstreamVuln → 转为 dict
   读取关联的 Project → 获取 repo_url
         │
         ▼
-  SnapshotManager.find_snapshot(repo_url, version, backend)
+  await zca.check_reachability(
+      repo_url=project.repo_url,
+      version=project.current_version or "main",
+      vuln=upstream_vuln.__dict__,
+  )
+        │
+        │  zca 内部（对 Sentinel 透明）：
+        │    1. 查找/构建 Snapshot
+        │    2. 从 vuln.commit_sha diff 提取 target functions
+        │    3. GraphStore 查询可达性
         │
    ┌────┴────┐
    │         │
- 有 snapshot  无 snapshot
-   │         │
-   │         └→ update_pipeline(error_message="snapshot not ready")
-   │              保持 pending，等待下次轮询重试
-   │
-   ▼
-  确定搜索目标函数列表 target_functions:
-    1. 优先用 upstream_vuln.affected_functions
-    2. 兜底：从 commit diff 解析修改的函数名（function_extractor）
-        │
-   ┌────┴────┐
-   │         │
- 有目标函数   无目标函数
-   │         │
-   │         └→ update_pipeline(error_message="cannot determine target functions")
-   │              保持 pending
-   │
-   ▼
-  对每个 target_function:
-    GraphStore.shortest_path(snapshot_id, entry_func, target_function)
-        │
-   ┌────┴────┐
-   │         │
- 有路径      全部无路径
+ 可达        不可达（或 zca 返回错误）
    │         │
    ▼         ▼
- is_reachable=true    is_reachable=false
-   │                    │
-   ▼                    ▼
- ClientVulnService.update_pipeline(
-   pipeline_status='path_searching',
-   is_affected=true/false,
-   reachable_path={paths: [...], depth: N}
+ finalize(             finalize(is_affected=False)
+   is_affected=True,     → pipeline_status='not_affect'
+   reachable_path=...    → status='not_affect'
  )
-   │
-   ▼
- ClientVulnService.finalize(
-   is_affected=bool
- )
-   │
-   ▼
- pipeline_status = 'verified' | 'not_affect'
- status = 'recorded' | 'not_affect'
+   → pipeline_status='verified'
+   → status='recorded'
 ```
 
 ---

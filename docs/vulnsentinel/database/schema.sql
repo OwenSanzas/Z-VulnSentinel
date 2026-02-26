@@ -199,6 +199,7 @@ CREATE TABLE upstream_vulns (
     status            upstream_vuln_status NOT NULL DEFAULT 'analyzing',
     error_message     TEXT,                                -- non-NULL = error at current status stage
     upstream_poc      JSONB,                               -- { source, reproducer, collected }
+    affected_functions JSONB,                              -- ["func1", "func2"] — vuln-related C/C++ functions
 
     detected_at       TIMESTAMPTZ          NOT NULL DEFAULT now(),
     published_at      TIMESTAMPTZ,                         -- set when status → published

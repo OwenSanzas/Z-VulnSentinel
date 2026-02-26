@@ -11,6 +11,7 @@ from z_code_analyzer.backends.base import (
 )
 from z_code_analyzer.graph_store import GraphStore
 from z_code_analyzer.orchestrator import StaticAnalysisOrchestrator
+from z_code_analyzer.reachability import ReachabilityChecker, ReachabilityResult
 from z_code_analyzer.snapshot_manager import SnapshotManager
 
 __all__ = [
@@ -20,6 +21,8 @@ __all__ = [
     "CallType",
     "FunctionRecord",
     "GraphStore",
+    "ReachabilityChecker",
+    "ReachabilityResult",
     "SnapshotManager",
     "StaticAnalysisOrchestrator",
 ]

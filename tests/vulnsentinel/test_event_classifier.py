@@ -8,18 +8,16 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from vulnsentinel.agent.agents.classifier import (
+    _LABEL_MAP,
     ClassificationResult,
     EventClassifierAgent,
-    _JSON_RE,
-    _LABEL_MAP,
 )
-from vulnsentinel.agent.pre_filter import PreFilterResult, pre_filter
+from vulnsentinel.agent.pre_filter import pre_filter
 from vulnsentinel.agent.prompts.classifier import (
     CLASSIFIER_SYSTEM_PROMPT,
     format_event_message,
 )
 from vulnsentinel.agent.tools.github_tools import create_github_mcp
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -297,9 +295,7 @@ class TestMCPTools:
 
     @pytest.mark.anyio()
     async def test_fetch_commit_diff_file_not_found(self, mcp, client):
-        client.get.return_value = {
-            "files": [{"filename": "src/main.c", "status": "modified"}]
-        }
+        client.get.return_value = {"files": [{"filename": "src/main.c", "status": "modified"}]}
         result = await mcp.call_tool(
             "fetch_commit_diff",
             {"sha": "abc123", "file_path": "nonexistent.c"},
@@ -496,7 +492,7 @@ class TestParseResult:
 
     def test_valid_json(self, agent):
         content = (
-            'Based on my analysis:\n'
+            "Based on my analysis:\n"
             '{"label": "security_bugfix", "confidence": 0.95, '
             '"reasoning": "Fixes heap overflow."}'
         )
@@ -559,7 +555,9 @@ class TestShouldStop:
 
     def test_stops_when_json_present(self, agent):
         resp = MagicMock()
-        resp.content = 'Here is my answer: {"label": "feature", "confidence": 0.9, "reasoning": "new"}'
+        resp.content = (
+            'Here is my answer: {"label": "feature", "confidence": 0.9, "reasoning": "new"}'
+        )
         assert agent.should_stop(resp) is True
 
     def test_continues_when_no_json(self, agent):

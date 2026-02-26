@@ -5,13 +5,12 @@ from __future__ import annotations
 import asyncio
 
 import structlog
-
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from vulnsentinel.agent.agents.analyzer import VulnAnalysisResult
 from vulnsentinel.core.github import parse_repo_url
-from vulnsentinel.engines.vuln_analyzer.analyzer import analyze
 from vulnsentinel.engines.event_collector.github_client import GitHubClient
+from vulnsentinel.engines.vuln_analyzer.analyzer import analyze
 from vulnsentinel.models.event import Event
 from vulnsentinel.services.event_service import EventService
 from vulnsentinel.services.library_service import LibraryService
@@ -52,9 +51,7 @@ class VulnAnalyzerRunner:
         """
         library = await self._library_service.get_by_id(session, event.library_id)
         if library is None:
-            raise ValueError(
-                f"library {event.library_id} not found for event {event.id}"
-            )
+            raise ValueError(f"library {event.library_id} not found for event {event.id}")
 
         owner, repo = parse_repo_url(library.repo_url)
 

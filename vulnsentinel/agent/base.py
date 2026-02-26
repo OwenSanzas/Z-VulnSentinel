@@ -283,9 +283,7 @@ class BaseAgent(ABC):
             # reach 80% of the model's context window.
             if self.enable_compression and turn > 1:
                 token_threshold = int(get_context_window(ctx.model) * 0.8)
-                needs_compress = (
-                    turn % 5 == 0 or ctx.total_input_tokens >= token_threshold
-                )
+                needs_compress = turn % 5 == 0 or ctx.total_input_tokens >= token_threshold
                 if needs_compress:
                     messages = await self._compress_context(ctx, system, messages)
 

@@ -69,9 +69,7 @@ def create_github_mcp(client: GitHubClient, owner: str, repo: str) -> FastMCP:
         with file_path returns the full patch for that file.
         """
         files: list[dict[str, Any]] = []
-        async for item in client.get_paginated(
-            f"{prefix}/pulls/{pr_number}/files", max_pages=3
-        ):
+        async for item in client.get_paginated(f"{prefix}/pulls/{pr_number}/files", max_pages=3):
             files.append(item)
 
         if not files:
@@ -99,9 +97,7 @@ def create_github_mcp(client: GitHubClient, owner: str, repo: str) -> FastMCP:
         data = await client.get(f"{prefix}/contents/{path}", params={"ref": ref})
         encoding = data.get("encoding", "")
         if encoding == "base64":
-            content = base64.b64decode(data.get("content", "")).decode(
-                "utf-8", errors="replace"
-            )
+            content = base64.b64decode(data.get("content", "")).decode("utf-8", errors="replace")
         else:
             content = data.get("content", "(unable to decode)")
 

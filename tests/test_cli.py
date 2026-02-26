@@ -166,9 +166,7 @@ class TestSnapshotsList:
         mock_instance = MockSM.return_value
         mock_instance.list_snapshots.return_value = []
         runner = CliRunner()
-        result = runner.invoke(
-            snapshots_main, ["list", "--pg-url", "postgresql://fake/db"]
-        )
+        result = runner.invoke(snapshots_main, ["list", "--pg-url", "postgresql://fake/db"])
         assert result.exit_code == 0
         assert "No snapshots found" in result.output
 
@@ -178,21 +176,23 @@ class TestSnapshotsList:
     def test_list_with_snapshots(self, MockSM, _mock_engine, _mock_sf):
         import uuid
 
-        mock_snap = type("Snap", (), {
-            "id": uuid.uuid4(),
-            "repo_name": "curl",
-            "version": "v8.0",
-            "backend": "svf",
-            "node_count": 2334,
-            "edge_count": 18540,
-            "fuzzer_names": ["fuzz1"],
-        })()
+        mock_snap = type(
+            "Snap",
+            (),
+            {
+                "id": uuid.uuid4(),
+                "repo_name": "curl",
+                "version": "v8.0",
+                "backend": "svf",
+                "node_count": 2334,
+                "edge_count": 18540,
+                "fuzzer_names": ["fuzz1"],
+            },
+        )()
         mock_instance = MockSM.return_value
         mock_instance.list_snapshots.return_value = [mock_snap]
         runner = CliRunner()
-        result = runner.invoke(
-            snapshots_main, ["list", "--pg-url", "postgresql://fake/db"]
-        )
+        result = runner.invoke(snapshots_main, ["list", "--pg-url", "postgresql://fake/db"])
         assert result.exit_code == 0
         assert "curl" in result.output
         assert "v8.0" in result.output

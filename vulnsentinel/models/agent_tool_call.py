@@ -4,11 +4,11 @@ import uuid
 from typing import Optional
 
 from sqlalchemy import (
+    VARCHAR,
     Boolean,
     ForeignKey,
     Index,
     Integer,
-    VARCHAR,
     desc,
     func,
     text,

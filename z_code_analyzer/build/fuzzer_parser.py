@@ -94,7 +94,7 @@ class FuzzerEntryParser:
                 content = src_path.read_text(errors="replace")
                 defs, calls = self._extract_functions_and_calls(content)
 
-                for func_name, called in zip(defs, calls):
+                for func_name, called in zip(defs, calls, strict=False):
                     all_defs[func_name] = called
                     all_defined.add(func_name)
 
@@ -240,7 +240,7 @@ class FuzzerEntryParser:
         if not defs:
             return [], []
 
-        for i, m in enumerate(defs):
+        for _i, m in enumerate(defs):
             func_name = m.group(1)
             # Get function body using brace-counting for accurate boundary
             brace_pos = content.find("{", m.start())

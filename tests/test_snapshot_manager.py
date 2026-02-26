@@ -243,9 +243,7 @@ class TestMarkStatus:
             language="c",
         )
         with session_factory() as session:
-            updated = session.scalars(
-                select(Snapshot).where(Snapshot.id == snap.id)
-            ).first()
+            updated = session.scalars(select(Snapshot).where(Snapshot.id == snap.id)).first()
             assert updated.status == "completed"
             assert updated.node_count == 100
             assert updated.edge_count == 200
@@ -257,9 +255,7 @@ class TestMarkStatus:
         sid = str(snap.id)
         sm.mark_completed(sid, node_count=100, edge_count=200, fuzzer_names=[])
         with session_factory() as session:
-            updated = session.scalars(
-                select(Snapshot).where(Snapshot.id == snap.id)
-            ).first()
+            updated = session.scalars(select(Snapshot).where(Snapshot.id == snap.id)).first()
             assert updated.size_bytes == 100 * 1200 + 200 * 150
 
     def test_mark_failed(self, sm, session_factory):
@@ -267,9 +263,7 @@ class TestMarkStatus:
         sid = str(snap.id)
         sm.mark_failed(sid, "compilation error")
         with session_factory() as session:
-            updated = session.scalars(
-                select(Snapshot).where(Snapshot.id == snap.id)
-            ).first()
+            updated = session.scalars(select(Snapshot).where(Snapshot.id == snap.id)).first()
             assert updated.status == "failed"
             assert updated.error == "compilation error"
 
@@ -285,9 +279,7 @@ class TestAccess:
         sm.on_snapshot_accessed(sid)
         sm.on_snapshot_accessed(sid)
         with session_factory() as session:
-            updated = session.scalars(
-                select(Snapshot).where(Snapshot.id == snap.id)
-            ).first()
+            updated = session.scalars(select(Snapshot).where(Snapshot.id == snap.id)).first()
             assert updated.access_count == 2
 
 

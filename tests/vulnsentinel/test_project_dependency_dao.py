@@ -302,7 +302,7 @@ class TestListByProject:
 
         base_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
         deps = []
-        for i, lib in enumerate(libs):
+        for _i, lib in enumerate(libs):
             deps.append(
                 {
                     "project_id": project.id,

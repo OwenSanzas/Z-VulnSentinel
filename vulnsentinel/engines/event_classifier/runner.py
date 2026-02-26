@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 
 import structlog
-
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from vulnsentinel.agent.agents.classifier import ClassificationResult
@@ -43,9 +42,7 @@ class EventClassifierRunner:
         """
         library = await self._library_service.get_by_id(session, event.library_id)
         if library is None:
-            raise ValueError(
-                f"library {event.library_id} not found for event {event.id}"
-            )
+            raise ValueError(f"library {event.library_id} not found for event {event.id}")
 
         owner, repo = parse_repo_url(library.repo_url)
         result = await classify(self._client, owner, repo, event)  # type: ignore[arg-type]

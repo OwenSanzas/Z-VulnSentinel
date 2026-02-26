@@ -248,7 +248,7 @@ class SVFBackend(AnalysisBackend):
                     text=True,
                     timeout=SVF_TIMEOUT,
                 )
-            except subprocess.TimeoutExpired:
+            except subprocess.TimeoutExpired as e:
                 # Kill the orphaned Docker container
                 try:
                     subprocess.run(
@@ -258,7 +258,7 @@ class SVFBackend(AnalysisBackend):
                     )
                 except Exception:
                     pass
-                raise SVFError(f"SVF analysis timed out after {SVF_TIMEOUT}s")
+                raise SVFError(f"SVF analysis timed out after {SVF_TIMEOUT}s") from e
 
             if result.returncode != 0:
                 logger.warning("SVF stderr: %s", result.stderr[-2000:] if result.stderr else "")

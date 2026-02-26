@@ -19,11 +19,15 @@ from vulnsentinel.engines.impact_engine.runner import ImpactRunner
 from vulnsentinel.services.client_vuln_service import ClientVulnService
 from vulnsentinel.services.upstream_vuln_service import UpstreamVulnService
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def _mock_dep(project_id=None, constraint_expr="^1.0.0", resolved_version="1.2.3", constraint_source="scan"):
+def _mock_dep(
+    project_id=None,
+    constraint_expr="^1.0.0",
+    resolved_version="1.2.3",
+    constraint_source="scan",
+):
     """Create a mock ProjectDependency."""
     dep = MagicMock()
     dep.project_id = project_id or uuid.uuid4()
@@ -233,17 +237,13 @@ async def published_vuln_no_deps(uv_dao, session, event_no_deps, library_no_deps
 
 class TestListPublishedWithoutImpact:
     @pytest.mark.anyio()
-    async def test_returns_published_with_dependents(
-        self, uv_dao, session, published_vuln, dep_a
-    ):
+    async def test_returns_published_with_dependents(self, uv_dao, session, published_vuln, dep_a):
         results = await uv_dao.list_published_without_impact(session)
         assert len(results) == 1
         assert results[0].id == published_vuln.id
 
     @pytest.mark.anyio()
-    async def test_excludes_analyzing_status(
-        self, uv_dao, session, event, library, dep_a
-    ):
+    async def test_excludes_analyzing_status(self, uv_dao, session, event, library, dep_a):
         # Create vuln but don't publish it
         await uv_dao.create(
             session,
@@ -268,17 +268,13 @@ class TestListPublishedWithoutImpact:
         assert len(results) == 0
 
     @pytest.mark.anyio()
-    async def test_excludes_vuln_without_dependents(
-        self, uv_dao, session, published_vuln_no_deps
-    ):
+    async def test_excludes_vuln_without_dependents(self, uv_dao, session, published_vuln_no_deps):
         """Library with no project_dependencies should be excluded (方案 C)."""
         results = await uv_dao.list_published_without_impact(session)
         assert len(results) == 0
 
     @pytest.mark.anyio()
-    async def test_respects_limit(
-        self, uv_dao, session, published_vuln, event2, library, dep_a
-    ):
+    async def test_respects_limit(self, uv_dao, session, published_vuln, event2, library, dep_a):
         # Create a second published vuln
         vuln2 = await uv_dao.create(
             session,

@@ -89,9 +89,7 @@ class ImpactRunner:
         Returns total number of client_vuln records created.
         """
         async with session_factory() as session:
-            vulns = await self._vuln_service.list_published_without_impact(
-                session, limit
-            )
+            vulns = await self._vuln_service.list_published_without_impact(session, limit)
         if not vulns:
             return 0
 

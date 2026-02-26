@@ -8,10 +8,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from vulnsentinel.agent.agents.analyzer import (
-    VulnAnalysisResult,
-    VulnAnalyzerAgent,
     _SEVERITY_MAP,
     _VULN_TYPE_MAP,
+    VulnAnalysisResult,
+    VulnAnalyzerAgent,
     _extract_json,
 )
 from vulnsentinel.agent.prompts.analyzer import (
@@ -19,7 +19,6 @@ from vulnsentinel.agent.prompts.analyzer import (
     format_bugfix_message,
 )
 from vulnsentinel.engines.vuln_analyzer.analyzer import AnalysisError, AnalyzerInput, analyze
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -126,9 +125,17 @@ class TestPrompt:
 class TestVulnTypeMapping:
     def test_all_standard_values_identity(self):
         standard = [
-            "buffer_overflow", "use_after_free", "integer_overflow", "null_deref",
-            "injection", "auth_bypass", "info_leak", "dos", "race_condition",
-            "memory_corruption", "other",
+            "buffer_overflow",
+            "use_after_free",
+            "integer_overflow",
+            "null_deref",
+            "injection",
+            "auth_bypass",
+            "info_leak",
+            "dos",
+            "race_condition",
+            "memory_corruption",
+            "other",
         ]
         for v in standard:
             assert _VULN_TYPE_MAP[v] == v
@@ -202,10 +209,10 @@ class TestExtractJson:
 
     def test_nested_json_with_surrounding_text(self):
         content = (
-            'Based on my analysis:\n'
+            "Based on my analysis:\n"
             '{"vuln_type": "dos", "upstream_poc": {"has_poc": false, '
             '"poc_type": "none", "description": ""}}\n'
-            'That concludes my analysis.'
+            "That concludes my analysis."
         )
         result = _extract_json(content)
         assert result is not None
@@ -221,10 +228,10 @@ class TestExtractJson:
 
     def test_json_array_with_surrounding_text(self):
         content = (
-            'Here are the vulnerabilities:\n'
+            "Here are the vulnerabilities:\n"
             '[{"vuln_type": "dos", "severity": "medium"}, '
             '{"vuln_type": "use_after_free", "severity": "critical"}]\n'
-            'Done.'
+            "Done."
         )
         result = _extract_json(content)
         assert result is not None
@@ -285,27 +292,42 @@ class TestParseResult:
         assert r.upstream_poc["has_poc"] is True
 
     def test_vuln_type_alias_mapped(self, agent):
-        content = '{"vuln_type": "heap_overflow", "severity": "high", "affected_versions": "all", "summary": "x", "reasoning": "y"}'
+        content = (
+            '{"vuln_type": "heap_overflow", "severity": "high",'
+            ' "affected_versions": "all", "summary": "x", "reasoning": "y"}'
+        )
         results = agent.parse_result(content)
         assert results[0].vuln_type == "buffer_overflow"
 
     def test_severity_alias_mapped(self, agent):
-        content = '{"vuln_type": "dos", "severity": "Moderate", "affected_versions": "all", "summary": "x", "reasoning": "y"}'
+        content = (
+            '{"vuln_type": "dos", "severity": "Moderate",'
+            ' "affected_versions": "all", "summary": "x", "reasoning": "y"}'
+        )
         results = agent.parse_result(content)
         assert results[0].severity == "medium"
 
     def test_severity_case_insensitive(self, agent):
-        content = '{"vuln_type": "dos", "severity": "HIGH", "affected_versions": "all", "summary": "x", "reasoning": "y"}'
+        content = (
+            '{"vuln_type": "dos", "severity": "HIGH",'
+            ' "affected_versions": "all", "summary": "x", "reasoning": "y"}'
+        )
         results = agent.parse_result(content)
         assert results[0].severity == "high"
 
     def test_unknown_vuln_type_maps_to_other(self, agent):
-        content = '{"vuln_type": "banana", "severity": "low", "affected_versions": "all", "summary": "x", "reasoning": "y"}'
+        content = (
+            '{"vuln_type": "banana", "severity": "low",'
+            ' "affected_versions": "all", "summary": "x", "reasoning": "y"}'
+        )
         results = agent.parse_result(content)
         assert results[0].vuln_type == "other"
 
     def test_unknown_severity_defaults_to_medium(self, agent):
-        content = '{"vuln_type": "dos", "severity": "banana", "affected_versions": "all", "summary": "x", "reasoning": "y"}'
+        content = (
+            '{"vuln_type": "dos", "severity": "banana",'
+            ' "affected_versions": "all", "summary": "x", "reasoning": "y"}'
+        )
         results = agent.parse_result(content)
         assert results[0].severity == "medium"
 
@@ -328,12 +350,20 @@ class TestParseResult:
         assert results == []
 
     def test_upstream_poc_non_dict_becomes_none(self, agent):
-        content = '{"vuln_type": "dos", "severity": "low", "affected_versions": "all", "summary": "x", "reasoning": "y", "upstream_poc": "none"}'
+        content = (
+            '{"vuln_type": "dos", "severity": "low",'
+            ' "affected_versions": "all", "summary": "x",'
+            ' "reasoning": "y", "upstream_poc": "none"}'
+        )
         results = agent.parse_result(content)
         assert results[0].upstream_poc is None
 
     def test_upstream_poc_null_stays_none(self, agent):
-        content = '{"vuln_type": "dos", "severity": "low", "affected_versions": "all", "summary": "x", "reasoning": "y", "upstream_poc": null}'
+        content = (
+            '{"vuln_type": "dos", "severity": "low",'
+            ' "affected_versions": "all", "summary": "x",'
+            ' "reasoning": "y", "upstream_poc": null}'
+        )
         results = agent.parse_result(content)
         assert results[0].upstream_poc is None
 
@@ -455,14 +485,16 @@ class TestAnalyzeStandalone:
 
     @pytest.mark.anyio()
     async def test_success_single(self):
-        expected = [VulnAnalysisResult(
-            vuln_type="buffer_overflow",
-            severity="high",
-            affected_versions="< 8.12.0",
-            summary="Heap overflow in parse_url().",
-            reasoning="Bounds check added.",
-            upstream_poc=None,
-        )]
+        expected = [
+            VulnAnalysisResult(
+                vuln_type="buffer_overflow",
+                severity="high",
+                affected_versions="< 8.12.0",
+                summary="Heap overflow in parse_url().",
+                reasoning="Bounds check added.",
+                upstream_poc=None,
+            )
+        ]
         mock_agent_result = MagicMock()
         mock_agent_result.parsed = expected
 
@@ -472,9 +504,7 @@ class TestAnalyzeStandalone:
             title="fix: heap overflow",
         )
 
-        with patch(
-            "vulnsentinel.engines.vuln_analyzer.analyzer.VulnAnalyzerAgent"
-        ) as MockAgent:
+        with patch("vulnsentinel.engines.vuln_analyzer.analyzer.VulnAnalyzerAgent") as MockAgent:
             instance = MockAgent.return_value
             instance.run = AsyncMock(return_value=mock_agent_result)
 
@@ -487,12 +517,18 @@ class TestAnalyzeStandalone:
     async def test_success_multiple(self):
         expected = [
             VulnAnalysisResult(
-                vuln_type="buffer_overflow", severity="high",
-                affected_versions="< 8.12.0", summary="overflow", reasoning="r1",
+                vuln_type="buffer_overflow",
+                severity="high",
+                affected_versions="< 8.12.0",
+                summary="overflow",
+                reasoning="r1",
             ),
             VulnAnalysisResult(
-                vuln_type="dos", severity="medium",
-                affected_versions=">= 7.0", summary="loop", reasoning="r2",
+                vuln_type="dos",
+                severity="medium",
+                affected_versions=">= 7.0",
+                summary="loop",
+                reasoning="r2",
             ),
         ]
         mock_agent_result = MagicMock()
@@ -500,9 +536,7 @@ class TestAnalyzeStandalone:
 
         event = AnalyzerInput(type="commit", ref="abc123", title="hardening")
 
-        with patch(
-            "vulnsentinel.engines.vuln_analyzer.analyzer.VulnAnalyzerAgent"
-        ) as MockAgent:
+        with patch("vulnsentinel.engines.vuln_analyzer.analyzer.VulnAnalyzerAgent") as MockAgent:
             instance = MockAgent.return_value
             instance.run = AsyncMock(return_value=mock_agent_result)
 
@@ -523,9 +557,7 @@ class TestAnalyzeStandalone:
             title="fix: something",
         )
 
-        with patch(
-            "vulnsentinel.engines.vuln_analyzer.analyzer.VulnAnalyzerAgent"
-        ) as MockAgent:
+        with patch("vulnsentinel.engines.vuln_analyzer.analyzer.VulnAnalyzerAgent") as MockAgent:
             instance = MockAgent.return_value
             instance.run = AsyncMock(return_value=mock_agent_result)
 
@@ -543,9 +575,7 @@ class TestAnalyzeStandalone:
             title="fix: something",
         )
 
-        with patch(
-            "vulnsentinel.engines.vuln_analyzer.analyzer.VulnAnalyzerAgent"
-        ) as MockAgent:
+        with patch("vulnsentinel.engines.vuln_analyzer.analyzer.VulnAnalyzerAgent") as MockAgent:
             instance = MockAgent.return_value
             instance.run = AsyncMock(return_value=mock_agent_result)
 

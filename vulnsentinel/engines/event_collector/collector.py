@@ -56,10 +56,15 @@ async def collect(
 
     events: list[CollectedEvent] = []
     errors: list[str] = []
-    for name, result in zip(sub_task_names, results):
+    for name, result in zip(sub_task_names, results, strict=False):
         if isinstance(result, BaseException):
             msg = f"collect_{name} failed for {owner}/{repo}: {type(result).__name__}: {result}"
-            log.error("collector.sub_failed", collector=name, library=f"{owner}/{repo}", error=str(result))
+            log.error(
+                "collector.sub_failed",
+                collector=name,
+                library=f"{owner}/{repo}",
+                error=str(result),
+            )
             errors.append(msg)
             continue
         events.extend(result)

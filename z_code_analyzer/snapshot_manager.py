@@ -245,9 +245,7 @@ class SnapshotManager:
         sid = uuid.UUID(str(snapshot_id))
         with self._session_factory() as session:
             session.execute(
-                update(Snapshot)
-                .where(Snapshot.id == sid)
-                .values(status="failed", error=error)
+                update(Snapshot).where(Snapshot.id == sid).values(status="failed", error=error)
             )
             session.commit()
 

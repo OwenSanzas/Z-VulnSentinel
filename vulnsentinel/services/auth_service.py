@@ -169,8 +169,8 @@ class AuthService:
         secret = _get_secret()
         try:
             payload = jwt.decode(refresh_token, secret, algorithms=[_ALGORITHM])
-        except JWTError:
-            raise AuthenticationError("invalid refresh token")
+        except JWTError as e:
+            raise AuthenticationError("invalid refresh token") from e
 
         if payload.get("type") != "refresh":
             raise AuthenticationError("invalid token type")
@@ -202,16 +202,16 @@ class AuthService:
         secret = _get_secret()
         try:
             payload = jwt.decode(token, secret, algorithms=[_ALGORITHM])
-        except JWTError:
-            raise AuthenticationError("invalid access token")
+        except JWTError as e:
+            raise AuthenticationError("invalid access token") from e
 
         if payload.get("type") != "access":
             raise AuthenticationError("invalid token type")
 
         try:
             user_id = uuid.UUID(payload["sub"])
-        except (KeyError, ValueError):
-            raise AuthenticationError("invalid token payload")
+        except (KeyError, ValueError) as e:
+            raise AuthenticationError("invalid token payload") from e
 
         user = await self._user_dao.get_by_id(session, user_id)
         if user is None:

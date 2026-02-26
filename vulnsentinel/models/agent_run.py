@@ -5,13 +5,13 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import (
+    VARCHAR,
     DateTime,
     Enum,
     Index,
     Integer,
     Numeric,
     Text,
-    VARCHAR,
     desc,
     func,
     text,
@@ -61,9 +61,7 @@ class AgentRun(TimestampMixin, Base):
 
     # run stats
     total_turns: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
-    total_tool_calls: Mapped[int] = mapped_column(
-        Integer, nullable=False, server_default=text("0")
-    )
+    total_tool_calls: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     estimated_cost: Mapped[Optional[float]] = mapped_column(Numeric(10, 6))

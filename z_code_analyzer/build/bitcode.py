@@ -247,10 +247,12 @@ class BitcodeGenerator:
                     else:
                         logger.debug("[build] %s", stripped)
                 proc.wait(timeout=600)
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as e:
             proc.kill()
             proc.wait()
-            raise BitcodeError(f"Bitcode generation timed out after 600s. Build log: {log_path}")
+            raise BitcodeError(
+                f"Bitcode generation timed out after 600s. Build log: {log_path}"
+            ) from e
 
         if proc.returncode != 0:
             # Read last 2000 chars from log for error message
@@ -340,8 +342,8 @@ class BitcodeGenerator:
         logger.info("Cloning fuzz tooling: %s @ %s", url, ref or "HEAD")
         try:
             result = subprocess.run(clone_cmd, capture_output=True, text=True, timeout=120)
-        except subprocess.TimeoutExpired:
-            raise BitcodeError(f"Fuzz tooling clone timed out: {url}")
+        except subprocess.TimeoutExpired as e:
+            raise BitcodeError(f"Fuzz tooling clone timed out: {url}") from e
 
         if result.returncode != 0:
             # --branch may fail for commit hashes; retry without --depth
@@ -351,8 +353,8 @@ class BitcodeGenerator:
                     result2 = subprocess.run(
                         clone_cmd2, capture_output=True, text=True, timeout=300
                     )
-                except subprocess.TimeoutExpired:
-                    raise BitcodeError(f"Fuzz tooling clone timed out: {url}")
+                except subprocess.TimeoutExpired as e:
+                    raise BitcodeError(f"Fuzz tooling clone timed out: {url}") from e
                 if result2.returncode != 0:
                     raise BitcodeError(
                         f"Fuzz tooling clone failed: {result2.stderr or result2.stdout}"

@@ -100,14 +100,28 @@ class ReachabilityRunner:
             await self._cv_service.finalize(session, client_vuln.id, is_affected=False)
             return
 
+        if library is None:
+            log.error(
+                "reachability.library_not_found",
+                client_vuln_id=str(client_vuln.id),
+                library_id=str(upstream_vuln.library_id),
+            )
+            await self._cv_service.update_pipeline(
+                session,
+                client_vuln.id,
+                pipeline_status="path_searching",
+                error_message="library not found",
+            )
+            await self._cv_service.finalize(session, client_vuln.id, is_affected=False)
+            return
+
         client_version = project.current_version or "main"
-        library_repo_url = library.repo_url if library else ""
         library_version = client_vuln.resolved_version or upstream_vuln.commit_sha
 
         request = VulnImpactRequest(
             client_repo_url=project.repo_url,
             client_version=client_version,
-            library_repo_url=library_repo_url,
+            library_repo_url=library.repo_url,
             library_version=library_version,
             affected_functions=affected_functions,
             commit_sha=upstream_vuln.commit_sha,

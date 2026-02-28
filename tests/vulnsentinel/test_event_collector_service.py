@@ -52,7 +52,11 @@ class TestRun:
 
         with patch(
             "vulnsentinel.engines.event_collector.runner.collect",
-            return_value=(collected, [], {"commits": "ok", "prs": "ok", "tags": "ok", "issues": "ok", "ghsa": "ok"}),
+            return_value=(
+                collected,
+                [],
+                {"commits": "ok", "prs": "ok", "tags": "ok", "issues": "ok", "ghsa": "ok"},
+            ),
         ):
             result = await runner.run(AsyncMock(), lib.id, client)
 
@@ -103,7 +107,11 @@ class TestRun:
 
         with patch(
             "vulnsentinel.engines.event_collector.runner.collect",
-            return_value=([], [], {"commits": "ok", "prs": "ok", "tags": "ok", "issues": "ok", "ghsa": "ok"}),
+            return_value=(
+                [],
+                [],
+                {"commits": "ok", "prs": "ok", "tags": "ok", "issues": "ok", "ghsa": "ok"},
+            ),
         ):
             result = await runner.run(AsyncMock(), lib.id, AsyncMock())
 
@@ -122,7 +130,11 @@ class TestRun:
 
         with patch(
             "vulnsentinel.engines.event_collector.runner.collect",
-            return_value=([], ["commits failed", "tags failed"], {"commits": "error", "prs": "ok", "tags": "error", "issues": "ok", "ghsa": "ok"}),
+            return_value=(
+                [],
+                ["commits failed", "tags failed"],
+                {"commits": "error", "prs": "ok", "tags": "error", "issues": "ok", "ghsa": "ok"},
+            ),
         ):
             result = await runner.run(AsyncMock(), lib.id, AsyncMock())
 
@@ -148,7 +160,11 @@ class TestRun:
 
         with patch(
             "vulnsentinel.engines.event_collector.runner.collect",
-            return_value=(collected, [], {"commits": "ok", "prs": "ok", "tags": "ok", "issues": "ok", "ghsa": "ok"}),
+            return_value=(
+                collected,
+                [],
+                {"commits": "ok", "prs": "ok", "tags": "ok", "issues": "ok", "ghsa": "ok"},
+            ),
         ):
             await runner.run(AsyncMock(), lib.id, AsyncMock())
 
@@ -208,7 +224,11 @@ class TestRunAll:
 
         with patch(
             "vulnsentinel.engines.event_collector.runner.collect",
-            return_value=([], [], {"commits": "ok", "prs": "ok", "tags": "ok", "issues": "ok", "ghsa": "ok"}),
+            return_value=(
+                [],
+                [],
+                {"commits": "ok", "prs": "ok", "tags": "ok", "issues": "ok", "ghsa": "ok"},
+            ),
         ):
             results = await runner.run_all(factory, AsyncMock())
 

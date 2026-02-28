@@ -5,8 +5,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import DateTime, Index, Text, desc, func, text
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from vulnsentinel.core.database import Base, TimestampMixin

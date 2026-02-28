@@ -284,7 +284,6 @@ async def _collect_ghsa(
 
         ghsa_id = item.get("ghsa_id", "")
         summary = item.get("summary", "")
-        severity = item.get("severity")
 
         events.append(
             CollectedEvent(

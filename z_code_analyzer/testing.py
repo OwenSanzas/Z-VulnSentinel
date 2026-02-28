@@ -12,7 +12,6 @@ Usage::
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
 
 from z_code_analyzer.api import (
     CodeAnalyzer,
@@ -67,11 +66,7 @@ class FakeCodeAnalyzer(CodeAnalyzer):
             reachable = random.choice([True, False])
 
         depth = random.randint(1, 10) if reachable else None
-        strategy = (
-            random.choice(["fuzzer_reaches", "shortest_path"])
-            if reachable
-            else "exhausted"
-        )
+        strategy = random.choice(["fuzzer_reaches", "shortest_path"]) if reachable else "exhausted"
         return VulnImpactResult(
             is_reachable=reachable,
             searched_functions=request.affected_functions,

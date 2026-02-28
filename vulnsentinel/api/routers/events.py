@@ -19,7 +19,9 @@ from vulnsentinel.services.event_service import EventService
 router = APIRouter()
 
 
-async def _library_names(session: AsyncSession, library_ids: set[uuid.UUID]) -> dict[uuid.UUID, str]:
+async def _library_names(
+    session: AsyncSession, library_ids: set[uuid.UUID]
+) -> dict[uuid.UUID, str]:
     """Batch-fetch library names by IDs."""
     if not library_ids:
         return {}
@@ -67,11 +69,7 @@ async def get_event(
     related_vulns = result.get("related_vulns", [])
     lib_names = await _library_names(session, {event.library_id})
     return EventDetail(
-        **{
-            k: getattr(event, k)
-            for k in EventListItem.model_fields
-            if k != "library_name"
-        },
+        **{k: getattr(event, k) for k in EventListItem.model_fields if k != "library_name"},
         library_name=lib_names.get(event.library_id, ""),
         related_issue_ref=event.related_issue_ref,
         related_issue_url=event.related_issue_url,

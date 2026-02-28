@@ -129,9 +129,9 @@ class TestList:
         service, proj_dao, dep_dao, cv_dao, _ = _make_service()
         proj_dao.list_paginated = AsyncMock(return_value=page)
         proj_dao.count = AsyncMock(return_value=5)
-        proj_dao.batch_counts = AsyncMock(return_value={
-            p.id: {"deps_count": 3, "vuln_count": 1} for p in projects
-        })
+        proj_dao.batch_counts = AsyncMock(
+            return_value={p.id: {"deps_count": 3, "vuln_count": 1} for p in projects}
+        )
 
         session = AsyncMock()
         result = await service.list(session, cursor=None, page_size=2)

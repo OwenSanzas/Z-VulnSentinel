@@ -145,9 +145,7 @@ class CodeAnalyzer:
         cloned_dir: str | None = None
 
         if not project_path or not Path(project_path).is_dir():
-            project_path = _auto_clone(
-                request.repo_url, request.version, self._workspace_dir
-            )
+            project_path = _auto_clone(request.repo_url, request.version, self._workspace_dir)
             cloned_dir = project_path
 
         try:
@@ -291,9 +289,7 @@ class CodeAnalyzer:
 # ── Utility: auto-clone ──────────────────────────────────────────────────
 
 
-def _auto_clone(
-    repo_url: str, version: str, workspace_dir: str | None = None
-) -> str:
+def _auto_clone(repo_url: str, version: str, workspace_dir: str | None = None) -> str:
     """Clone a repo and checkout the given version.
 
     Raises ``RuntimeError`` on failure (unlike the CLI version which returns None).

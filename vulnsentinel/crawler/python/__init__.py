@@ -12,9 +12,7 @@ from vulnsentinel.crawler import batch_resolve, get_github_token, parse_github_u
 
 REPOS_JSON = Path(__file__).parent / "repos.json"
 
-TOP_PYPI_URL = (
-    "https://hugovk.github.io/top-pypi-packages/top-pypi-packages-30-days.min.json"
-)
+TOP_PYPI_URL = "https://hugovk.github.io/top-pypi-packages/top-pypi-packages-30-days.min.json"
 PYPI_JSON_API = "https://pypi.org/pypi/{name}/json"
 
 # Keys to check in project_urls, in priority order

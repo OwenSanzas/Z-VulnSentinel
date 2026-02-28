@@ -76,9 +76,7 @@ _mailer = Mailer()  # reads SMTP env vars
 # ---------------------------------------------------------------------------
 # Engine runner singletons
 # ---------------------------------------------------------------------------
-_event_classifier_runner = EventClassifierRunner(
-    _event_service, _library_service, _github_client
-)
+_event_classifier_runner = EventClassifierRunner(_event_service, _library_service, _github_client)
 _vuln_analyzer_runner = VulnAnalyzerRunner(
     _event_service, _upstream_vuln_service, _library_service, _github_client
 )
@@ -86,7 +84,9 @@ _impact_runner = ImpactRunner(_upstream_vuln_service, _client_vuln_service, _pro
 _notification_runner = NotificationRunner(
     _client_vuln_service, _upstream_vuln_service, _library_service, _project_service, _mailer
 )
-_code_analyzer = FakeCodeAnalyzer(reachable=True)  # TODO: replace with real CodeAnalyzer when infra is ready
+_code_analyzer = FakeCodeAnalyzer(
+    reachable=True
+)  # TODO: replace with real CodeAnalyzer when infra is ready
 _reachability_runner = ReachabilityRunner(
     _client_vuln_service,
     _upstream_vuln_service,

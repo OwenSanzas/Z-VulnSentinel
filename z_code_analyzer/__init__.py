@@ -2,13 +2,6 @@
 
 __version__ = "0.1.0"
 
-from z_code_analyzer.backends.base import (
-    AnalysisBackend,
-    AnalysisResult,
-    CallEdge,
-    CallType,
-    FunctionRecord,
-)
 from z_code_analyzer.api import (
     CodeAnalyzer,
     SeedTreeRequest,
@@ -16,6 +9,13 @@ from z_code_analyzer.api import (
     SnapshotRequest,
     VulnImpactRequest,
     VulnImpactResult,
+)
+from z_code_analyzer.backends.base import (
+    AnalysisBackend,
+    AnalysisResult,
+    CallEdge,
+    CallType,
+    FunctionRecord,
 )
 from z_code_analyzer.graph_store import GraphStore
 from z_code_analyzer.orchestrator import StaticAnalysisOrchestrator

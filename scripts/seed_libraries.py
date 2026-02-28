@@ -13,19 +13,19 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Add project root to path
+# Add project root to path so vulnsentinel package is importable
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # noqa: E402
 
 load_dotenv(ROOT / ".env")
 
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # noqa: E402
 
-from vulnsentinel.core.github import parse_repo_url
-from vulnsentinel.dao.library_dao import LibraryDAO
-from vulnsentinel.engines.event_collector.github_client import GitHubClient
+from vulnsentinel.core.github import parse_repo_url  # noqa: E402
+from vulnsentinel.dao.library_dao import LibraryDAO  # noqa: E402
+from vulnsentinel.engines.event_collector.github_client import GitHubClient  # noqa: E402
 
 CRAWLER_DIR = ROOT / "vulnsentinel" / "crawler"
 
@@ -41,16 +41,17 @@ async def _probe_source(client: GitHubClient, url: str, params: dict | None = No
         return f"{type(exc).__name__}: {exc}"
 
 
-async def _init_pointers(
-    client: GitHubClient, owner: str, repo: str, branch: str
-) -> dict:
+async def _init_pointers(client: GitHubClient, owner: str, repo: str, branch: str) -> dict:
     """Fetch current latest commit SHA and latest tag from GitHub,
     and probe all 5 sources to build collect_detail."""
     pointers: dict = {}
 
     # Latest commit on default branch
     try:
-        commits = await client.get(f"/repos/{owner}/{repo}/commits", params={"sha": branch, "per_page": "1"})
+        commits = await client.get(
+            f"/repos/{owner}/{repo}/commits",
+            params={"sha": branch, "per_page": "1"},
+        )
         if isinstance(commits, list) and commits:
             pointers["latest_commit_sha"] = commits[0]["sha"]
     except Exception:
@@ -70,11 +71,17 @@ async def _init_pointers(
         _probe_source(client, f"{prefix}/commits", {"sha": branch, "per_page": "1"}),
         _probe_source(client, f"{prefix}/pulls", {"state": "closed", "per_page": "1"}),
         _probe_source(client, f"{prefix}/tags", {"per_page": "1"}),
-        _probe_source(client, f"{prefix}/issues", {"labels": "bug", "state": "all", "per_page": "1"}),
-        _probe_source(client, f"{prefix}/security-advisories", {"state": "published", "per_page": "1"}),
+        _probe_source(
+            client, f"{prefix}/issues", {"labels": "bug", "state": "all", "per_page": "1"}
+        ),
+        _probe_source(
+            client,
+            f"{prefix}/security-advisories",
+            {"state": "published", "per_page": "1"},
+        ),
     )
     source_names = ["commits", "prs", "tags", "issues", "ghsa"]
-    pointers["collect_detail"] = dict(zip(source_names, probe_results))
+    pointers["collect_detail"] = dict(zip(source_names, probe_results, strict=True))
 
     return pointers
 

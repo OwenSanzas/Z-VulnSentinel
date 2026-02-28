@@ -69,9 +69,7 @@ async def get_upstream_vuln(
         proj_names = {row.id: row.name for row in proj_rows}
 
         # Get resolved_version from project_dependencies for this library
-        dep_stmt = select(
-            ProjectDependency.project_id, ProjectDependency.resolved_version
-        ).where(
+        dep_stmt = select(ProjectDependency.project_id, ProjectDependency.resolved_version).where(
             ProjectDependency.library_id == vuln.library_id,
             ProjectDependency.project_id.in_(proj_ids),
         )

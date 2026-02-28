@@ -15,17 +15,32 @@ REPOS_JSON = Path(__file__).parent / "repos.json"
 
 # Well-known Solidity contract libraries that should always be included
 _KNOWN_LIBS: list[dict] = [
-    {"name": "OpenZeppelin/openzeppelin-contracts", "repo_url": "https://github.com/OpenZeppelin/openzeppelin-contracts"},
-    {"name": "OpenZeppelin/openzeppelin-contracts-upgradeable", "repo_url": "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable"},
-    {"name": "smartcontractkit/chainlink", "repo_url": "https://github.com/smartcontractkit/chainlink"},
+    {
+        "name": "OpenZeppelin/openzeppelin-contracts",
+        "repo_url": "https://github.com/OpenZeppelin/openzeppelin-contracts",
+    },
+    {
+        "name": "OpenZeppelin/openzeppelin-contracts-upgradeable",
+        "repo_url": "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable",
+    },
+    {
+        "name": "smartcontractkit/chainlink",
+        "repo_url": "https://github.com/smartcontractkit/chainlink",
+    },
     {"name": "Uniswap/v3-core", "repo_url": "https://github.com/Uniswap/v3-core"},
     {"name": "Uniswap/v4-core", "repo_url": "https://github.com/Uniswap/v4-core"},
     {"name": "aave/aave-v3-core", "repo_url": "https://github.com/aave/aave-v3-core"},
-    {"name": "compound-finance/compound-protocol", "repo_url": "https://github.com/compound-finance/compound-protocol"},
+    {
+        "name": "compound-finance/compound-protocol",
+        "repo_url": "https://github.com/compound-finance/compound-protocol",
+    },
     {"name": "transmissions11/solmate", "repo_url": "https://github.com/transmissions11/solmate"},
     {"name": "Vectorized/solady", "repo_url": "https://github.com/Vectorized/solady"},
     {"name": "foundry-rs/forge-std", "repo_url": "https://github.com/foundry-rs/forge-std"},
-    {"name": "safe-fndn/safe-smart-account", "repo_url": "https://github.com/safe-fndn/safe-smart-account"},
+    {
+        "name": "safe-fndn/safe-smart-account",
+        "repo_url": "https://github.com/safe-fndn/safe-smart-account",
+    },
 ]
 
 
@@ -69,12 +84,14 @@ async def _search_github_solidity_repos(
             if full_name in seen:
                 continue
             seen.add(full_name)
-            entries.append({
-                "name": full_name,
-                "repo_url": item["html_url"],
-                "default_branch": item["default_branch"],
-                "platform": "github",
-            })
+            entries.append(
+                {
+                    "name": full_name,
+                    "repo_url": item["html_url"],
+                    "default_branch": item["default_branch"],
+                    "platform": "github",
+                }
+            )
             if len(entries) >= n:
                 break
 
@@ -104,12 +121,14 @@ async def crawl_top(n: int = 100) -> list[dict]:
             merged.append(search_by_name[name])
         else:
             # Will need branch resolution
-            merged.append({
-                "name": name,
-                "repo_url": lib["repo_url"],
-                "default_branch": "main",  # default guess, health_check --fix can correct
-                "platform": "github",
-            })
+            merged.append(
+                {
+                    "name": name,
+                    "repo_url": lib["repo_url"],
+                    "default_branch": "main",  # default guess, health_check --fix can correct
+                    "platform": "github",
+                }
+            )
         seen.add(name)
 
     for entry in searched:

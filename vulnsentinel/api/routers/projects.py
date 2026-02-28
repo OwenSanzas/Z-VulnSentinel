@@ -18,8 +18,6 @@ from vulnsentinel.api.deps import (
     get_session,
     get_session_factory,
 )
-from vulnsentinel.core.github import parse_repo_url
-from vulnsentinel.engines.event_collector.github_client import GitHubClient
 from vulnsentinel.api.routers.client_vulns import _enrich_client_vulns
 from vulnsentinel.api.schemas.client_vuln import ClientVulnListItem
 from vulnsentinel.api.schemas.common import PageMeta, PaginatedResponse
@@ -33,6 +31,8 @@ from vulnsentinel.api.schemas.project import (
     UpdateDependencyRequest,
     UpdateProjectRequest,
 )
+from vulnsentinel.core.github import parse_repo_url
+from vulnsentinel.engines.event_collector.github_client import GitHubClient
 from vulnsentinel.models.user import User
 from vulnsentinel.services.client_vuln_service import ClientVulnService
 from vulnsentinel.services.project_service import DependencyInput, ProjectService
@@ -204,9 +204,7 @@ async def list_repo_branches(
     """Fetch branch names from a GitHub repo URL."""
     owner, repo = parse_repo_url(repo_url.strip())
     branches: list[str] = []
-    async for item in client.get_paginated(
-        f"/repos/{owner}/{repo}/branches", max_pages=3
-    ):
+    async for item in client.get_paginated(f"/repos/{owner}/{repo}/branches", max_pages=3):
         branches.append(item["name"])
     return branches
 

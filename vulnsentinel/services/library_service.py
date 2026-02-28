@@ -8,7 +8,7 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vulnsentinel.dao.event_dao import EventDAO
-from vulnsentinel.dao.library_dao import LibraryConflictError, LibraryDAO, _SENTINEL
+from vulnsentinel.dao.library_dao import _SENTINEL, LibraryConflictError, LibraryDAO
 from vulnsentinel.dao.project_dao import ProjectDAO
 from vulnsentinel.dao.project_dependency_dao import ProjectDependencyDAO
 from vulnsentinel.models.library import Library
@@ -132,7 +132,9 @@ class LibraryService:
         return await self._library_dao.get_by_id(session, library_id)
 
     async def list_due_for_collect(
-        self, session: AsyncSession, interval_minutes: int | None = None,
+        self,
+        session: AsyncSession,
+        interval_minutes: int | None = None,
     ) -> list[Library]:
         """Return GitHub libraries due for event collection."""
         return await self._library_dao.list_due_for_collect(session, interval_minutes)

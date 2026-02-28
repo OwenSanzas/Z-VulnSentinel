@@ -68,9 +68,7 @@ class Report:
         lines.append(f"# {self.ecosystem} Library Health Report")
         lines.append("")
         lines.append(f"> Generated: {now}  ")
-        lines.append(
-            f"> Total: {self.total} | Healthy: {self.ok} | Problems: {len(self.problems)}"
-        )
+        lines.append(f"> Total: {self.total} | Healthy: {self.ok} | Problems: {len(self.problems)}")
         lines.append("")
         lines.append("| # | Name | URL | Platform | Commit | PR | Tag | GHSA | Notes |")
         lines.append("|---|------|-----|----------|--------|----|-----|------|-------|")
@@ -188,8 +186,12 @@ def check_one(entry: dict) -> CheckResult:
     parsed = parse_owner_repo(repo_url)
     if not parsed:
         return CheckResult(
-            name=name, repo_url=repo_url, platform=platform, ok=False,
-            expected_branch=expected_branch, error=f"Cannot parse URL: {repo_url}",
+            name=name,
+            repo_url=repo_url,
+            platform=platform,
+            ok=False,
+            expected_branch=expected_branch,
+            error=f"Cannot parse URL: {repo_url}",
         )
 
     owner, repo = parsed
@@ -200,8 +202,12 @@ def check_one(entry: dict) -> CheckResult:
     )
     if not data:
         return CheckResult(
-            name=name, repo_url=repo_url, platform=platform, ok=False,
-            expected_branch=expected_branch, not_found=True,
+            name=name,
+            repo_url=repo_url,
+            platform=platform,
+            ok=False,
+            expected_branch=expected_branch,
+            not_found=True,
         )
 
     actual_branch = data.get("default_branch")
@@ -211,13 +217,21 @@ def check_one(entry: dict) -> CheckResult:
 
     if is_disabled:
         return CheckResult(
-            name=name, repo_url=repo_url, platform=platform, ok=False,
-            expected_branch=expected_branch, disabled=True,
+            name=name,
+            repo_url=repo_url,
+            platform=platform,
+            ok=False,
+            expected_branch=expected_branch,
+            disabled=True,
         )
 
     result = CheckResult(
-        name=name, repo_url=repo_url, platform=platform, ok=True,
-        expected_branch=expected_branch, actual_branch=actual_branch,
+        name=name,
+        repo_url=repo_url,
+        platform=platform,
+        ok=True,
+        expected_branch=expected_branch,
+        actual_branch=actual_branch,
         actual_url=actual_url,
     )
 
@@ -265,7 +279,8 @@ def run_health_check(ecosystem: str, repos_json: Path, report_md: Path) -> None:
     """Shared CLI entry point for health checking any ecosystem's repos.json."""
     parser = argparse.ArgumentParser(description=f"{ecosystem} library health checker")
     parser.add_argument(
-        "--fix", action="store_true",
+        "--fix",
+        action="store_true",
         help="Auto-fix branch mismatches in repos.json",
     )
     args = parser.parse_args()

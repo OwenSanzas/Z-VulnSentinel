@@ -6,6 +6,8 @@ import pytest
 
 from vulnsentinel.dao.event_dao import EventDAO
 from vulnsentinel.dao.library_dao import LibraryDAO
+from vulnsentinel.models.project import Project
+from vulnsentinel.models.project_dependency import ProjectDependency
 from vulnsentinel.models.upstream_vuln import UpstreamVuln
 
 
@@ -29,6 +31,22 @@ async def library2(lib_dao, session):
     return await lib_dao.create(
         session, name="openssl", repo_url="https://github.com/openssl/openssl"
     )
+
+
+@pytest.fixture
+async def _project_with_dep(session, library):
+    """Create a project with a dependency on `library`.
+
+    This satisfies the has_dep EXISTS filter in list_unclassified and
+    list_bugfix_without_vuln.
+    """
+    proj = Project(name="testproj", repo_url="https://github.com/test/proj")
+    session.add(proj)
+    await session.flush()
+    dep = ProjectDependency(project_id=proj.id, library_id=library.id)
+    session.add(dep)
+    await session.flush()
+    return proj
 
 
 def _event(library_id, ref="abc123", **overrides) -> dict:
@@ -198,6 +216,7 @@ class TestCount:
 # ── list_unclassified ─────────────────────────────────────────────────────
 
 
+@pytest.mark.usefixtures("_project_with_dep")
 class TestListUnclassified:
     async def test_returns_unclassified_only(self, dao, session, library):
         ev1 = await dao.create(session, **_event(library.id, "unclass"))
@@ -239,6 +258,7 @@ class TestListUnclassified:
 # ── list_bugfix_without_vuln ──────────────────────────────────────────────
 
 
+@pytest.mark.usefixtures("_project_with_dep")
 class TestListBugfixWithoutVuln:
     async def _make_bugfix(self, dao, session, library, ref):
         """Create a classified bugfix event."""

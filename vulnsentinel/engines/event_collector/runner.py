@@ -93,7 +93,8 @@ class EventCollectorRunner:
                 )
             else:
                 await self._library_service.update_pointers(
-                    session, library_id,
+                    session,
+                    library_id,
                     collect_status="unhealthy",
                     collect_error="; ".join(collect_errors),
                     collect_detail=collect_detail,
@@ -160,7 +161,8 @@ class EventCollectorRunner:
                         async with session_factory() as err_session:
                             async with err_session.begin():
                                 await self._library_service.update_pointers(
-                                    err_session, lib_id,
+                                    err_session,
+                                    lib_id,
                                     collect_status="unhealthy",
                                     collect_error=str(exc),
                                 )

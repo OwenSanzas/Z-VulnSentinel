@@ -74,7 +74,11 @@ class DependencyScanner:
         # Mark as scanning — step: clone
         detail["clone"] = "running"
         await self._project_service.update_scan_status(
-            session, project_id, status="scanning", error=None, detail=detail,
+            session,
+            project_id,
+            status="scanning",
+            error=None,
+            detail=detail,
         )
 
         try:
@@ -83,7 +87,11 @@ class DependencyScanner:
         except Exception as exc:
             detail["clone"] = f"error: {exc}"
             await self._project_service.update_scan_status(
-                session, project_id, status="error", error=str(exc), detail=detail,
+                session,
+                project_id,
+                status="error",
+                error=str(exc),
+                detail=detail,
             )
             raise
 
@@ -96,7 +104,11 @@ class DependencyScanner:
         detail["deps_found"] = len(scanned)
         detail["sync"] = "running"
         await self._project_service.update_scan_status(
-            session, project_id, status="scanning", error=None, detail=detail,
+            session,
+            project_id,
+            status="scanning",
+            error=None,
+            detail=detail,
         )
 
         # Split into resolvable (has repo_url) and unresolved
@@ -147,7 +159,11 @@ class DependencyScanner:
             session, project_id, datetime.now(timezone.utc)
         )
         await self._project_service.update_scan_status(
-            session, project_id, status="healthy", error=None, detail=detail,
+            session,
+            project_id,
+            status="healthy",
+            error=None,
+            detail=detail,
         )
 
         return ScanResult(

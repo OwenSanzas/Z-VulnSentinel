@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from vulnsentinel.dao.base import Page
 from vulnsentinel.dao.event_dao import EventDAO
 from vulnsentinel.dao.library_dao import LibraryConflictError, LibraryDAO
 from vulnsentinel.dao.project_dao import ProjectDAO
@@ -199,7 +198,13 @@ class TestList:
         assert result["total"] == 10
 
         lib_dao.list_offset.assert_awaited_once_with(
-            session, page=0, page_size=3, sort_by="name", sort_dir="asc", status=None, ecosystem=None
+            session,
+            page=0,
+            page_size=3,
+            sort_by="name",
+            sort_dir="asc",
+            status=None,
+            ecosystem=None,
         )
 
     async def test_list_empty(self):
@@ -220,7 +225,13 @@ class TestList:
         await service.list(session, sort_by="platform", sort_dir="desc", status="unhealthy")
 
         lib_dao.list_offset.assert_awaited_once_with(
-            session, page=0, page_size=20, sort_by="platform", sort_dir="desc", status="unhealthy", ecosystem=None
+            session,
+            page=0,
+            page_size=20,
+            sort_by="platform",
+            sort_dir="desc",
+            status="unhealthy",
+            ecosystem=None,
         )
 
 

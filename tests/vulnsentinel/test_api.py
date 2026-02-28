@@ -77,6 +77,9 @@ def _project(proj_id: uuid.UUID | None = None) -> Project:
         auto_sync_deps=True,
         pinned_ref=None,
         last_scanned_at=None,
+        scan_status="pending",
+        scan_error=None,
+        scan_detail=None,
         created_at=NOW,
         updated_at=NOW,
     )
@@ -494,6 +497,7 @@ class TestProjectsRouter:
                 "name": "myapp",
                 "repo_url": "https://github.com/acme/myapp",
                 "organization": "acme",
+                "auto_sync_deps": False,
                 "dependencies": [
                     {
                         "library_name": "curl",
@@ -518,7 +522,11 @@ class TestProjectsRouter:
 
         resp = await client.post(
             "/api/v1/projects/",
-            json={"name": "myapp", "repo_url": "https://github.com/acme/myapp"},
+            json={
+                "name": "myapp",
+                "repo_url": "https://github.com/acme/myapp",
+                "auto_sync_deps": False,
+            },
         )
         assert resp.status_code == 201
 
@@ -533,7 +541,11 @@ class TestProjectsRouter:
 
         resp = await client.post(
             "/api/v1/projects/",
-            json={"name": "myapp", "repo_url": "https://github.com/acme/myapp"},
+            json={
+                "name": "myapp",
+                "repo_url": "https://github.com/acme/myapp",
+                "auto_sync_deps": False,
+            },
         )
         assert resp.status_code == 409
         assert "already exists" in resp.json()["detail"]
@@ -842,14 +854,24 @@ class TestUpstreamVulnsRouter:
         mock_lib_result = MagicMock()
         mock_lib_result.scalar_one_or_none.return_value = "libcurl"
         mock_proj_result = MagicMock()
-        mock_proj_result.__iter__ = MagicMock(return_value=iter([
-            SimpleNamespace(id=cv.project_id, name="test-project"),
-        ]))
+        mock_proj_result.__iter__ = MagicMock(
+            return_value=iter(
+                [
+                    SimpleNamespace(id=cv.project_id, name="test-project"),
+                ]
+            )
+        )
         mock_dep_result = MagicMock()
-        mock_dep_result.__iter__ = MagicMock(return_value=iter([
-            SimpleNamespace(project_id=cv.project_id, resolved_version="8.4.0"),
-        ]))
-        mock_session.execute = AsyncMock(side_effect=[mock_lib_result, mock_proj_result, mock_dep_result])
+        mock_dep_result.__iter__ = MagicMock(
+            return_value=iter(
+                [
+                    SimpleNamespace(project_id=cv.project_id, resolved_version="8.4.0"),
+                ]
+            )
+        )
+        mock_session.execute = AsyncMock(
+            side_effect=[mock_lib_result, mock_proj_result, mock_dep_result]
+        )
 
         async def _mock_session():
             yield mock_session

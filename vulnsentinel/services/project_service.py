@@ -221,7 +221,10 @@ class ProjectService:
         """Return paginated dependencies for a project, enriched with library_name."""
         await self._ensure_project(session, project_id)
         page = await self._dep_dao.list_by_project_with_library(
-            session, project_id, cursor, page_size,
+            session,
+            project_id,
+            cursor,
+            page_size,
         )
 
         return {

@@ -66,8 +66,7 @@ class Scheduler:
     async def start(self) -> None:
         """Start all engine loops as asyncio tasks."""
         self._tasks = [
-            asyncio.create_task(loop.loop(), name=f"engine-{loop.name}")
-            for loop in self._loops
+            asyncio.create_task(loop.loop(), name=f"engine-{loop.name}") for loop in self._loops
         ]
         # Kick off the first engine immediately
         if self._loops:

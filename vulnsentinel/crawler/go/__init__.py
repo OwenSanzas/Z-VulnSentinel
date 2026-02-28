@@ -49,12 +49,14 @@ async def _search_github_go_repos(
             break
 
         for item in items:
-            entries.append({
-                "name": item["full_name"],
-                "repo_url": item["html_url"],
-                "default_branch": item["default_branch"],
-                "platform": "github",
-            })
+            entries.append(
+                {
+                    "name": item["full_name"],
+                    "repo_url": item["html_url"],
+                    "default_branch": item["default_branch"],
+                    "platform": "github",
+                }
+            )
             if len(entries) >= n:
                 break
 

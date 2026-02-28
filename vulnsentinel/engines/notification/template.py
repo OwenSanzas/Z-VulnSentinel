@@ -26,31 +26,39 @@ def render_notification(
     """Return (subject, html_body) for a vulnerability notification email."""
     severity = upstream_vuln.severity or "unknown"
     subject = (
-        f"[VulnSentinel] {severity.upper()} vulnerability "
-        f"in {library.name} affects {project.name}"
+        f"[VulnSentinel] {severity.upper()} vulnerability in {library.name} affects {project.name}"
     )
 
     color = _SEVERITY_COLORS.get(severity, "#757575")
     affected_funcs = _format_affected_functions(upstream_vuln.affected_functions)
     call_chain = _format_reachable_path(client_vuln.reachable_path)
 
+    td_hdr = 'style="padding: 6px 12px; font-weight: bold; border-bottom: 1px solid #e0e0e0;"'
+    td_val = 'style="padding: 6px 12px; border-bottom: 1px solid #e0e0e0;"'
+    sev_span = f'<span style="color: {color}; font-weight: bold;">{severity.upper()}</span>'
+    body_style = (
+        "font-family: -apple-system, BlinkMacSystemFont,"
+        " 'Segoe UI', Roboto, sans-serif;"
+        " color: #212121; max-width: 640px; margin: 0 auto;"
+    )
+
     html_body = f"""\
 <html>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #212121; max-width: 640px; margin: 0 auto;">
+<body style="{body_style}">
 <h2 style="color: {color};">{severity.upper()} Vulnerability Detected</h2>
 <table style="border-collapse: collapse; width: 100%; margin-bottom: 16px;">
-  <tr><td style="padding: 6px 12px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">Project</td>
-      <td style="padding: 6px 12px; border-bottom: 1px solid #e0e0e0;">{_esc(project.name)}</td></tr>
-  <tr><td style="padding: 6px 12px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">Library</td>
-      <td style="padding: 6px 12px; border-bottom: 1px solid #e0e0e0;">{_esc(library.name)}</td></tr>
-  <tr><td style="padding: 6px 12px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">Vulnerability Type</td>
-      <td style="padding: 6px 12px; border-bottom: 1px solid #e0e0e0;">{_esc(upstream_vuln.vuln_type or "N/A")}</td></tr>
-  <tr><td style="padding: 6px 12px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">Severity</td>
-      <td style="padding: 6px 12px; border-bottom: 1px solid #e0e0e0;"><span style="color: {color}; font-weight: bold;">{severity.upper()}</span></td></tr>
-  <tr><td style="padding: 6px 12px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">Commit SHA</td>
-      <td style="padding: 6px 12px; border-bottom: 1px solid #e0e0e0;"><code>{_esc(upstream_vuln.commit_sha)}</code></td></tr>
-  <tr><td style="padding: 6px 12px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">Fix Version</td>
-      <td style="padding: 6px 12px; border-bottom: 1px solid #e0e0e0;">{_esc(client_vuln.fix_version or "N/A")}</td></tr>
+  <tr><td {td_hdr}>Project</td>
+      <td {td_val}>{_esc(project.name)}</td></tr>
+  <tr><td {td_hdr}>Library</td>
+      <td {td_val}>{_esc(library.name)}</td></tr>
+  <tr><td {td_hdr}>Vulnerability Type</td>
+      <td {td_val}>{_esc(upstream_vuln.vuln_type or "N/A")}</td></tr>
+  <tr><td {td_hdr}>Severity</td>
+      <td {td_val}>{sev_span}</td></tr>
+  <tr><td {td_hdr}>Commit SHA</td>
+      <td {td_val}><code>{_esc(upstream_vuln.commit_sha)}</code></td></tr>
+  <tr><td {td_hdr}>Fix Version</td>
+      <td {td_val}>{_esc(client_vuln.fix_version or "N/A")}</td></tr>
 </table>
 
 <h3>Summary</h3>
@@ -73,10 +81,7 @@ def render_notification(
 def _esc(text: str) -> str:
     """Minimal HTML escaping."""
     return (
-        text.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
+        text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
     )
 
 

@@ -64,8 +64,7 @@ class ProjectDependencyDAO(BaseDAO[ProjectDependency]):
         name_map = {row.id: row.name for row in result}
 
         items = [
-            {"dep": dep, "library_name": name_map.get(dep.library_id, "")}
-            for dep in page.data
+            {"dep": dep, "library_name": name_map.get(dep.library_id, "")} for dep in page.data
         ]
         return Page(
             data=items,

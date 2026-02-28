@@ -4,7 +4,7 @@ import os
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import case, func, or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +13,14 @@ from vulnsentinel.models.library import Library
 from vulnsentinel.models.project_dependency import ProjectDependency
 
 _SENTINEL = object()  # distinguish "not passed" from explicit None
-_SORT_COLUMNS = {"name", "platform", "last_scanned_at", "collect_status", "created_at", "used_by_count"}
+_SORT_COLUMNS = {
+    "name",
+    "platform",
+    "last_scanned_at",
+    "collect_status",
+    "created_at",
+    "used_by_count",
+}
 
 
 class LibraryConflictError(ValueError):
@@ -36,7 +43,9 @@ class LibraryDAO(BaseDAO[Library]):
         return await self.paginate(session, query, cursor, page_size)
 
     async def list_due_for_collect(
-        self, session: AsyncSession, interval_minutes: int | None = None,
+        self,
+        session: AsyncSession,
+        interval_minutes: int | None = None,
     ) -> list[Library]:
         """Return GitHub libraries that haven't been collected recently.
 
@@ -176,14 +185,11 @@ class LibraryDAO(BaseDAO[Library]):
         pd = ProjectDependency.__table__
 
         # Per-ecosystem breakdown
-        eco_stmt = (
-            select(
-                Library.ecosystem,
-                Library.collect_status,
-                func.count().label("cnt"),
-            )
-            .group_by(Library.ecosystem, Library.collect_status)
-        )
+        eco_stmt = select(
+            Library.ecosystem,
+            Library.collect_status,
+            func.count().label("cnt"),
+        ).group_by(Library.ecosystem, Library.collect_status)
         eco_result = await session.execute(eco_stmt)
         platforms: dict[str, dict[str, int]] = {}
         for row in eco_result:

@@ -33,9 +33,7 @@ class Project(TimestampMixin, Base):
     )
     pinned_ref: Mapped[Optional[str]] = mapped_column(Text)
     last_scanned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    scan_status: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default=text("'pending'")
-    )
+    scan_status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'pending'"))
     scan_error: Mapped[Optional[str]] = mapped_column(Text)
     scan_detail: Mapped[Optional[dict]] = mapped_column(JSONB)
 

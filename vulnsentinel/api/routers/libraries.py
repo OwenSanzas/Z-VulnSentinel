@@ -43,7 +43,9 @@ async def list_libraries(
     return PaginatedResponse(
         data=[
             LibraryListItem(
-                **{k: getattr(lib, k) for k in LibraryListItem.model_fields if k != "used_by_count"},
+                **{
+                    k: getattr(lib, k) for k in LibraryListItem.model_fields if k != "used_by_count"
+                },
                 used_by_count=used_by.get(lib.id, 0),
             )
             for lib in result["data"]

@@ -11,7 +11,7 @@ from xml.etree import ElementTree
 
 import httpx
 
-from vulnsentinel.crawler import batch_resolve, get_github_token, parse_github_url
+from vulnsentinel.crawler import get_github_token, parse_github_url
 
 REPOS_JSON = Path(__file__).parent / "repos.json"
 
@@ -34,8 +34,10 @@ def _extract_scm_url(pom_xml: str) -> str | None:
             return el.text
 
     for tag in (
-        "m:scm/m:connection", "m:scm/m:developerConnection",
-        "scm/connection", "scm/developerConnection",
+        "m:scm/m:connection",
+        "m:scm/m:developerConnection",
+        "scm/connection",
+        "scm/developerConnection",
     ):
         el = root.find(tag, _POM_NS)
         if el is not None and el.text:
@@ -88,12 +90,14 @@ async def _search_github_java_repos(
             break
 
         for item in items:
-            entries.append({
-                "name": item["full_name"],
-                "repo_url": item["html_url"],
-                "default_branch": item["default_branch"],
-                "platform": "github",
-            })
+            entries.append(
+                {
+                    "name": item["full_name"],
+                    "repo_url": item["html_url"],
+                    "default_branch": item["default_branch"],
+                    "platform": "github",
+                }
+            )
             if len(entries) >= n:
                 break
 

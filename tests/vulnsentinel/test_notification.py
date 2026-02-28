@@ -16,7 +16,6 @@ from vulnsentinel.engines.notification.runner import NotificationRunner
 from vulnsentinel.engines.notification.template import render_notification
 from vulnsentinel.services.client_vuln_service import ClientVulnService
 
-
 # ── fixtures ──────────────────────────────────────────────────────────────
 
 
@@ -117,17 +116,13 @@ class TestListVerifiedUnnotified:
         assert result[0].id == verified_cv.id
 
     @pytest.mark.asyncio
-    async def test_excludes_already_reported(
-        self, cv_dao, session, verified_cv
-    ):
+    async def test_excludes_already_reported(self, cv_dao, session, verified_cv):
         await cv_dao.update_status(session, verified_cv.id, status="reported")
         result = await cv_dao.list_verified_unnotified(session, limit=10)
         assert len(result) == 0
 
     @pytest.mark.asyncio
-    async def test_excludes_not_affect(
-        self, cv_dao, session, upstream_vuln, project
-    ):
+    async def test_excludes_not_affect(self, cv_dao, session, upstream_vuln, project):
         cv = await cv_dao.create(
             session,
             upstream_vuln_id=upstream_vuln.id,
@@ -160,16 +155,12 @@ class TestListVerifiedUnnotified:
             ev = await ev_dao.create(
                 session, library_id=library.id, type="commit", ref=ref, title=f"fix {i}"
             )
-            uv = await uv_dao.create(
-                session, event_id=ev.id, library_id=library.id, commit_sha=ref
-            )
+            uv = await uv_dao.create(session, event_id=ev.id, library_id=library.id, commit_sha=ref)
             # Need a unique project per upstream_vuln+project pair
             proj = await ProjectDAO().create(
                 session, name=f"proj-{ref}", repo_url=f"https://github.com/org/{ref}"
             )
-            cv = await cv_dao.create(
-                session, upstream_vuln_id=uv.id, project_id=proj.id
-            )
+            cv = await cv_dao.create(session, upstream_vuln_id=uv.id, project_id=proj.id)
             await cv_dao.finalize(
                 session, cv.id, pipeline_status="verified", status="recorded", is_affected=True
             )
@@ -225,7 +216,9 @@ class TestNotifyOne:
     async def test_sends_email_and_marks_reported(
         self, cv_dao, uv_dao, session, verified_cv, upstream_vuln, library, project
     ):
-        mailer = Mailer(host="localhost", port=587, user="u", password="p", from_addr="from@test.com")
+        mailer = Mailer(
+            host="localhost", port=587, user="u", password="p", from_addr="from@test.com"
+        )
         mailer.send = AsyncMock()
 
         # Use real cv_service (thin DAO wrapper) for status transition
@@ -269,9 +262,7 @@ class TestNotifyOne:
         assert verified_cv.report["to"] == "alert@example.com"
 
     @pytest.mark.asyncio
-    async def test_not_sent_again_after_reported(
-        self, cv_dao, uv_dao, session, verified_cv
-    ):
+    async def test_not_sent_again_after_reported(self, cv_dao, uv_dao, session, verified_cv):
         """After notification, list_verified_unnotified should not return this CV."""
         await cv_dao.update_status(session, verified_cv.id, status="reported")
         result = await cv_dao.list_verified_unnotified(session, limit=10)

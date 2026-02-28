@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, Index, Text, desc, func, text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from vulnsentinel.core.database import Base, TimestampMixin
@@ -33,5 +33,10 @@ class Project(TimestampMixin, Base):
     )
     pinned_ref: Mapped[Optional[str]] = mapped_column(Text)
     last_scanned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    scan_status: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'pending'")
+    )
+    scan_error: Mapped[Optional[str]] = mapped_column(Text)
+    scan_detail: Mapped[Optional[dict]] = mapped_column(JSONB)
 
     __table_args__ = (Index("idx_projects_cursor", desc("created_at"), desc("id")),)

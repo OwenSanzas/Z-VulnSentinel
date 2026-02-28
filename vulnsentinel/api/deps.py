@@ -22,7 +22,14 @@ from vulnsentinel.dao.project_dependency_dao import ProjectDependencyDAO
 from vulnsentinel.dao.upstream_vuln_dao import UpstreamVulnDAO
 from vulnsentinel.dao.user_dao import UserDAO
 from vulnsentinel.engines.dependency_scanner.scanner import DependencyScanner
+from vulnsentinel.engines.event_classifier.runner import EventClassifierRunner
+from vulnsentinel.engines.event_collector.github_client import GitHubClient
 from vulnsentinel.engines.event_collector.runner import EventCollectorRunner
+from vulnsentinel.engines.impact_engine.runner import ImpactRunner
+from vulnsentinel.engines.notification.mailer import Mailer
+from vulnsentinel.engines.notification.runner import NotificationRunner
+from vulnsentinel.engines.reachability.runner import ReachabilityRunner
+from vulnsentinel.engines.vuln_analyzer.runner import VulnAnalyzerRunner
 from vulnsentinel.models.user import User
 from vulnsentinel.services import AuthenticationError
 from vulnsentinel.services.auth_service import AuthService
@@ -32,6 +39,7 @@ from vulnsentinel.services.library_service import LibraryService
 from vulnsentinel.services.project_service import ProjectService
 from vulnsentinel.services.stats_service import StatsService
 from vulnsentinel.services.upstream_vuln_service import UpstreamVulnService
+from z_code_analyzer.testing import FakeCodeAnalyzer
 
 # ---------------------------------------------------------------------------
 # DAO singletons
@@ -60,6 +68,35 @@ _dependency_scanner = DependencyScanner(_project_service, _library_service)
 _event_collector_runner = EventCollectorRunner(_library_service, _event_service)
 
 # ---------------------------------------------------------------------------
+# External clients
+# ---------------------------------------------------------------------------
+_github_client = GitHubClient()  # reads GITHUB_TOKEN from env
+_mailer = Mailer()  # reads SMTP env vars
+
+# ---------------------------------------------------------------------------
+# Engine runner singletons
+# ---------------------------------------------------------------------------
+_event_classifier_runner = EventClassifierRunner(
+    _event_service, _library_service, _github_client
+)
+_vuln_analyzer_runner = VulnAnalyzerRunner(
+    _event_service, _upstream_vuln_service, _library_service, _github_client
+)
+_impact_runner = ImpactRunner(_upstream_vuln_service, _client_vuln_service, _project_dependency_dao)
+_notification_runner = NotificationRunner(
+    _client_vuln_service, _upstream_vuln_service, _library_service, _project_service, _mailer
+)
+_code_analyzer = FakeCodeAnalyzer(reachable=True)  # TODO: replace with real CodeAnalyzer when infra is ready
+_reachability_runner = ReachabilityRunner(
+    _client_vuln_service,
+    _upstream_vuln_service,
+    _library_service,
+    _project_service,
+    _code_analyzer,
+    _github_client,
+)
+
+# ---------------------------------------------------------------------------
 # Engine / session factory (initialised by app lifespan)
 # ---------------------------------------------------------------------------
 _engine: AsyncEngine | None = None
@@ -70,7 +107,8 @@ def init_session_factory(database_url: str | None = None) -> async_sessionmaker[
     """Create the async engine and session factory. Called once at startup."""
     global _engine, _session_factory  # noqa: PLW0603
     url = database_url or os.environ.get(
-        "VULNSENTINEL_DATABASE_URL", "postgresql+asyncpg://localhost/vulnsentinel"
+        "VULNSENTINEL_DATABASE_URL",
+        os.environ.get("DATABASE_URL", "postgresql+asyncpg://localhost/vulnsentinel"),
     )
     _engine = create_async_engine(
         url,
@@ -162,3 +200,38 @@ def get_dependency_scanner() -> DependencyScanner:
 
 def get_event_collector_runner() -> EventCollectorRunner:
     return _event_collector_runner
+
+
+def get_github_client() -> GitHubClient:
+    return _github_client
+
+
+def get_project_dao() -> ProjectDAO:
+    return _project_dao
+
+
+def get_event_classifier_runner() -> EventClassifierRunner:
+    return _event_classifier_runner
+
+
+def get_vuln_analyzer_runner() -> VulnAnalyzerRunner:
+    return _vuln_analyzer_runner
+
+
+def get_impact_runner() -> ImpactRunner:
+    return _impact_runner
+
+
+def get_notification_runner() -> NotificationRunner:
+    return _notification_runner
+
+
+def get_reachability_runner() -> ReachabilityRunner:
+    return _reachability_runner
+
+
+def get_session_factory() -> async_sessionmaker[AsyncSession]:
+    """Return the session factory (must be initialised)."""
+    if _session_factory is None:
+        raise RuntimeError("call init_session_factory() before accessing session factory")
+    return _session_factory

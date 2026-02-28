@@ -74,16 +74,18 @@ class ProjectService:
         page = await self._project_dao.list_paginated(session, cursor, page_size)
         total = await self._project_dao.count(session)
 
-        # v1: loop per project for counts; v2: batch subquery
+        # Batch: 2 aggregate queries instead of 2*N individual queries
+        project_ids = [p.id for p in page.data]
+        counts = await self._project_dao.batch_counts(session, project_ids)
+
         items = []
         for project in page.data:
-            deps_count = await self._dep_dao.count_by_project(session, project.id)
-            vuln_count = await self._client_vuln_dao.active_count_by_project(session, project.id)
+            c = counts.get(project.id, {"deps_count": 0, "vuln_count": 0})
             items.append(
                 {
                     "project": project,
-                    "deps_count": deps_count,
-                    "vuln_count": vuln_count,
+                    "deps_count": c["deps_count"],
+                    "vuln_count": c["vuln_count"],
                 }
             )
 
@@ -218,15 +220,12 @@ class ProjectService:
     ) -> dict:
         """Return paginated dependencies for a project, enriched with library_name."""
         await self._ensure_project(session, project_id)
-        page = await self._dep_dao.list_by_project(session, project_id, cursor, page_size)
-
-        items = []
-        for dep in page.data:
-            lib = await session.get(Library, dep.library_id)
-            items.append({"dep": dep, "library_name": lib.name if lib else ""})
+        page = await self._dep_dao.list_by_project_with_library(
+            session, project_id, cursor, page_size,
+        )
 
         return {
-            "data": items,
+            "data": page.data,
             "next_cursor": page.next_cursor,
             "has_more": page.has_more,
         }
@@ -312,6 +311,10 @@ class ProjectService:
 
     # ── engine support ─────────────────────────────────────────────
 
+    async def list_due_for_scan(self, session: AsyncSession) -> list[Project]:
+        """Return projects due for a dependency scan."""
+        return await self._project_dao.list_due_for_scan(session)
+
     async def get_project(self, session: AsyncSession, project_id: uuid.UUID) -> Project | None:
         """Return raw Project model or None (no enrichment)."""
         return await self._project_dao.get_by_id(session, project_id)
@@ -321,6 +324,21 @@ class ProjectService:
     ) -> None:
         """Update last_scanned_at after a dependency scan."""
         await self._project_dao.update(session, project_id, last_scanned_at=last_scanned_at)
+
+    async def update_scan_status(
+        self,
+        session: AsyncSession,
+        project_id: uuid.UUID,
+        *,
+        status: str,
+        error: str | None,
+        detail: dict | None = None,
+    ) -> None:
+        """Update scan_status, scan_error, and scan_detail."""
+        kwargs: dict = {"scan_status": status, "scan_error": error}
+        if detail is not None:
+            kwargs["scan_detail"] = detail
+        await self._project_dao.update(session, project_id, **kwargs)
 
     async def sync_dependencies(
         self,

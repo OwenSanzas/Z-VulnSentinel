@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class DependencyInputSchema(BaseModel):
@@ -27,6 +27,11 @@ class CreateProjectRequest(BaseModel):
     auto_sync_deps: bool = True
     pinned_ref: str | None = None
     dependencies: list[DependencyInputSchema] | None = None
+
+    @field_validator("name", "repo_url", mode="before")
+    @classmethod
+    def _strip_whitespace(cls, v: str) -> str:
+        return v.strip() if isinstance(v, str) else v
 
 
 class UpdateProjectRequest(BaseModel):
@@ -55,6 +60,9 @@ class ProjectResponse(BaseModel):
     auto_sync_deps: bool
     pinned_ref: str | None
     last_scanned_at: datetime | None
+    scan_status: str
+    scan_error: str | None
+    scan_detail: dict | None = None
     created_at: datetime
 
 

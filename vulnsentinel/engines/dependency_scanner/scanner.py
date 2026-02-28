@@ -69,11 +69,36 @@ class DependencyScanner:
             return ScanResult(scanned=[], synced_count=0, deleted_count=0, skipped=True)
 
         ref = project.pinned_ref or project.default_branch
+        detail: dict = {}
 
-        # ── Clone + scan (no DB access) ──────────────────────────────────
-        scanned = await self._clone_and_scan(project.repo_url, ref)
+        # Mark as scanning — step: clone
+        detail["clone"] = "running"
+        await self._project_service.update_scan_status(
+            session, project_id, status="scanning", error=None, detail=detail,
+        )
+
+        try:
+            # ── Clone + scan (no DB access) ──────────────────────────────
+            scanned = await self._clone_and_scan(project.repo_url, ref)
+        except Exception as exc:
+            detail["clone"] = f"error: {exc}"
+            await self._project_service.update_scan_status(
+                session, project_id, status="error", error=str(exc), detail=detail,
+            )
+            raise
+
+        detail["clone"] = "ok"
+        detail["scan"] = "ok"
 
         # ── DB sync ──────────────────────────────────────────────────────
+        manifests = len({d.source_file for d in scanned})
+        detail["manifests"] = manifests
+        detail["deps_found"] = len(scanned)
+        detail["sync"] = "running"
+        await self._project_service.update_scan_status(
+            session, project_id, status="scanning", error=None, detail=detail,
+        )
+
         # Split into resolvable (has repo_url) and unresolved
         resolvable = [d for d in scanned if d.library_repo_url is not None]
         unresolved = [d for d in scanned if d.library_repo_url is None]
@@ -114,9 +139,15 @@ class DependencyScanner:
             session, project_id, dep_rows, keep_ids
         )
 
-        # Update project timestamp
+        # Update project timestamp + status
+        detail["sync"] = "ok"
+        detail["synced"] = synced_count
+        detail["deleted"] = deleted_count
         await self._project_service.update_scan_timestamp(
             session, project_id, datetime.now(timezone.utc)
+        )
+        await self._project_service.update_scan_status(
+            session, project_id, status="healthy", error=None, detail=detail,
         )
 
         return ScanResult(

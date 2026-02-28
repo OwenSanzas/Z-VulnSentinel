@@ -20,14 +20,12 @@ async def shallow_clone(repo_url: str, ref: str | None, workdir: Path) -> Path:
     """
     target = workdir / f"repo-{uuid.uuid4().hex[:8]}"
 
-    # Clone the repo (full history so any ref — branch, tag, SHA — works)
-    clone_cmd = ["git", "clone", "--", repo_url, str(target)]
-    await _run(clone_cmd)
-
-    # Checkout the requested ref if specified
+    # Shallow clone with --depth 1 for speed
+    clone_cmd = ["git", "clone", "--depth", "1"]
     if ref:
-        checkout_cmd = ["git", "-C", str(target), "checkout", ref]
-        await _run(checkout_cmd)
+        clone_cmd += ["--branch", ref, "--single-branch"]
+    clone_cmd += ["--", repo_url, str(target)]
+    await _run(clone_cmd)
 
     return target
 

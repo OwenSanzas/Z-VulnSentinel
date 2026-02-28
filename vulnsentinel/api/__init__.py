@@ -5,10 +5,26 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+import os
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from vulnsentinel.api.deps import dispose_engine, get_auth_service, init_session_factory
+from vulnsentinel.api.deps import (
+    dispose_engine,
+    get_auth_service,
+    get_dependency_scanner,
+    get_event_classifier_runner,
+    get_event_collector_runner,
+    get_github_client,
+    get_impact_runner,
+    get_notification_runner,
+    get_project_service,
+    get_reachability_runner,
+    get_vuln_analyzer_runner,
+    init_session_factory,
+)
 from vulnsentinel.api.errors import register_error_handlers
 from vulnsentinel.api.middleware.request_id import RequestIDMiddleware
 from vulnsentinel.api.routers import (
@@ -21,6 +37,7 @@ from vulnsentinel.api.routers import (
     upstream_vulns,
 )
 from vulnsentinel.core.logging import setup_logging
+from vulnsentinel.scheduler import create_scheduler
 
 BANNER = """
 \033[38;5;208m\
@@ -51,7 +68,22 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     async with factory() as session:
         async with session.begin():
             await auth_svc.ensure_admin_exists(session)
+
+    scheduler = create_scheduler(
+        factory,
+        scanner=get_dependency_scanner(),
+        project_service=get_project_service(),
+        event_collector_runner=get_event_collector_runner(),
+        github_client=get_github_client(),
+        event_classifier_runner=get_event_classifier_runner(),
+        vuln_analyzer_runner=get_vuln_analyzer_runner(),
+        impact_runner=get_impact_runner(),
+        notification_runner=get_notification_runner(),
+        reachability_runner=get_reachability_runner(),
+    )
+    await scheduler.start()
     yield
+    await scheduler.stop()
     await dispose_engine()
 
 
@@ -68,6 +100,15 @@ def create_app() -> FastAPI:
     )
 
     register_error_handlers(app)
+
+    cors_origins = os.environ.get("VULNSENTINEL_CORS_ORIGINS", "http://localhost:3000")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[o.strip() for o in cors_origins.split(",")],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.add_middleware(RequestIDMiddleware)
 
     @app.get("/health", tags=["ops"])

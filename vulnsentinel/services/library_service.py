@@ -8,7 +8,7 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vulnsentinel.dao.event_dao import EventDAO
-from vulnsentinel.dao.library_dao import LibraryConflictError, LibraryDAO
+from vulnsentinel.dao.library_dao import LibraryConflictError, LibraryDAO, _SENTINEL
 from vulnsentinel.dao.project_dao import ProjectDAO
 from vulnsentinel.dao.project_dependency_dao import ProjectDependencyDAO
 from vulnsentinel.models.library import Library
@@ -65,19 +65,34 @@ class LibraryService:
     async def list(
         self,
         session: AsyncSession,
-        cursor: str | None = None,
+        *,
+        page: int = 0,
         page_size: int = 20,
+        sort_by: str = "name",
+        sort_dir: str = "asc",
+        status: str | None = None,
+        ecosystem: str | None = None,
     ) -> dict:
-        """Return paginated library list with total count."""
-        page = await self._library_dao.list_paginated(session, cursor, page_size)
-        total = await self._library_dao.count(session)
-
+        """Return offset-paginated library list with sorting and filtering."""
+        libraries, used_by, total = await self._library_dao.list_offset(
+            session,
+            page=page,
+            page_size=page_size,
+            sort_by=sort_by,
+            sort_dir=sort_dir,
+            status=status,
+            ecosystem=ecosystem,
+        )
         return {
-            "data": page.data,
-            "next_cursor": page.next_cursor,
-            "has_more": page.has_more,
+            "data": libraries,
+            "used_by_counts": used_by,
+            "page": page,
             "total": total,
         }
+
+    async def health_summary(self, session: AsyncSession) -> dict:
+        """Return count of unhealthy libraries split by client usage."""
+        return await self._library_dao.health_summary(session)
 
     async def count(self, session: AsyncSession) -> int:
         """Return total number of libraries."""
@@ -91,6 +106,7 @@ class LibraryService:
         repo_url: str,
         platform: str = "github",
         default_branch: str = "main",
+        ecosystem: str = "c_cpp",
     ) -> Library:
         """Idempotent library registration.
 
@@ -106,6 +122,7 @@ class LibraryService:
                 repo_url=repo_url,
                 platform=platform,
                 default_branch=default_branch,
+                ecosystem=ecosystem,
             )
         except LibraryConflictError as exc:
             raise ConflictError(str(exc)) from exc
@@ -115,7 +132,7 @@ class LibraryService:
         return await self._library_dao.get_by_id(session, library_id)
 
     async def list_due_for_collect(
-        self, session: AsyncSession, interval_minutes: int = 75
+        self, session: AsyncSession, interval_minutes: int | None = None,
     ) -> list[Library]:
         """Return GitHub libraries due for event collection."""
         return await self._library_dao.list_due_for_collect(session, interval_minutes)
@@ -127,7 +144,10 @@ class LibraryService:
         *,
         latest_commit_sha: str | None = None,
         latest_tag_version: str | None = None,
-        last_activity_at: datetime | None = None,
+        last_scanned_at: datetime | None = None,
+        collect_status: str | None = None,
+        collect_error: str | None = _SENTINEL,
+        collect_detail: dict | None = _SENTINEL,
     ) -> None:
         """Update monitoring pointers (COALESCE skips None values)."""
         await self._library_dao.update_pointers(
@@ -135,5 +155,8 @@ class LibraryService:
             pk,
             latest_commit_sha=latest_commit_sha,
             latest_tag_version=latest_tag_version,
-            last_activity_at=last_activity_at,
+            last_scanned_at=last_scanned_at,
+            collect_status=collect_status,
+            collect_error=collect_error,
+            collect_detail=collect_detail,
         )

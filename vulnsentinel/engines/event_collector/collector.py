@@ -29,13 +29,14 @@ async def collect(
     since: datetime | None = None,
     last_sha: str | None = None,
     latest_tag: str | None = None,
-) -> tuple[list[CollectedEvent], list[str]]:
+) -> tuple[list[CollectedEvent], list[str], dict[str, str]]:
     """Collect events from the GitHub API for a single repository.
 
-    Returns ``(events, errors)`` — *events* is a flat list of
-    :class:`CollectedEvent` instances and *errors* contains one message
-    per sub-collector that failed.  This function is pure — it never
-    touches the database.
+    Returns ``(events, errors, detail)`` — *events* is a flat list of
+    :class:`CollectedEvent` instances, *errors* contains one message
+    per sub-collector that failed, and *detail* maps each sub-collector
+    name to ``"ok"`` or an error string.  This function is pure — it
+    never touches the database.
     """
     # First-time collection: limit scope
     first_time = since is None
@@ -43,7 +44,7 @@ async def collect(
         since = datetime.now(timezone.utc) - timedelta(days=_FIRST_COLLECT_DAYS)
     max_pages = _FIRST_COLLECT_MAX_PAGES if first_time else _DEFAULT_MAX_PAGES
 
-    sub_task_names = ["commits", "prs", "tags", "issues"]
+    sub_task_names = ["commits", "prs", "tags", "issues", "ghsa"]
     results = await asyncio.gather(
         _collect_commits(
             client, owner, repo, branch=branch, since=since, last_sha=last_sha, max_pages=max_pages
@@ -51,14 +52,17 @@ async def collect(
         _collect_prs(client, owner, repo, since=since, max_pages=max_pages),
         _collect_tags(client, owner, repo, latest_tag=latest_tag, max_pages=max_pages),
         _collect_issues(client, owner, repo, since=since, max_pages=max_pages),
+        _collect_ghsa(client, owner, repo, since=since, max_pages=max_pages),
         return_exceptions=True,
     )
 
     events: list[CollectedEvent] = []
     errors: list[str] = []
+    detail: dict[str, str] = {}
     for name, result in zip(sub_task_names, results, strict=False):
         if isinstance(result, BaseException):
-            msg = f"collect_{name} failed for {owner}/{repo}: {type(result).__name__}: {result}"
+            err_msg = f"{type(result).__name__}: {result}"
+            msg = f"collect_{name} failed for {owner}/{repo}: {err_msg}"
             log.error(
                 "collector.sub_failed",
                 collector=name,
@@ -66,14 +70,16 @@ async def collect(
                 error=str(result),
             )
             errors.append(msg)
+            detail[name] = err_msg
             continue
         events.extend(result)
+        detail[name] = "ok"
 
     # Enrich with cross-references
     for ev in events:
         parse_refs(ev, owner, repo)
 
-    return events, errors
+    return events, errors, detail
 
 
 # ── sub-collectors ────────────────────────────────────────────────────────
@@ -250,6 +256,44 @@ async def _collect_issues(
                 author=item.get("user", {}).get("login"),
                 event_at=created_at,
                 message=item.get("body"),
+            )
+        )
+    return events
+
+
+async def _collect_ghsa(
+    client: GitHubClient,
+    owner: str,
+    repo: str,
+    *,
+    since: datetime,
+    max_pages: int,
+) -> list[CollectedEvent]:
+    """GET /repos/{owner}/{repo}/security-advisories — published advisories."""
+    params: dict = {
+        "state": "published",
+        "per_page": "30",
+    }
+    events: list[CollectedEvent] = []
+    async for item in client.get_paginated(
+        f"/repos/{owner}/{repo}/security-advisories", params, max_pages=max_pages
+    ):
+        published_at = _parse_datetime(item.get("published_at"))
+        if published_at and published_at < since:
+            continue
+
+        ghsa_id = item.get("ghsa_id", "")
+        summary = item.get("summary", "")
+        severity = item.get("severity")
+
+        events.append(
+            CollectedEvent(
+                type="ghsa",
+                ref=ghsa_id,
+                title=summary,
+                source_url=item.get("html_url"),
+                event_at=published_at,
+                message=item.get("description"),
             )
         )
     return events

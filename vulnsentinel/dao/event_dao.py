@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from vulnsentinel.dao.base import BaseDAO, Page
 from vulnsentinel.models.event import Event
+from vulnsentinel.models.project_dependency import ProjectDependency
 from vulnsentinel.models.upstream_vuln import UpstreamVuln
 
 
@@ -45,11 +46,17 @@ class EventDAO(BaseDAO[Event]):
     async def list_unclassified(self, session: AsyncSession, limit: int) -> list[Event]:
         """Return unclassified events for ClassifierEngine polling.
 
-        Uses idx_events_unclassified partial index.
+        Only includes events whose library is used by at least one project,
+        to avoid wasting LLM calls on libraries nobody depends on.
         """
+        has_dep = (
+            select(ProjectDependency.id)
+            .where(ProjectDependency.library_id == Event.library_id)
+            .exists()
+        )
         stmt = (
             select(Event)
-            .where(Event.classification.is_(None))
+            .where(Event.classification.is_(None), has_dep)
             .order_by(Event.created_at.desc())
             .limit(limit)
         )
@@ -59,12 +66,17 @@ class EventDAO(BaseDAO[Event]):
     async def list_bugfix_without_vuln(self, session: AsyncSession, limit: int) -> list[Event]:
         """Return bugfix events without an upstream_vuln record (AnalyzerEngine).
 
-        SQL: WHERE is_bugfix = TRUE AND NOT EXISTS (SELECT 1 FROM upstream_vulns ...)
+        Only includes events whose library is used by at least one project.
         """
+        has_dep = (
+            select(ProjectDependency.id)
+            .where(ProjectDependency.library_id == Event.library_id)
+            .exists()
+        )
         vuln_exists = select(UpstreamVuln.id).where(UpstreamVuln.event_id == Event.id).exists()
         stmt = (
             select(Event)
-            .where(Event.is_bugfix.is_(True), ~vuln_exists)
+            .where(Event.is_bugfix.is_(True), ~vuln_exists, has_dep)
             .order_by(Event.created_at.desc())
             .limit(limit)
         )

@@ -50,21 +50,29 @@ class EventCollectorRunner:
             return result
 
         if library.platform != "github":
-            result.errors.append(f"unsupported platform: {library.platform}")
+            err = f"unsupported platform: {library.platform}"
+            result.errors.append(err)
+            await self._library_service.update_pointers(
+                session, library_id, collect_status="unhealthy", collect_error=err
+            )
             return result
 
         try:
             owner, repo = parse_repo_url(library.repo_url)
         except ValueError as exc:
-            result.errors.append(str(exc))
+            err = str(exc)
+            result.errors.append(err)
+            await self._library_service.update_pointers(
+                session, library_id, collect_status="unhealthy", collect_error=err
+            )
             return result
 
-        events, collect_errors = await collect(
+        events, collect_errors, collect_detail = await collect(
             client,
             owner,
             repo,
             branch=library.default_branch,
-            since=library.last_activity_at,
+            since=library.last_scanned_at or library.created_at,
             last_sha=library.latest_commit_sha,
             latest_tag=library.latest_tag_version,
         )
@@ -74,13 +82,21 @@ class EventCollectorRunner:
         result.by_type = count_by_type(events)
 
         if not events:
-            # Update last_activity_at only if no errors — if all sub-collectors
-            # failed we want to retry on the next cycle, not suppress for 75 min.
             if not collect_errors:
                 await self._library_service.update_pointers(
                     session,
                     library_id,
-                    last_activity_at=datetime.now(timezone.utc),
+                    last_scanned_at=datetime.now(timezone.utc),
+                    collect_status="healthy",
+                    collect_error=None,
+                    collect_detail=collect_detail,
+                )
+            else:
+                await self._library_service.update_pointers(
+                    session, library_id,
+                    collect_status="unhealthy",
+                    collect_error="; ".join(collect_errors),
+                    collect_detail=collect_detail,
                 )
             return result
 
@@ -108,7 +124,10 @@ class EventCollectorRunner:
             library_id,
             latest_commit_sha=new_sha,
             latest_tag_version=new_tag,
-            last_activity_at=datetime.now(timezone.utc),
+            last_scanned_at=datetime.now(timezone.utc),
+            collect_status="unhealthy" if collect_errors else "healthy",
+            collect_error="; ".join(collect_errors) if collect_errors else None,
+            collect_detail=collect_detail,
         )
 
         return result
@@ -137,6 +156,16 @@ class EventCollectorRunner:
                             return await self.run(session, lib_id, client)
                 except Exception as exc:
                     log.error("collector.failed", library_id=str(lib_id), error=str(exc))
+                    try:
+                        async with session_factory() as err_session:
+                            async with err_session.begin():
+                                await self._library_service.update_pointers(
+                                    err_session, lib_id,
+                                    collect_status="unhealthy",
+                                    collect_error=str(exc),
+                                )
+                    except Exception:
+                        log.warning("collector.status_update_failed", library_id=str(lib_id))
                     r = CollectResult(library_id=lib_id)
                     r.errors.append(str(exc))
                     return r

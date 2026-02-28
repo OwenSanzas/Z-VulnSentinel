@@ -183,13 +183,13 @@ class TestUpdatePointers:
             lib.id,
             latest_commit_sha="abc123",
             latest_tag_version="v1.0.0",
-            last_activity_at=now,
+            last_scanned_at=now,
         )
         await session.refresh(lib)
 
         assert lib.latest_commit_sha == "abc123"
         assert lib.latest_tag_version == "v1.0.0"
-        assert lib.last_activity_at == now
+        assert lib.last_scanned_at == now
 
     async def test_update_partial_pointers(self, dao, session):
         """Only the provided pointers should change; others stay None."""
@@ -200,7 +200,7 @@ class TestUpdatePointers:
 
         assert lib.latest_commit_sha == "def456"
         assert lib.latest_tag_version is None
-        assert lib.last_activity_at is None
+        assert lib.last_scanned_at is None
 
     async def test_update_preserves_existing_values(self, dao, session):
         """COALESCE: None param should not overwrite existing value."""
@@ -213,7 +213,7 @@ class TestUpdatePointers:
             lib.id,
             latest_commit_sha="first",
             latest_tag_version="v1.0",
-            last_activity_at=now,
+            last_scanned_at=now,
         )
         # Second update: only commit_sha, others None
         await dao.update_pointers(session, lib.id, latest_commit_sha="second")
@@ -221,7 +221,7 @@ class TestUpdatePointers:
 
         assert lib.latest_commit_sha == "second"
         assert lib.latest_tag_version == "v1.0"  # preserved
-        assert lib.last_activity_at == now  # preserved
+        assert lib.last_scanned_at == now  # preserved
 
     async def test_update_pointers_none_pk_raises(self, dao, session):
         with pytest.raises(ValueError, match="pk must not be None"):

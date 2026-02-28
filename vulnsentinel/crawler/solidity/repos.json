@@ -1,0 +1,602 @@
+[
+  {
+    "name": "OpenZeppelin/openzeppelin-contracts",
+    "repo_url": "https://github.com/OpenZeppelin/openzeppelin-contracts",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "OpenZeppelin/openzeppelin-contracts-upgradeable",
+    "repo_url": "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "smartcontractkit/chainlink",
+    "repo_url": "https://github.com/smartcontractkit/chainlink",
+    "default_branch": "develop",
+    "platform": "github"
+  },
+  {
+    "name": "Uniswap/v3-core",
+    "repo_url": "https://github.com/Uniswap/v3-core",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "Uniswap/v4-core",
+    "repo_url": "https://github.com/Uniswap/v4-core",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "aave/aave-v3-core",
+    "repo_url": "https://github.com/aave/aave-v3-core",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "compound-finance/compound-protocol",
+    "repo_url": "https://github.com/compound-finance/compound-protocol",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "transmissions11/solmate",
+    "repo_url": "https://github.com/transmissions11/solmate",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "Vectorized/solady",
+    "repo_url": "https://github.com/Vectorized/solady",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "foundry-rs/forge-std",
+    "repo_url": "https://github.com/foundry-rs/forge-std",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "safe-fndn/safe-smart-account",
+    "repo_url": "https://github.com/safe-fndn/safe-smart-account",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "AmazingAng/WTF-Solidity",
+    "repo_url": "https://github.com/AmazingAng/WTF-Solidity",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "SunWeb3Sec/DeFiHackLabs",
+    "repo_url": "https://github.com/SunWeb3Sec/DeFiHackLabs",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "Dapp-Learning-DAO/Dapp-Learning",
+    "repo_url": "https://github.com/Dapp-Learning-DAO/Dapp-Learning",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "QuipNetwork/hashsigs-solidity",
+    "repo_url": "https://github.com/QuipNetwork/hashsigs-solidity",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "fravoll/solidity-patterns",
+    "repo_url": "https://github.com/fravoll/solidity-patterns",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "lens-protocol/core",
+    "repo_url": "https://github.com/lens-protocol/core",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "Aircoin-official/AirCash",
+    "repo_url": "https://github.com/Aircoin-official/AirCash",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "crytic/building-secure-contracts",
+    "repo_url": "https://github.com/crytic/building-secure-contracts",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "OpenZeppelin/ethernaut",
+    "repo_url": "https://github.com/OpenZeppelin/ethernaut",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "ProjectOpenSea/seaport",
+    "repo_url": "https://github.com/ProjectOpenSea/seaport",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "crytic/not-so-smart-contracts",
+    "repo_url": "https://github.com/crytic/not-so-smart-contracts",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "libevm/subway",
+    "repo_url": "https://github.com/libevm/subway",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "willitscale/learning-solidity",
+    "repo_url": "https://github.com/willitscale/learning-solidity",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "paco0x/amm-arbitrageur",
+    "repo_url": "https://github.com/paco0x/amm-arbitrageur",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "LayerZero-Labs/LayerZero-v1",
+    "repo_url": "https://github.com/LayerZero-Labs/LayerZero-v1",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "SunWeb3Sec/DeFiVulnLabs",
+    "repo_url": "https://github.com/SunWeb3Sec/DeFiVulnLabs",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "Cyfrin/security-and-auditing-full-course-s23",
+    "repo_url": "https://github.com/Cyfrin/security-and-auditing-full-course-s23",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "coinspect/learn-evm-attacks",
+    "repo_url": "https://github.com/coinspect/learn-evm-attacks",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "ZhangZhuoSJTU/Web3Bugs",
+    "repo_url": "https://github.com/ZhangZhuoSJTU/Web3Bugs",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "33357/smartcontract-apps",
+    "repo_url": "https://github.com/33357/smartcontract-apps",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "d-xo/weird-erc20",
+    "repo_url": "https://github.com/d-xo/weird-erc20",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "Ridera-Rwa/Ridera-core",
+    "repo_url": "https://github.com/Ridera-Rwa/Ridera-core",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "dragonfly-xyz/useful-solidity-patterns",
+    "repo_url": "https://github.com/dragonfly-xyz/useful-solidity-patterns",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "inference-labs-inc/inference-network",
+    "repo_url": "https://github.com/inference-labs-inc/inference-network",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "dukedaily/solidity-expert",
+    "repo_url": "https://github.com/dukedaily/solidity-expert",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "smartcontractkit/Web3_tutorial_Chinese",
+    "repo_url": "https://github.com/smartcontractkit/Web3_tutorial_Chinese",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "cubxxw/awesome-cs-cloudnative-blockchain",
+    "repo_url": "https://github.com/cubxxw/awesome-cs-cloudnative-blockchain",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "Uniswap/v2-periphery",
+    "repo_url": "https://github.com/Uniswap/v2-periphery",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "ExtropyIO/defi-bot",
+    "repo_url": "https://github.com/ExtropyIO/defi-bot",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "0xisk/awesome-solidity-gas-optimization",
+    "repo_url": "https://github.com/0xisk/awesome-solidity-gas-optimization",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "m1guelpf/lil-web3",
+    "repo_url": "https://github.com/m1guelpf/lil-web3",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "Arachnid/solidity-stringutils",
+    "repo_url": "https://github.com/Arachnid/solidity-stringutils",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "thirdweb-dev/contracts",
+    "repo_url": "https://github.com/thirdweb-dev/contracts",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "minaminao/ctf-blockchain",
+    "repo_url": "https://github.com/minaminao/ctf-blockchain",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "nibbstack/erc721",
+    "repo_url": "https://github.com/nibbstack/erc721",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "studydefi/money-legos",
+    "repo_url": "https://github.com/studydefi/money-legos",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "0xmetaschool/Learning-Projects",
+    "repo_url": "https://github.com/0xmetaschool/Learning-Projects",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "PaulRBerg/prb-math",
+    "repo_url": "https://github.com/PaulRBerg/prb-math",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "rocket-pool/rocketpool",
+    "repo_url": "https://github.com/rocket-pool/rocketpool",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "bacen/pilotord-kit-onboarding",
+    "repo_url": "https://github.com/bacen/pilotord-kit-onboarding",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "bnb-chain/BEPs",
+    "repo_url": "https://github.com/bnb-chain/BEPs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "spo0ds/Journey-to-become-a-Blockchain-Engineer",
+    "repo_url": "https://github.com/spo0ds/Journey-to-become-a-Blockchain-Engineer",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "foundry-rs/book",
+    "repo_url": "https://github.com/foundry-rs/book",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "Uniswap/permit2",
+    "repo_url": "https://github.com/Uniswap/permit2",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "sky-ecosystem/multicall",
+    "repo_url": "https://github.com/sky-ecosystem/multicall",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "Uniswap/v4-periphery",
+    "repo_url": "https://github.com/Uniswap/v4-periphery",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "luyishisi/shisi.eth-in-web3",
+    "repo_url": "https://github.com/luyishisi/shisi.eth-in-web3",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "HashLips/hashlips_nft_contract",
+    "repo_url": "https://github.com/HashLips/hashlips_nft_contract",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "xtblock/xtt",
+    "repo_url": "https://github.com/xtblock/xtt",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "PatrickAlphaC/nft-mix",
+    "repo_url": "https://github.com/PatrickAlphaC/nft-mix",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "sky-ecosystem/dss",
+    "repo_url": "https://github.com/sky-ecosystem/dss",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "provable-things/ethereum-api",
+    "repo_url": "https://github.com/provable-things/ethereum-api",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "celo-org/celo-monorepo",
+    "repo_url": "https://github.com/celo-org/celo-monorepo",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "bnb-chain/bsc-genesis-contract",
+    "repo_url": "https://github.com/bnb-chain/bsc-genesis-contract",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "ethereum-optimism/optimism-tutorial",
+    "repo_url": "https://github.com/ethereum-optimism/optimism-tutorial",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "coinbase/build-onchain-apps",
+    "repo_url": "https://github.com/coinbase/build-onchain-apps",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "OpenZeppelin/damn-vulnerable-defi",
+    "repo_url": "https://github.com/OpenZeppelin/damn-vulnerable-defi",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "runtimeverification/verified-smart-contracts",
+    "repo_url": "https://github.com/runtimeverification/verified-smart-contracts",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "OlympusDAO/olympus-contracts",
+    "repo_url": "https://github.com/OlympusDAO/olympus-contracts",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "Layr-Labs/eigenlayer-contracts",
+    "repo_url": "https://github.com/Layr-Labs/eigenlayer-contracts",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "Decurity/semgrep-smart-contracts",
+    "repo_url": "https://github.com/Decurity/semgrep-smart-contracts",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "jamesbachini/DEX-Arbitrage",
+    "repo_url": "https://github.com/jamesbachini/DEX-Arbitrage",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "aragon/aragonOS",
+    "repo_url": "https://github.com/aragon/aragonOS",
+    "default_branch": "next",
+    "platform": "github"
+  },
+  {
+    "name": "Giveth/minime",
+    "repo_url": "https://github.com/Giveth/minime",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "WTFAcademy/WTF-Dapp",
+    "repo_url": "https://github.com/WTFAcademy/WTF-Dapp",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "ethereum/ERCs",
+    "repo_url": "https://github.com/ethereum/ERCs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "safemoonprotocol/Safemoon.sol",
+    "repo_url": "https://github.com/safemoonprotocol/Safemoon.sol",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "PaulRBerg/foundry-template",
+    "repo_url": "https://github.com/PaulRBerg/foundry-template",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "Cyfrin/foundry-devops",
+    "repo_url": "https://github.com/Cyfrin/foundry-devops",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "CodeforDAO/contracts",
+    "repo_url": "https://github.com/CodeforDAO/contracts",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "eth-sri/securify2",
+    "repo_url": "https://github.com/eth-sri/securify2",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "yam-finance/yam-protocol",
+    "repo_url": "https://github.com/yam-finance/yam-protocol",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "1inch/1inchProtocol",
+    "repo_url": "https://github.com/1inch/1inchProtocol",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "Cyfrin/sc-exploits-minimized",
+    "repo_url": "https://github.com/Cyfrin/sc-exploits-minimized",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "andrecronje/rarity",
+    "repo_url": "https://github.com/andrecronje/rarity",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "argentlabs/argent-contracts",
+    "repo_url": "https://github.com/argentlabs/argent-contracts",
+    "default_branch": "develop",
+    "platform": "github"
+  },
+  {
+    "name": "aave/flashloan-box",
+    "repo_url": "https://github.com/aave/flashloan-box",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "ethereum-optimism/cannon",
+    "repo_url": "https://github.com/ethereum-optimism/cannon",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "HashLips/solidity_smart_contracts",
+    "repo_url": "https://github.com/HashLips/solidity_smart_contracts",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "pcaversaccio/snekmate",
+    "repo_url": "https://github.com/pcaversaccio/snekmate",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "Anish-Agnihotri/flashside",
+    "repo_url": "https://github.com/Anish-Agnihotri/flashside",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "ethereum/solidity-examples",
+    "repo_url": "https://github.com/ethereum/solidity-examples",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "solidquant/mev-templates",
+    "repo_url": "https://github.com/solidquant/mev-templates",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "GNSPS/solidity-bytes-utils",
+    "repo_url": "https://github.com/GNSPS/solidity-bytes-utils",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "stakewithus/defi-by-example",
+    "repo_url": "https://github.com/stakewithus/defi-by-example",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "0xacme/ERC404",
+    "repo_url": "https://github.com/0xacme/ERC404",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "mevcheb/optimal-sandwich",
+    "repo_url": "https://github.com/mevcheb/optimal-sandwich",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "paradigmxyz/paradigm-ctf-2021",
+    "repo_url": "https://github.com/paradigmxyz/paradigm-ctf-2021",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "pedrobergamini/flashloaner-contract",
+    "repo_url": "https://github.com/pedrobergamini/flashloaner-contract",
+    "default_branch": "master",
+    "platform": "github"
+  }
+]

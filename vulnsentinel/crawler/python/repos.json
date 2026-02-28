@@ -1,0 +1,560 @@
+[
+  {
+    "name": "boto3",
+    "repo_url": "https://github.com/boto/boto3",
+    "default_branch": "develop",
+    "platform": "github"
+  },
+  {
+    "name": "urllib3",
+    "repo_url": "https://github.com/urllib3/urllib3",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "botocore",
+    "repo_url": "https://github.com/boto/botocore",
+    "default_branch": "develop",
+    "platform": "github"
+  },
+  {
+    "name": "packaging",
+    "repo_url": "https://github.com/pypa/packaging",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "certifi",
+    "repo_url": "https://github.com/certifi/python-certifi",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "typing-extensions",
+    "repo_url": "https://github.com/python/typing_extensions",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "requests",
+    "repo_url": "https://github.com/psf/requests",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "setuptools",
+    "repo_url": "https://github.com/pypa/setuptools",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "idna",
+    "repo_url": "https://github.com/kjd/idna",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "charset-normalizer",
+    "repo_url": "https://github.com/jawah/charset_normalizer",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "aiobotocore",
+    "repo_url": "https://github.com/aio-libs/aiobotocore",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "python-dateutil",
+    "repo_url": "https://github.com/dateutil/dateutil",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "six",
+    "repo_url": "https://github.com/benjaminp/six",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "s3transfer",
+    "repo_url": "https://github.com/boto/s3transfer",
+    "default_branch": "develop",
+    "platform": "github"
+  },
+  {
+    "name": "numpy",
+    "repo_url": "https://github.com/numpy/numpy",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "cryptography",
+    "repo_url": "https://github.com/pyca/cryptography",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "pyyaml",
+    "repo_url": "https://github.com/yaml/pyyaml",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "cffi",
+    "repo_url": "https://github.com/python-cffi/cffi",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "pydantic",
+    "repo_url": "https://github.com/pydantic/pydantic",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "fsspec",
+    "repo_url": "https://github.com/fsspec/filesystem_spec",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "s3fs",
+    "repo_url": "https://github.com/fsspec/s3fs",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "pycparser",
+    "repo_url": "https://github.com/eliben/pycparser",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "click",
+    "repo_url": "https://github.com/pallets/click",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "pygments",
+    "repo_url": "https://github.com/pygments/pygments",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "pandas",
+    "repo_url": "https://github.com/pandas-dev/pandas",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "attrs",
+    "repo_url": "https://github.com/python-attrs/attrs",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "pydantic-core",
+    "repo_url": "https://github.com/pydantic/pydantic-core",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "pytest",
+    "repo_url": "https://github.com/pytest-dev/pytest",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "markupsafe",
+    "repo_url": "https://github.com/pallets/markupsafe",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "jmespath",
+    "repo_url": "https://github.com/jmespath/jmespath.py",
+    "default_branch": "develop",
+    "platform": "github"
+  },
+  {
+    "name": "h11",
+    "repo_url": "https://github.com/python-hyper/h11",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "pip",
+    "repo_url": "https://github.com/pypa/pip",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "platformdirs",
+    "repo_url": "https://github.com/tox-dev/platformdirs",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "anyio",
+    "repo_url": "https://github.com/agronholm/anyio",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "iniconfig",
+    "repo_url": "https://github.com/pytest-dev/iniconfig",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "rsa",
+    "repo_url": "https://github.com/sybrenstuvel/python-rsa",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "awscli",
+    "repo_url": "https://github.com/aws/aws-cli",
+    "default_branch": "develop",
+    "platform": "github"
+  },
+  {
+    "name": "annotated-types",
+    "repo_url": "https://github.com/annotated-types/annotated-types",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "jinja2",
+    "repo_url": "https://github.com/pallets/jinja",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "importlib-metadata",
+    "repo_url": "https://github.com/python/importlib_metadata",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "pyasn1",
+    "repo_url": "https://github.com/pyasn1/pyasn1",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "zipp",
+    "repo_url": "https://github.com/jaraco/zipp",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "wheel",
+    "repo_url": "https://github.com/pypa/wheel",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "httpx",
+    "repo_url": "https://github.com/encode/httpx",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "tzdata",
+    "repo_url": "https://github.com/python/tzdata",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "pyjwt",
+    "repo_url": "https://github.com/jpadilla/pyjwt",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "httpcore",
+    "repo_url": "https://github.com/encode/httpcore",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "pathspec",
+    "repo_url": "https://github.com/cpburnz/python-pathspec",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "google-auth",
+    "repo_url": "https://github.com/googleapis/google-auth-library-python",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "typing-inspection",
+    "repo_url": "https://github.com/pydantic/typing-inspection",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "opentelemetry-proto",
+    "repo_url": "https://github.com/open-telemetry/opentelemetry-python",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "aiohttp",
+    "repo_url": "https://github.com/aio-libs/aiohttp",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "google-api-core",
+    "repo_url": "https://github.com/googleapis/google-cloud-python",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "jsonschema",
+    "repo_url": "https://github.com/python-jsonschema/jsonschema",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "colorama",
+    "repo_url": "https://github.com/tartley/colorama",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "pyasn1-modules",
+    "repo_url": "https://github.com/pyasn1/pyasn1-modules",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "python-dotenv",
+    "repo_url": "https://github.com/theskumar/python-dotenv",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "virtualenv",
+    "repo_url": "https://github.com/pypa/virtualenv",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "multidict",
+    "repo_url": "https://github.com/aio-libs/multidict",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "yarl",
+    "repo_url": "https://github.com/aio-libs/yarl",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "opentelemetry-exporter-otlp-proto-grpc",
+    "repo_url": "https://github.com/open-telemetry/opentelemetry-python",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "googleapis-common-protos",
+    "repo_url": "https://github.com/googleapis/google-cloud-python",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "requests-oauthlib",
+    "repo_url": "https://github.com/requests/requests-oauthlib",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "wrapt",
+    "repo_url": "https://github.com/GrahamDumpleton/wrapt",
+    "default_branch": "develop",
+    "platform": "github"
+  },
+  {
+    "name": "tomli",
+    "repo_url": "https://github.com/hukkin/tomli",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "rich",
+    "repo_url": "https://github.com/Textualize/rich",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "opentelemetry-sdk",
+    "repo_url": "https://github.com/open-telemetry/opentelemetry-python",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "frozenlist",
+    "repo_url": "https://github.com/aio-libs/frozenlist",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "pyarrow",
+    "repo_url": "https://github.com/apache/arrow",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "grpcio",
+    "repo_url": "https://github.com/grpc/grpc",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "tqdm",
+    "repo_url": "https://github.com/tqdm/tqdm",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "sqlalchemy",
+    "repo_url": "https://github.com/sqlalchemy/sqlalchemy",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "propcache",
+    "repo_url": "https://github.com/aio-libs/propcache",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "greenlet",
+    "repo_url": "https://github.com/python-greenlet/greenlet",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "aiosignal",
+    "repo_url": "https://github.com/aio-libs/aiosignal",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "rpds-py",
+    "repo_url": "https://github.com/crate-py/rpds",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "opentelemetry-exporter-otlp-proto-http",
+    "repo_url": "https://github.com/open-telemetry/opentelemetry-python",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "referencing",
+    "repo_url": "https://github.com/python-jsonschema/referencing",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "markdown-it-py",
+    "repo_url": "https://github.com/executablebooks/markdown-it-py",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "scipy",
+    "repo_url": "https://github.com/scipy/scipy",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "psutil",
+    "repo_url": "https://github.com/giampaolo/psutil",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "yandexcloud",
+    "repo_url": "https://github.com/yandex-cloud/python-sdk",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "pyparsing",
+    "repo_url": "https://github.com/pyparsing/pyparsing",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "pillow",
+    "repo_url": "https://github.com/python-pillow/Pillow",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "jsonschema-specifications",
+    "repo_url": "https://github.com/python-jsonschema/jsonschema-specifications",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "mdurl",
+    "repo_url": "https://github.com/executablebooks/mdurl",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "cachetools",
+    "repo_url": "https://github.com/tkem/cachetools",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "oauthlib",
+    "repo_url": "https://github.com/oauthlib/oauthlib",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "trove-classifiers",
+    "repo_url": "https://github.com/pypa/trove-classifiers",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "aiohappyeyeballs",
+    "repo_url": "https://github.com/aio-libs/aiohappyeyeballs",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "starlette",
+    "repo_url": "https://github.com/Kludex/starlette",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "opentelemetry-exporter-otlp",
+    "repo_url": "https://github.com/open-telemetry/opentelemetry-python",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "grpcio-tools",
+    "repo_url": "https://github.com/grpc/grpc",
+    "default_branch": "master",
+    "platform": "github"
+  }
+]

@@ -50,11 +50,13 @@ def _library(lib_id: uuid.UUID | None = None) -> Library:
         name="curl",
         repo_url="https://github.com/curl/curl",
         platform="github",
+        ecosystem="c_cpp",
         default_branch="main",
         latest_tag_version="8.5.0",
         latest_commit_sha="abc123",
         monitoring_since=NOW,
-        last_activity_at=NOW,
+        last_scanned_at=NOW,
+        collect_status="healthy",
         created_at=NOW,
         updated_at=NOW,
     )
@@ -325,8 +327,8 @@ class TestLibrariesRouter:
         mock_svc.list = AsyncMock(
             return_value={
                 "data": [lib],
-                "next_cursor": None,
-                "has_more": False,
+                "used_by_counts": {},
+                "page": 0,
                 "total": 1,
             }
         )
@@ -348,8 +350,8 @@ class TestLibrariesRouter:
         mock_svc.list = AsyncMock(
             return_value={
                 "data": [_library()],
-                "next_cursor": "abc",
-                "has_more": True,
+                "used_by_counts": {},
+                "page": 0,
                 "total": 5,
             }
         )
@@ -359,20 +361,7 @@ class TestLibrariesRouter:
         assert resp.status_code == 200
         data = resp.json()
         assert data["meta"]["has_more"] is True
-        assert data["meta"]["next_cursor"] == "abc"
-
-    @pytest.mark.asyncio
-    async def test_list_libraries_invalid_cursor(self, app, client):
-        from vulnsentinel.api import deps
-        from vulnsentinel.dao.base import InvalidCursorError
-
-        mock_svc = AsyncMock()
-        mock_svc.list = AsyncMock(side_effect=InvalidCursorError("invalid cursor: 'bad'"))
-        app.dependency_overrides[deps.get_library_service] = lambda: mock_svc
-
-        resp = await client.get("/api/v1/libraries/?cursor=bad")
-        assert resp.status_code == 422
-        assert "invalid cursor" in resp.json()["detail"]
+        assert data["meta"]["total_pages"] == 5
 
     @pytest.mark.asyncio
     async def test_get_library(self, app, client):
@@ -846,12 +835,34 @@ class TestUpstreamVulnsRouter:
         )
         app.dependency_overrides[deps.get_upstream_vuln_service] = lambda: mock_svc
 
+        # Mock session.execute for enrichment queries (library_name, project_names, dep versions)
+        from types import SimpleNamespace
+
+        mock_session = AsyncMock()
+        mock_lib_result = MagicMock()
+        mock_lib_result.scalar_one_or_none.return_value = "libcurl"
+        mock_proj_result = MagicMock()
+        mock_proj_result.__iter__ = MagicMock(return_value=iter([
+            SimpleNamespace(id=cv.project_id, name="test-project"),
+        ]))
+        mock_dep_result = MagicMock()
+        mock_dep_result.__iter__ = MagicMock(return_value=iter([
+            SimpleNamespace(project_id=cv.project_id, resolved_version="8.4.0"),
+        ]))
+        mock_session.execute = AsyncMock(side_effect=[mock_lib_result, mock_proj_result, mock_dep_result])
+
+        async def _mock_session():
+            yield mock_session
+
+        app.dependency_overrides[deps.get_session] = _mock_session
+
         resp = await client.get(f"/api/v1/upstream-vulns/{vuln_id}")
         assert resp.status_code == 200
         data = resp.json()
         assert data["summary"] == "Buffer overflow in libcurl"
         assert data["affected_versions"] == "<8.5.0"
         assert len(data["client_impact"]) == 1
+        assert data["library_name"] == "libcurl"
 
     @pytest.mark.asyncio
     async def test_get_upstream_vuln_not_found(self, app, client):
@@ -980,11 +991,25 @@ class TestClientVulnsRouter:
         )
         app.dependency_overrides[deps.get_client_vuln_service] = lambda: mock_svc
 
+        # Mock session.execute for enrichment queries (library_name, project_name)
+        mock_session = AsyncMock()
+        mock_lib_result = MagicMock()
+        mock_lib_result.scalar_one_or_none.return_value = "libcurl"
+        mock_proj_result = MagicMock()
+        mock_proj_result.scalar_one_or_none.return_value = "test-project"
+        mock_session.execute = AsyncMock(side_effect=[mock_lib_result, mock_proj_result])
+
+        async def _mock_session():
+            yield mock_session
+
+        app.dependency_overrides[deps.get_session] = _mock_session
+
         resp = await client.get(f"/api/v1/client-vulns/{cv_id}")
         assert resp.status_code == 200
         data = resp.json()
         assert data["pipeline_status"] == "verified"
         assert data["upstream_vuln"]["severity"] == "high"
+        assert data["library_name"] == "libcurl"
 
     @pytest.mark.asyncio
     async def test_get_client_vuln_not_found(self, app, client):
@@ -1069,6 +1094,7 @@ class TestStatsRouter:
                 "vuln_reported": 15,
                 "vuln_confirmed": 8,
                 "vuln_fixed": 3,
+                "disk": {"total_gb": 100.0, "used_gb": 45.2, "percent": 45.2},
             }
         )
         app.dependency_overrides[deps.get_stats_service] = lambda: mock_svc
@@ -1080,6 +1106,7 @@ class TestStatsRouter:
         assert data["libraries_count"] == 12
         assert data["vuln_recorded"] == 20
         assert data["vuln_fixed"] == 3
+        assert data["disk"]["percent"] == 45.2
 
 
 # ---------------------------------------------------------------------------

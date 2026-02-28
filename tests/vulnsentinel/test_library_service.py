@@ -28,11 +28,13 @@ def _make_library(**overrides) -> Library:
         "name": "curl",
         "repo_url": "https://github.com/curl/curl",
         "platform": "github",
+        "ecosystem": "c_cpp",
         "default_branch": "master",
         "latest_tag_version": None,
         "latest_commit_sha": None,
         "monitoring_since": datetime.now(timezone.utc),
-        "last_activity_at": None,
+        "last_scanned_at": None,
+        "collect_status": "healthy",
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
     }
@@ -183,46 +185,43 @@ class TestGet:
 class TestList:
     async def test_list_first_page(self):
         libs = [_make_library(name=f"lib-{i}") for i in range(3)]
-        page = Page(data=libs, next_cursor="abc", has_more=True)
+        used_by = {libs[0].id: 2}
 
         service, lib_dao, _, _, _ = _make_service()
-        lib_dao.list_paginated = AsyncMock(return_value=page)
-        lib_dao.count = AsyncMock(return_value=10)
+        lib_dao.list_offset = AsyncMock(return_value=(libs, used_by, 10))
 
         session = AsyncMock()
-        result = await service.list(session, cursor=None, page_size=3)
+        result = await service.list(session, page=0, page_size=3)
 
         assert result["data"] == libs
-        assert result["next_cursor"] == "abc"
-        assert result["has_more"] is True
+        assert result["used_by_counts"] == used_by
+        assert result["page"] == 0
         assert result["total"] == 10
 
-        lib_dao.list_paginated.assert_awaited_once_with(session, None, 3)
+        lib_dao.list_offset.assert_awaited_once_with(
+            session, page=0, page_size=3, sort_by="name", sort_dir="asc", status=None, ecosystem=None
+        )
 
     async def test_list_empty(self):
-        page = Page(data=[], next_cursor=None, has_more=False)
-
         service, lib_dao, _, _, _ = _make_service()
-        lib_dao.list_paginated = AsyncMock(return_value=page)
-        lib_dao.count = AsyncMock(return_value=0)
+        lib_dao.list_offset = AsyncMock(return_value=([], {}, 0))
 
         result = await service.list(AsyncMock())
 
         assert result["data"] == []
         assert result["total"] == 0
-        assert result["has_more"] is False
 
-    async def test_list_with_cursor(self):
-        page = Page(data=[_make_library()], next_cursor=None, has_more=False)
-
+    async def test_list_with_sort_and_filter(self):
+        libs = [_make_library()]
         service, lib_dao, _, _, _ = _make_service()
-        lib_dao.list_paginated = AsyncMock(return_value=page)
-        lib_dao.count = AsyncMock(return_value=5)
+        lib_dao.list_offset = AsyncMock(return_value=(libs, {}, 1))
 
         session = AsyncMock()
-        await service.list(session, cursor="cursor123", page_size=10)
+        await service.list(session, sort_by="platform", sort_dir="desc", status="unhealthy")
 
-        lib_dao.list_paginated.assert_awaited_once_with(session, "cursor123", 10)
+        lib_dao.list_offset.assert_awaited_once_with(
+            session, page=0, page_size=20, sort_by="platform", sort_dir="desc", status="unhealthy", ecosystem=None
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -263,6 +262,7 @@ class TestUpsert:
             repo_url="https://github.com/curl/curl",
             platform="github",
             default_branch="main",
+            ecosystem="c_cpp",
         )
 
     async def test_upsert_existing_same_repo(self):
@@ -307,4 +307,5 @@ class TestUpsert:
             repo_url="https://gitlab.com/curl/curl",
             platform="gitlab",
             default_branch="develop",
+            ecosystem="c_cpp",
         )

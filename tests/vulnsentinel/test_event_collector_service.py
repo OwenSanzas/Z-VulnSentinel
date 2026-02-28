@@ -22,7 +22,7 @@ def _fake_library(**overrides):
     lib.default_branch = overrides.get("default_branch", "main")
     lib.latest_commit_sha = overrides.get("latest_commit_sha", None)
     lib.latest_tag_version = overrides.get("latest_tag_version", None)
-    lib.last_activity_at = overrides.get("last_activity_at", None)
+    lib.last_scanned_at = overrides.get("last_scanned_at", None)
     return lib
 
 
@@ -52,7 +52,7 @@ class TestRun:
 
         with patch(
             "vulnsentinel.engines.event_collector.runner.collect",
-            return_value=(collected, []),
+            return_value=(collected, [], {"commits": "ok", "prs": "ok", "tags": "ok", "issues": "ok", "ghsa": "ok"}),
         ):
             result = await runner.run(AsyncMock(), lib.id, client)
 
@@ -103,7 +103,7 @@ class TestRun:
 
         with patch(
             "vulnsentinel.engines.event_collector.runner.collect",
-            return_value=([], []),
+            return_value=([], [], {"commits": "ok", "prs": "ok", "tags": "ok", "issues": "ok", "ghsa": "ok"}),
         ):
             result = await runner.run(AsyncMock(), lib.id, AsyncMock())
 
@@ -114,7 +114,7 @@ class TestRun:
 
     @pytest.mark.anyio
     async def test_no_events_with_errors_skips_pointer_update(self):
-        """When all sub-collectors fail, don't update last_activity_at
+        """When all sub-collectors fail, don't update last_scanned_at
         so the library is retried on the next cycle."""
         runner, library_service, event_service = _make_runner()
         lib = _fake_library()
@@ -122,13 +122,15 @@ class TestRun:
 
         with patch(
             "vulnsentinel.engines.event_collector.runner.collect",
-            return_value=([], ["commits failed", "tags failed"]),
+            return_value=([], ["commits failed", "tags failed"], {"commits": "error", "prs": "ok", "tags": "error", "issues": "ok", "ghsa": "ok"}),
         ):
             result = await runner.run(AsyncMock(), lib.id, AsyncMock())
 
         assert result.fetched == 0
         assert len(result.errors) == 2
-        library_service.update_pointers.assert_not_called()
+        library_service.update_pointers.assert_called_once()
+        call_kwargs = library_service.update_pointers.call_args.kwargs
+        assert call_kwargs["collect_status"] == "unhealthy"
         event_service.batch_create.assert_not_called()
 
     @pytest.mark.anyio
@@ -146,7 +148,7 @@ class TestRun:
 
         with patch(
             "vulnsentinel.engines.event_collector.runner.collect",
-            return_value=(collected, []),
+            return_value=(collected, [], {"commits": "ok", "prs": "ok", "tags": "ok", "issues": "ok", "ghsa": "ok"}),
         ):
             await runner.run(AsyncMock(), lib.id, AsyncMock())
 
@@ -206,7 +208,7 @@ class TestRunAll:
 
         with patch(
             "vulnsentinel.engines.event_collector.runner.collect",
-            return_value=([], []),
+            return_value=([], [], {"commits": "ok", "prs": "ok", "tags": "ok", "issues": "ok", "ghsa": "ok"}),
         ):
             results = await runner.run_all(factory, AsyncMock())
 

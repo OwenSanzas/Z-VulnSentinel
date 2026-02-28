@@ -1,0 +1,602 @@
+[
+  {
+    "name": "avelino/awesome-go",
+    "repo_url": "https://github.com/avelino/awesome-go",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "ollama/ollama",
+    "repo_url": "https://github.com/ollama/ollama",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "golang/go",
+    "repo_url": "https://github.com/golang/go",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "kubernetes/kubernetes",
+    "repo_url": "https://github.com/kubernetes/kubernetes",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "fatedier/frp",
+    "repo_url": "https://github.com/fatedier/frp",
+    "default_branch": "dev",
+    "platform": "github"
+  },
+  {
+    "name": "gin-gonic/gin",
+    "repo_url": "https://github.com/gin-gonic/gin",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "gohugoio/hugo",
+    "repo_url": "https://github.com/gohugoio/hugo",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "syncthing/syncthing",
+    "repo_url": "https://github.com/syncthing/syncthing",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "junegunn/fzf",
+    "repo_url": "https://github.com/junegunn/fzf",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "jesseduffield/lazygit",
+    "repo_url": "https://github.com/jesseduffield/lazygit",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "moby/moby",
+    "repo_url": "https://github.com/moby/moby",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "caddyserver/caddy",
+    "repo_url": "https://github.com/caddyserver/caddy",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "nektos/act",
+    "repo_url": "https://github.com/nektos/act",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "base/node",
+    "repo_url": "https://github.com/base/node",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "prometheus/prometheus",
+    "repo_url": "https://github.com/prometheus/prometheus",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "traefik/traefik",
+    "repo_url": "https://github.com/traefik/traefik",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "minio/minio",
+    "repo_url": "https://github.com/minio/minio",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "FiloSottile/mkcert",
+    "repo_url": "https://github.com/FiloSottile/mkcert",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "usememos/memos",
+    "repo_url": "https://github.com/usememos/memos",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "pocketbase/pocketbase",
+    "repo_url": "https://github.com/pocketbase/pocketbase",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "rclone/rclone",
+    "repo_url": "https://github.com/rclone/rclone",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "go-gitea/gitea",
+    "repo_url": "https://github.com/go-gitea/gitea",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "wagoodman/dive",
+    "repo_url": "https://github.com/wagoodman/dive",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "etcd-io/etcd",
+    "repo_url": "https://github.com/etcd-io/etcd",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "ethereum/go-ethereum",
+    "repo_url": "https://github.com/ethereum/go-ethereum",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "jesseduffield/lazydocker",
+    "repo_url": "https://github.com/jesseduffield/lazydocker",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "AlistGo/alist",
+    "repo_url": "https://github.com/AlistGo/alist",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "hashicorp/terraform",
+    "repo_url": "https://github.com/hashicorp/terraform",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "gogs/gogs",
+    "repo_url": "https://github.com/gogs/gogs",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "v2ray/v2ray-core",
+    "repo_url": "https://github.com/v2ray/v2ray-core",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "coreybutler/nvm-windows",
+    "repo_url": "https://github.com/coreybutler/nvm-windows",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "astaxie/build-web-application-with-golang",
+    "repo_url": "https://github.com/astaxie/build-web-application-with-golang",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "spf13/cobra",
+    "repo_url": "https://github.com/spf13/cobra",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "mudler/LocalAI",
+    "repo_url": "https://github.com/mudler/LocalAI",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "milvus-io/milvus",
+    "repo_url": "https://github.com/milvus-io/milvus",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "cli/cli",
+    "repo_url": "https://github.com/cli/cli",
+    "default_branch": "trunk",
+    "platform": "github"
+  },
+  {
+    "name": "charmbracelet/bubbletea",
+    "repo_url": "https://github.com/charmbracelet/bubbletea",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "pingcap/tidb",
+    "repo_url": "https://github.com/pingcap/tidb",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "evanw/esbuild",
+    "repo_url": "https://github.com/evanw/esbuild",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "go-gorm/gorm",
+    "repo_url": "https://github.com/go-gorm/gorm",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "photoprism/photoprism",
+    "repo_url": "https://github.com/photoprism/photoprism",
+    "default_branch": "develop",
+    "platform": "github"
+  },
+  {
+    "name": "danielmiessler/Fabric",
+    "repo_url": "https://github.com/danielmiessler/Fabric",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "gofiber/fiber",
+    "repo_url": "https://github.com/gofiber/fiber",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "istio/istio",
+    "repo_url": "https://github.com/istio/istio",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "docker/compose",
+    "repo_url": "https://github.com/docker/compose",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "juanfont/headscale",
+    "repo_url": "https://github.com/juanfont/headscale",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "XTLS/Xray-core",
+    "repo_url": "https://github.com/XTLS/Xray-core",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "unknwon/the-way-to-go_ZH_CN",
+    "repo_url": "https://github.com/unknwon/the-way-to-go_ZH_CN",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "hashicorp/vault",
+    "repo_url": "https://github.com/hashicorp/vault",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "schollz/croc",
+    "repo_url": "https://github.com/schollz/croc",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "ehang-io/nps",
+    "repo_url": "https://github.com/ehang-io/nps",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "harness/harness",
+    "repo_url": "https://github.com/harness/harness",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "halfrost/LeetCode-Go",
+    "repo_url": "https://github.com/halfrost/LeetCode-Go",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "1Panel-dev/1Panel",
+    "repo_url": "https://github.com/1Panel-dev/1Panel",
+    "default_branch": "dev-v2",
+    "platform": "github"
+  },
+  {
+    "name": "filebrowser/filebrowser",
+    "repo_url": "https://github.com/filebrowser/filebrowser",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "IceWhaleTech/CasaOS",
+    "repo_url": "https://github.com/IceWhaleTech/CasaOS",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "v2fly/v2ray-core",
+    "repo_url": "https://github.com/v2fly/v2ray-core",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "derailed/k9s",
+    "repo_url": "https://github.com/derailed/k9s",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "wailsapp/wails",
+    "repo_url": "https://github.com/wailsapp/wails",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "AdguardTeam/AdGuardHome",
+    "repo_url": "https://github.com/AdguardTeam/AdGuardHome",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "zeromicro/go-zero",
+    "repo_url": "https://github.com/zeromicro/go-zero",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "restic/restic",
+    "repo_url": "https://github.com/restic/restic",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "beego/beego",
+    "repo_url": "https://github.com/beego/beego",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "k3s-io/k3s",
+    "repo_url": "https://github.com/k3s-io/k3s",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "aquasecurity/trivy",
+    "repo_url": "https://github.com/aquasecurity/trivy",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "glanceapp/glance",
+    "repo_url": "https://github.com/glanceapp/glance",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "labstack/echo",
+    "repo_url": "https://github.com/labstack/echo",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "cockroachdb/cockroach",
+    "repo_url": "https://github.com/cockroachdb/cockroach",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "kubernetes/minikube",
+    "repo_url": "https://github.com/kubernetes/minikube",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "iawia002/lux",
+    "repo_url": "https://github.com/iawia002/lux",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "SagerNet/sing-box",
+    "repo_url": "https://github.com/SagerNet/sing-box",
+    "default_branch": "dev-next",
+    "platform": "github"
+  },
+  {
+    "name": "containers/podman",
+    "repo_url": "https://github.com/containers/podman",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "seaweedfs/seaweedfs",
+    "repo_url": "https://github.com/seaweedfs/seaweedfs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "spf13/viper",
+    "repo_url": "https://github.com/spf13/viper",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "grafana/k6",
+    "repo_url": "https://github.com/grafana/k6",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "hashicorp/consul",
+    "repo_url": "https://github.com/hashicorp/consul",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "helm/helm",
+    "repo_url": "https://github.com/helm/helm",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "binwiederhier/ntfy",
+    "repo_url": "https://github.com/binwiederhier/ntfy",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "tailscale/tailscale",
+    "repo_url": "https://github.com/tailscale/tailscale",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "micro-editor/micro",
+    "repo_url": "https://github.com/micro-editor/micro",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "opentofu/opentofu",
+    "repo_url": "https://github.com/opentofu/opentofu",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "fyne-io/fyne",
+    "repo_url": "https://github.com/fyne-io/fyne",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "tmrts/go-patterns",
+    "repo_url": "https://github.com/tmrts/go-patterns",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "grafana/loki",
+    "repo_url": "https://github.com/grafana/loki",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "goharbor/harbor",
+    "repo_url": "https://github.com/goharbor/harbor",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "go-kit/kit",
+    "repo_url": "https://github.com/go-kit/kit",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "github/github-mcp-server",
+    "repo_url": "https://github.com/github/github-mcp-server",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "projectdiscovery/nuclei",
+    "repo_url": "https://github.com/projectdiscovery/nuclei",
+    "default_branch": "dev",
+    "platform": "github"
+  },
+  {
+    "name": "abiosoft/colima",
+    "repo_url": "https://github.com/abiosoft/colima",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "cloudreve/cloudreve",
+    "repo_url": "https://github.com/cloudreve/cloudreve",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "authelia/authelia",
+    "repo_url": "https://github.com/authelia/authelia",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "Wox-launcher/Wox",
+    "repo_url": "https://github.com/Wox-launcher/Wox",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "openfaas/faas",
+    "repo_url": "https://github.com/openfaas/faas",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "stretchr/testify",
+    "repo_url": "https://github.com/stretchr/testify",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "nsqio/nsq",
+    "repo_url": "https://github.com/nsqio/nsq",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "yeasy/docker_practice",
+    "repo_url": "https://github.com/yeasy/docker_practice",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "sirupsen/logrus",
+    "repo_url": "https://github.com/sirupsen/logrus",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "kataras/iris",
+    "repo_url": "https://github.com/kataras/iris",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "dapr/dapr",
+    "repo_url": "https://github.com/dapr/dapr",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "go-kratos/kratos",
+    "repo_url": "https://github.com/go-kratos/kratos",
+    "default_branch": "main",
+    "platform": "github"
+  }
+]

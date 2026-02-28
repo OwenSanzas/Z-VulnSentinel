@@ -714,10 +714,11 @@ class TestCollect:
         client.get_paginated = _paginated
 
         since = datetime(2025, 1, 1, tzinfo=timezone.utc)
-        events, errors = await collect(client, "o", "r", since=since)
+        events, errors, detail = await collect(client, "o", "r", since=since)
 
         assert len(events) == 4
         assert errors == []
+        assert detail == {"commits": "ok", "prs": "ok", "tags": "ok", "issues": "ok", "ghsa": "ok"}
         types = {e.type for e in events}
         assert types == {"commit", "pr_merge", "tag", "bug_issue"}
 
@@ -739,9 +740,10 @@ class TestCollect:
 
         client.get_paginated = _paginated
 
-        events, errors = await collect(client, "o", "r", since=None)
+        events, errors, detail = await collect(client, "o", "r", since=None)
         assert events == []
         assert errors == []
+        assert all(v == "ok" for v in detail.values())
 
     @pytest.mark.anyio
     async def test_collect_handles_sub_task_failure(self):
@@ -763,7 +765,7 @@ class TestCollect:
         client.get_paginated = _paginated
 
         since = datetime(2025, 1, 1, tzinfo=timezone.utc)
-        events, errors = await collect(client, "o", "r", since=since)
+        events, errors, detail = await collect(client, "o", "r", since=since)
 
         # Only tag should succeed
         assert len(events) == 1
@@ -771,6 +773,8 @@ class TestCollect:
         # Commits sub-collector failed
         assert len(errors) == 1
         assert "collect_commits" in errors[0]
+        assert detail["commits"] != "ok"
+        assert detail["tags"] == "ok"
 
 
 # ── TestHelpers ───────────────────────────────────────────────────────────

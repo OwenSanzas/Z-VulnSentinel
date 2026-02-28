@@ -1,0 +1,602 @@
+[
+  {
+    "name": "Snailclimb/JavaGuide",
+    "repo_url": "https://github.com/Snailclimb/JavaGuide",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "krahets/hello-algo",
+    "repo_url": "https://github.com/krahets/hello-algo",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "GrowingGit/GitHub-Chinese-Top-Charts",
+    "repo_url": "https://github.com/GrowingGit/GitHub-Chinese-Top-Charts",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "iluwatar/java-design-patterns",
+    "repo_url": "https://github.com/iluwatar/java-design-patterns",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "macrozheng/mall",
+    "repo_url": "https://github.com/macrozheng/mall",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "spring-projects/spring-boot",
+    "repo_url": "https://github.com/spring-projects/spring-boot",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "doocs/advanced-java",
+    "repo_url": "https://github.com/doocs/advanced-java",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "MisterBooo/LeetCodeAnimation",
+    "repo_url": "https://github.com/MisterBooo/LeetCodeAnimation",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "elastic/elasticsearch",
+    "repo_url": "https://github.com/elastic/elasticsearch",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "TheAlgorithms/Java",
+    "repo_url": "https://github.com/TheAlgorithms/Java",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "NationalSecurityAgency/ghidra",
+    "repo_url": "https://github.com/NationalSecurityAgency/ghidra",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "kdn251/interviews",
+    "repo_url": "https://github.com/kdn251/interviews",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "spring-projects/spring-framework",
+    "repo_url": "https://github.com/spring-projects/spring-framework",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "google/guava",
+    "repo_url": "https://github.com/google/guava",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "termux/termux-app",
+    "repo_url": "https://github.com/termux/termux-app",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "dbeaver/dbeaver",
+    "repo_url": "https://github.com/dbeaver/dbeaver",
+    "default_branch": "devel",
+    "platform": "github"
+  },
+  {
+    "name": "ReactiveX/RxJava",
+    "repo_url": "https://github.com/ReactiveX/RxJava",
+    "default_branch": "3.x",
+    "platform": "github"
+  },
+  {
+    "name": "skylot/jadx",
+    "repo_url": "https://github.com/skylot/jadx",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "jeecgboot/JeecgBoot",
+    "repo_url": "https://github.com/jeecgboot/JeecgBoot",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "apache/dubbo",
+    "repo_url": "https://github.com/apache/dubbo",
+    "default_branch": "3.3",
+    "platform": "github"
+  },
+  {
+    "name": "PhilJay/MPAndroidChart",
+    "repo_url": "https://github.com/PhilJay/MPAndroidChart",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "halo-dev/halo",
+    "repo_url": "https://github.com/halo-dev/halo",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "eugenp/tutorials",
+    "repo_url": "https://github.com/eugenp/tutorials",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "TeamNewPipe/NewPipe",
+    "repo_url": "https://github.com/TeamNewPipe/NewPipe",
+    "default_branch": "dev",
+    "platform": "github"
+  },
+  {
+    "name": "alibaba/arthas",
+    "repo_url": "https://github.com/alibaba/arthas",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "geekxh/hello-algorithm",
+    "repo_url": "https://github.com/geekxh/hello-algorithm",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "doocs/leetcode",
+    "repo_url": "https://github.com/doocs/leetcode",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "airbnb/lottie-android",
+    "repo_url": "https://github.com/airbnb/lottie-android",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "YunaiV/ruoyi-vue-pro",
+    "repo_url": "https://github.com/YunaiV/ruoyi-vue-pro",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "bumptech/glide",
+    "repo_url": "https://github.com/bumptech/glide",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "netty/netty",
+    "repo_url": "https://github.com/netty/netty",
+    "default_branch": "4.2",
+    "platform": "github"
+  },
+  {
+    "name": "xkcoding/spring-boot-demo",
+    "repo_url": "https://github.com/xkcoding/spring-boot-demo",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "SeleniumHQ/selenium",
+    "repo_url": "https://github.com/SeleniumHQ/selenium",
+    "default_branch": "trunk",
+    "platform": "github"
+  },
+  {
+    "name": "ashishps1/awesome-system-design-resources",
+    "repo_url": "https://github.com/ashishps1/awesome-system-design-resources",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "zxing/zxing",
+    "repo_url": "https://github.com/zxing/zxing",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "alibaba/easyexcel",
+    "repo_url": "https://github.com/alibaba/easyexcel",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "Blankj/AndroidUtilCode",
+    "repo_url": "https://github.com/Blankj/AndroidUtilCode",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "keycloak/keycloak",
+    "repo_url": "https://github.com/keycloak/keycloak",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "alibaba/nacos",
+    "repo_url": "https://github.com/alibaba/nacos",
+    "default_branch": "develop",
+    "platform": "github"
+  },
+  {
+    "name": "binarywang/WxJava",
+    "repo_url": "https://github.com/binarywang/WxJava",
+    "default_branch": "develop",
+    "platform": "github"
+  },
+  {
+    "name": "apache/kafka",
+    "repo_url": "https://github.com/apache/kafka",
+    "default_branch": "trunk",
+    "platform": "github"
+  },
+  {
+    "name": "conductor-oss/conductor",
+    "repo_url": "https://github.com/conductor-oss/conductor",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "ityouknow/spring-boot-examples",
+    "repo_url": "https://github.com/ityouknow/spring-boot-examples",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "chinabugotech/hutool",
+    "repo_url": "https://github.com/chinabugotech/hutool",
+    "default_branch": "v5-master",
+    "platform": "github"
+  },
+  {
+    "name": "xuxueli/xxl-job",
+    "repo_url": "https://github.com/xuxueli/xxl-job",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "apolloconfig/apollo",
+    "repo_url": "https://github.com/apolloconfig/apollo",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "alibaba/canal",
+    "repo_url": "https://github.com/alibaba/canal",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "alibaba/spring-cloud-alibaba",
+    "repo_url": "https://github.com/alibaba/spring-cloud-alibaba",
+    "default_branch": "2025.1.x",
+    "platform": "github"
+  },
+  {
+    "name": "wuyouzhuguli/SpringAll",
+    "repo_url": "https://github.com/wuyouzhuguli/SpringAll",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "DrKLO/Telegram",
+    "repo_url": "https://github.com/DrKLO/Telegram",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "yuliskov/SmartTube",
+    "repo_url": "https://github.com/yuliskov/SmartTube",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "alibaba/druid",
+    "repo_url": "https://github.com/alibaba/druid",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "lenve/vhr",
+    "repo_url": "https://github.com/lenve/vhr",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "crossoverJie/JCSprout",
+    "repo_url": "https://github.com/crossoverJie/JCSprout",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "Anuken/Mindustry",
+    "repo_url": "https://github.com/Anuken/Mindustry",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "qiurunze123/miaosha",
+    "repo_url": "https://github.com/qiurunze123/miaosha",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "kestra-io/kestra",
+    "repo_url": "https://github.com/kestra-io/kestra",
+    "default_branch": "develop",
+    "platform": "github"
+  },
+  {
+    "name": "apache/incubator-seata",
+    "repo_url": "https://github.com/apache/incubator-seata",
+    "default_branch": "2.x",
+    "platform": "github"
+  },
+  {
+    "name": "OpenAPITools/openapi-generator",
+    "repo_url": "https://github.com/OpenAPITools/openapi-generator",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "apache/flink",
+    "repo_url": "https://github.com/apache/flink",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "alibaba/fastjson",
+    "repo_url": "https://github.com/alibaba/fastjson",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "hollischuang/toBeTopJavaer",
+    "repo_url": "https://github.com/hollischuang/toBeTopJavaer",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "JakeWharton/butterknife",
+    "repo_url": "https://github.com/JakeWharton/butterknife",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "CodePhiliaX/Chat2DB",
+    "repo_url": "https://github.com/CodePhiliaX/Chat2DB",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "scwang90/SmartRefreshLayout",
+    "repo_url": "https://github.com/scwang90/SmartRefreshLayout",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "bazelbuild/bazel",
+    "repo_url": "https://github.com/bazelbuild/bazel",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "jenkinsci/jenkins",
+    "repo_url": "https://github.com/jenkinsci/jenkins",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "libgdx/libgdx",
+    "repo_url": "https://github.com/libgdx/libgdx",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "proxyee-down-org/proxyee-down",
+    "repo_url": "https://github.com/proxyee-down-org/proxyee-down",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "greenrobot/EventBus",
+    "repo_url": "https://github.com/greenrobot/EventBus",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "apache/skywalking",
+    "repo_url": "https://github.com/apache/skywalking",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "Netflix/Hystrix",
+    "repo_url": "https://github.com/Netflix/Hystrix",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "google/gson",
+    "repo_url": "https://github.com/google/gson",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "redisson/redisson",
+    "repo_url": "https://github.com/redisson/redisson",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "iBotPeaches/Apktool",
+    "repo_url": "https://github.com/iBotPeaches/Apktool",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "dataease/dataease",
+    "repo_url": "https://github.com/dataease/dataease",
+    "default_branch": "dev-v2",
+    "platform": "github"
+  },
+  {
+    "name": "EnterpriseQualityCoding/FizzBuzzEnterpriseEdition",
+    "repo_url": "https://github.com/EnterpriseQualityCoding/FizzBuzzEnterpriseEdition",
+    "default_branch": "uinverse",
+    "platform": "github"
+  },
+  {
+    "name": "doocs/source-code-hunter",
+    "repo_url": "https://github.com/doocs/source-code-hunter",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "alibaba/Sentinel",
+    "repo_url": "https://github.com/alibaba/Sentinel",
+    "default_branch": "1.8",
+    "platform": "github"
+  },
+  {
+    "name": "LSPosed/LSPosed",
+    "repo_url": "https://github.com/LSPosed/LSPosed",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "openjdk/jdk",
+    "repo_url": "https://github.com/openjdk/jdk",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "ashishps1/awesome-low-level-design",
+    "repo_url": "https://github.com/ashishps1/awesome-low-level-design",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "apache/rocketmq",
+    "repo_url": "https://github.com/apache/rocketmq",
+    "default_branch": "develop",
+    "platform": "github"
+  },
+  {
+    "name": "kunal-kushwaha/DSA-Bootcamp-Java",
+    "repo_url": "https://github.com/kunal-kushwaha/DSA-Bootcamp-Java",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "google/ExoPlayer",
+    "repo_url": "https://github.com/google/ExoPlayer",
+    "default_branch": "release-v2",
+    "platform": "github"
+  },
+  {
+    "name": "elunez/eladmin",
+    "repo_url": "https://github.com/elunez/eladmin",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "oracle/graal",
+    "repo_url": "https://github.com/oracle/graal",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "CarGuo/GSYVideoPlayer",
+    "repo_url": "https://github.com/CarGuo/GSYVideoPlayer",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "thingsboard/thingsboard",
+    "repo_url": "https://github.com/thingsboard/thingsboard",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "brettwooldridge/HikariCP",
+    "repo_url": "https://github.com/brettwooldridge/HikariCP",
+    "default_branch": "dev",
+    "platform": "github"
+  },
+  {
+    "name": "apache/shardingsphere",
+    "repo_url": "https://github.com/apache/shardingsphere",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "didi/DoKit",
+    "repo_url": "https://github.com/didi/DoKit",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "mybatis/mybatis-3",
+    "repo_url": "https://github.com/mybatis/mybatis-3",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "ReactiveX/RxAndroid",
+    "repo_url": "https://github.com/ReactiveX/RxAndroid",
+    "default_branch": "3.x",
+    "platform": "github"
+  },
+  {
+    "name": "linlinjava/litemall",
+    "repo_url": "https://github.com/linlinjava/litemall",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "yudaocode/SpringBoot-Labs",
+    "repo_url": "https://github.com/yudaocode/SpringBoot-Labs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "JetBrains/intellij-community",
+    "repo_url": "https://github.com/JetBrains/intellij-community",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "dianping/cat",
+    "repo_url": "https://github.com/dianping/cat",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "Baseflow/PhotoView",
+    "repo_url": "https://github.com/Baseflow/PhotoView",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "antlr/antlr4",
+    "repo_url": "https://github.com/antlr/antlr4",
+    "default_branch": "dev",
+    "platform": "github"
+  }
+]

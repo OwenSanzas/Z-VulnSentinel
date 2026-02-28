@@ -1,0 +1,596 @@
+[
+  {
+    "name": "syn",
+    "repo_url": "https://github.com/dtolnay/syn",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "hashbrown",
+    "repo_url": "https://github.com/rust-lang/hashbrown",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "bitflags",
+    "repo_url": "https://github.com/bitflags/bitflags",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "proc-macro2",
+    "repo_url": "https://github.com/dtolnay/proc-macro2",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "getrandom",
+    "repo_url": "https://github.com/rust-random/getrandom",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "libc",
+    "repo_url": "https://github.com/rust-lang/libc",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "base64",
+    "repo_url": "https://github.com/marshallpierce/rust-base64",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "quote",
+    "repo_url": "https://github.com/dtolnay/quote",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "rand_core",
+    "repo_url": "https://github.com/rust-random/rand_core",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "rand",
+    "repo_url": "https://github.com/rust-random/rand",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "regex-syntax",
+    "repo_url": "https://github.com/rust-lang/regex",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "itertools",
+    "repo_url": "https://github.com/rust-itertools/itertools",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "indexmap",
+    "repo_url": "https://github.com/indexmap-rs/indexmap",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "cfg-if",
+    "repo_url": "https://github.com/rust-lang/cfg-if",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "serde",
+    "repo_url": "https://github.com/serde-rs/serde",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "rand_chacha",
+    "repo_url": "https://github.com/rust-random/rand",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "thiserror-impl",
+    "repo_url": "https://github.com/dtolnay/thiserror",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "thiserror",
+    "repo_url": "https://github.com/dtolnay/thiserror",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "memchr",
+    "repo_url": "https://github.com/BurntSushi/memchr",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "serde_derive",
+    "repo_url": "https://github.com/serde-rs/serde",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "autocfg",
+    "repo_url": "https://github.com/cuviper/autocfg",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "itoa",
+    "repo_url": "https://github.com/dtolnay/itoa",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "unicode-ident",
+    "repo_url": "https://github.com/dtolnay/unicode-ident",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "heck",
+    "repo_url": "https://github.com/withoutboats/heck",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "serde_json",
+    "repo_url": "https://github.com/serde-rs/json",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "regex-automata",
+    "repo_url": "https://github.com/rust-lang/regex",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "log",
+    "repo_url": "https://github.com/rust-lang/log",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "once_cell",
+    "repo_url": "https://github.com/matklad/once_cell",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "windows-sys",
+    "repo_url": "https://github.com/microsoft/windows-rs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "cc",
+    "repo_url": "https://github.com/rust-lang/cc-rs",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "ryu",
+    "repo_url": "https://github.com/dtolnay/ryu",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "regex",
+    "repo_url": "https://github.com/rust-lang/regex",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "clap",
+    "repo_url": "https://github.com/clap-rs/clap",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "smallvec",
+    "repo_url": "https://github.com/servo/rust-smallvec",
+    "default_branch": "v2",
+    "platform": "github"
+  },
+  {
+    "name": "aho-corasick",
+    "repo_url": "https://github.com/BurntSushi/aho-corasick",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "parking_lot_core",
+    "repo_url": "https://github.com/Amanieu/parking_lot",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "socket2",
+    "repo_url": "https://github.com/rust-lang/socket2",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "strsim",
+    "repo_url": "https://github.com/rapidfuzz/strsim-rs",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "parking_lot",
+    "repo_url": "https://github.com/Amanieu/parking_lot",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "rustix",
+    "repo_url": "https://github.com/bytecodealliance/rustix",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "lazy_static",
+    "repo_url": "https://github.com/rust-lang-nursery/lazy-static.rs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "num-traits",
+    "repo_url": "https://github.com/rust-num/num-traits",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "version_check",
+    "repo_url": "https://github.com/SergioBenitez/version_check",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "windows_x86_64_msvc",
+    "repo_url": "https://github.com/microsoft/windows-rs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "either",
+    "repo_url": "https://github.com/rayon-rs/either",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "semver",
+    "repo_url": "https://github.com/dtolnay/semver",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "bytes",
+    "repo_url": "https://github.com/tokio-rs/bytes",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "linux-raw-sys",
+    "repo_url": "https://github.com/sunfishcode/linux-raw-sys",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "idna",
+    "repo_url": "https://github.com/servo/rust-url",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "lock_api",
+    "repo_url": "https://github.com/Amanieu/parking_lot",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "mio",
+    "repo_url": "https://github.com/tokio-rs/mio",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "digest",
+    "repo_url": "https://github.com/RustCrypto/traits",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "pin-project-lite",
+    "repo_url": "https://github.com/taiki-e/pin-project-lite",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "windows_x86_64_gnu",
+    "repo_url": "https://github.com/microsoft/windows-rs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "http",
+    "repo_url": "https://github.com/hyperium/http",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "windows_aarch64_msvc",
+    "repo_url": "https://github.com/microsoft/windows-rs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "windows_i686_msvc",
+    "repo_url": "https://github.com/microsoft/windows-rs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "windows_i686_gnu",
+    "repo_url": "https://github.com/microsoft/windows-rs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "time",
+    "repo_url": "https://github.com/time-rs/time",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "anyhow",
+    "repo_url": "https://github.com/dtolnay/anyhow",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "scopeguard",
+    "repo_url": "https://github.com/bluss/scopeguard",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "block-buffer",
+    "repo_url": "https://github.com/RustCrypto/utils",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "miniz_oxide",
+    "repo_url": "https://github.com/Frommi/miniz_oxide",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "windows-targets",
+    "repo_url": "https://github.com/microsoft/windows-rs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "tokio",
+    "repo_url": "https://github.com/tokio-rs/tokio",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "ppv-lite86",
+    "repo_url": "https://github.com/cryptocorrosion/cryptocorrosion",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "crossbeam-utils",
+    "repo_url": "https://github.com/crossbeam-rs/crossbeam",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "hyper",
+    "repo_url": "https://github.com/hyperium/hyper",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "windows_aarch64_gnullvm",
+    "repo_url": "https://github.com/microsoft/windows-rs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "windows_x86_64_gnullvm",
+    "repo_url": "https://github.com/microsoft/windows-rs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "percent-encoding",
+    "repo_url": "https://github.com/servo/rust-url",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "fastrand",
+    "repo_url": "https://github.com/smol-rs/fastrand",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "rustls",
+    "repo_url": "https://github.com/rustls/rustls",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "url",
+    "repo_url": "https://github.com/servo/rust-url",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "slab",
+    "repo_url": "https://github.com/tokio-rs/slab",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "toml",
+    "repo_url": "https://github.com/toml-rs/toml",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "generic-array",
+    "repo_url": "https://github.com/fizyk20/generic-array",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "futures-core",
+    "repo_url": "https://github.com/rust-lang/futures-rs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "byteorder",
+    "repo_url": "https://github.com/BurntSushi/byteorder",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "memoffset",
+    "repo_url": "https://github.com/Gilnaa/memoffset",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "futures-util",
+    "repo_url": "https://github.com/rust-lang/futures-rs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "futures-task",
+    "repo_url": "https://github.com/rust-lang/futures-rs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "tracing-core",
+    "repo_url": "https://github.com/tokio-rs/tracing",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "http-body",
+    "repo_url": "https://github.com/hyperium/http-body",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "sha2",
+    "repo_url": "https://github.com/RustCrypto/hashes",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "clap_lex",
+    "repo_url": "https://github.com/clap-rs/clap",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "typenum",
+    "repo_url": "https://github.com/paholg/typenum",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "futures-sink",
+    "repo_url": "https://github.com/rust-lang/futures-rs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "tracing",
+    "repo_url": "https://github.com/tokio-rs/tracing",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "chrono",
+    "repo_url": "https://github.com/chronotope/chrono",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "h2",
+    "repo_url": "https://github.com/hyperium/h2",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "unicode-width",
+    "repo_url": "https://github.com/unicode-rs/unicode-width",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "ahash",
+    "repo_url": "https://github.com/tkaitchuck/ahash",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "futures-channel",
+    "repo_url": "https://github.com/rust-lang/futures-rs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "fnv",
+    "repo_url": "https://github.com/servo/rust-fnv",
+    "default_branch": "main",
+    "platform": "github"
+  },
+  {
+    "name": "tempfile",
+    "repo_url": "https://github.com/Stebalien/tempfile",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "tokio-util",
+    "repo_url": "https://github.com/tokio-rs/tokio",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "futures-io",
+    "repo_url": "https://github.com/rust-lang/futures-rs",
+    "default_branch": "master",
+    "platform": "github"
+  },
+  {
+    "name": "nix",
+    "repo_url": "https://github.com/nix-rust/nix",
+    "default_branch": "master",
+    "platform": "github"
+  }
+]

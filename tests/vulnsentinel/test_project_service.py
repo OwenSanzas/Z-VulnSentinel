@@ -46,11 +46,13 @@ def _make_library(**overrides) -> Library:
         "name": "curl",
         "repo_url": "https://github.com/curl/curl",
         "platform": "github",
+        "ecosystem": "c_cpp",
         "default_branch": "master",
         "latest_tag_version": None,
         "latest_commit_sha": None,
         "monitoring_since": datetime.now(timezone.utc),
-        "last_activity_at": None,
+        "last_scanned_at": None,
+        "collect_status": "healthy",
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
     }
@@ -127,8 +129,9 @@ class TestList:
         service, proj_dao, dep_dao, cv_dao, _ = _make_service()
         proj_dao.list_paginated = AsyncMock(return_value=page)
         proj_dao.count = AsyncMock(return_value=5)
-        dep_dao.count_by_project = AsyncMock(return_value=3)
-        cv_dao.active_count_by_project = AsyncMock(return_value=1)
+        proj_dao.batch_counts = AsyncMock(return_value={
+            p.id: {"deps_count": 3, "vuln_count": 1} for p in projects
+        })
 
         session = AsyncMock()
         result = await service.list(session, cursor=None, page_size=2)
@@ -146,6 +149,7 @@ class TestList:
         service, proj_dao, _, _, _ = _make_service()
         proj_dao.list_paginated = AsyncMock(return_value=page)
         proj_dao.count = AsyncMock(return_value=0)
+        proj_dao.batch_counts = AsyncMock(return_value={})
 
         result = await service.list(AsyncMock())
 

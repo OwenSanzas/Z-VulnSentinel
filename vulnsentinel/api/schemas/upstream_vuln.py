@@ -30,14 +30,18 @@ class ClientImpactItem(BaseModel):
 
     id: uuid.UUID
     project_id: uuid.UUID
+    project_name: str
+    version_used: str | None
     status: str | None
     pipeline_status: str
     is_affected: bool | None
 
 
 class UpstreamVulnDetail(UpstreamVulnListItem):
+    library_name: str
     affected_versions: str | None
     reasoning: str | None
     error_message: str | None
     upstream_poc: dict[str, Any] | None
+    affected_functions: list | None
     client_impact: list[ClientImpactItem]

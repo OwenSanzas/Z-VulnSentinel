@@ -18,13 +18,19 @@ class ClientVulnListItem(BaseModel):
     id: uuid.UUID
     upstream_vuln_id: uuid.UUID
     project_id: uuid.UUID
+    library_name: str
+    project_name: str
+    summary: str | None
+    severity: str | None
     pipeline_status: str
     status: str | None
     is_affected: bool | None
+    recorded_at: datetime | None
     created_at: datetime
 
 
 class ClientVulnDetail(ClientVulnListItem):
+    library_id: uuid.UUID
     constraint_expr: str | None
     constraint_source: str | None
     resolved_version: str | None

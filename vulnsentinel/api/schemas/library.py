@@ -15,11 +15,14 @@ class LibraryListItem(BaseModel):
     name: str
     repo_url: str
     platform: str
+    ecosystem: str = "c_cpp"
     default_branch: str
     latest_tag_version: str | None
     latest_commit_sha: str | None
     monitoring_since: datetime
-    last_activity_at: datetime | None
+    last_scanned_at: datetime | None
+    collect_status: str = "healthy"
+    used_by_count: int = 0
     created_at: datetime
 
 
@@ -32,5 +35,7 @@ class LibraryUsedBy(BaseModel):
 
 
 class LibraryDetail(LibraryListItem):
+    collect_error: str | None = None
+    collect_detail: dict | None = None
     used_by: list[LibraryUsedBy]
     events_tracked: int

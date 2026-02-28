@@ -15,6 +15,7 @@ class EventListItem(BaseModel):
 
     id: uuid.UUID
     library_id: uuid.UUID
+    library_name: str
     type: str
     ref: str
     source_url: str | None
@@ -24,6 +25,7 @@ class EventListItem(BaseModel):
     classification: str | None
     confidence: float | None
     is_bugfix: bool
+    event_at: datetime | None
     created_at: datetime
 
 

@@ -607,6 +607,7 @@ class TestProjectsRouter:
                 "name": "myapp",
                 "repo_url": "https://github.com/acme/myapp",
                 "pinned_ref": "v1.0.0",
+                "auto_sync_deps": False,
             },
         )
         assert resp.status_code == 201

@@ -36,6 +36,8 @@ class ClientVulnDetail(ClientVulnListItem):
     resolved_version: str | None
     fix_version: str | None
     verdict: str | None
+    description: str | None
+    source_url: str | None
     reachable_path: dict[str, Any] | None
     poc_results: dict[str, Any] | None
     report: dict[str, Any] | None

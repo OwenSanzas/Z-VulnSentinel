@@ -38,11 +38,13 @@ async def collect(
     name to ``"ok"`` or an error string.  This function is pure — it
     never touches the database.
     """
-    # First-time collection: limit scope
+    # First-time collection: only establish pointers, don't pull history.
+    # We set since=now so commits/prs/issues return nothing, and limit
+    # tags to 1 page just to record the latest_tag pointer.
     first_time = since is None
     if first_time:
-        since = datetime.now(timezone.utc) - timedelta(days=_FIRST_COLLECT_DAYS)
-    max_pages = _FIRST_COLLECT_MAX_PAGES if first_time else _DEFAULT_MAX_PAGES
+        since = datetime.now(timezone.utc)
+    max_pages = 1 if first_time else _DEFAULT_MAX_PAGES
 
     sub_task_names = ["commits", "prs", "tags", "issues", "ghsa"]
     results = await asyncio.gather(

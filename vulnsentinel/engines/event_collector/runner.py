@@ -67,17 +67,43 @@ class EventCollectorRunner:
             )
             return result
 
+        first_time = library.last_scanned_at is None
+
         events, collect_errors, collect_detail = await collect(
             client,
             owner,
             repo,
             branch=library.default_branch,
-            since=library.last_scanned_at or library.created_at,
+            since=library.last_scanned_at,
             last_sha=library.latest_commit_sha,
             latest_tag=library.latest_tag_version,
         )
 
         result.errors.extend(collect_errors)
+
+        # First-time: don't store any events, only record pointers
+        # so future collections start from the current state.
+        if first_time:
+            new_sha = None
+            new_tag = None
+            for ev in events:
+                if ev.type == "commit" and new_sha is None:
+                    new_sha = ev.ref
+                if ev.type == "tag" and new_tag is None:
+                    new_tag = ev.ref
+
+            await self._library_service.update_pointers(
+                session,
+                library_id,
+                latest_commit_sha=new_sha,
+                latest_tag_version=new_tag,
+                last_scanned_at=datetime.now(timezone.utc),
+                collect_status="unhealthy" if collect_errors else "healthy",
+                collect_error="; ".join(collect_errors) if collect_errors else None,
+                collect_detail=collect_detail,
+            )
+            return result
+
         result.fetched = len(events)
         result.by_type = count_by_type(events)
 

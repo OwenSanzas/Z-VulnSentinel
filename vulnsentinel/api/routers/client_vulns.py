@@ -19,6 +19,7 @@ from vulnsentinel.api.schemas.client_vuln import (
 )
 from vulnsentinel.api.schemas.common import PageMeta
 from vulnsentinel.api.schemas.upstream_vuln import UpstreamVulnListItem
+from vulnsentinel.models.event import Event
 from vulnsentinel.models.library import Library
 from vulnsentinel.models.project import Project
 from vulnsentinel.models.upstream_vuln import UpstreamVuln
@@ -143,6 +144,10 @@ async def get_client_vuln(
     proj_stmt = select(Project.name).where(Project.id == cv.project_id)
     proj_name = (await session.execute(proj_stmt)).scalar_one_or_none() or ""
 
+    # Fetch source_url from the triggering event
+    evt_stmt = select(Event.source_url).where(Event.id == uv.event_id)
+    source_url = (await session.execute(evt_stmt)).scalar_one_or_none()
+
     return ClientVulnDetail(
         id=cv.id,
         upstream_vuln_id=cv.upstream_vuln_id,
@@ -162,6 +167,8 @@ async def get_client_vuln(
         resolved_version=cv.resolved_version,
         fix_version=cv.fix_version,
         verdict=cv.verdict,
+        description=uv.reasoning,
+        source_url=source_url,
         reachable_path=cv.reachable_path,
         poc_results=cv.poc_results,
         report=cv.report,

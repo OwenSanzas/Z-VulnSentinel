@@ -12,7 +12,7 @@ import { TimeAgo } from "@/components/time-ago";
 import { PageHeader } from "@/components/page-header";
 import { SkeletonPage } from "@/components/skeleton";
 import Link from "next/link";
-import { CheckCircle, Circle, Clock } from "lucide-react";
+import { CheckCircle, Circle, Clock, ExternalLink } from "lucide-react";
 
 interface UpstreamVulnSummary {
   id: string;
@@ -42,6 +42,8 @@ interface ClientVulnDetail {
   resolved_version: string | null;
   fix_version: string | null;
   verdict: string | null;
+  description: string | null;
+  source_url: string | null;
   reachable_path: Record<string, unknown> | null;
   poc_results: Record<string, unknown> | null;
   report: Record<string, unknown> | null;
@@ -134,12 +136,24 @@ export default function ClientVulnDetailPage({
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Version Info</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Sources</CardTitle></CardHeader>
           <CardContent className="text-xs space-y-0 divide-y divide-border">
-            {vuln.resolved_version && <DetailRow label="Used">{vuln.resolved_version}</DetailRow>}
-            {vuln.fix_version && <DetailRow label="Fix">{vuln.fix_version}</DetailRow>}
-            {vuln.constraint_expr && <DetailRow label="Constraint"><span className="font-mono text-[11px]">{vuln.constraint_expr}</span></DetailRow>}
-            {vuln.constraint_source && <DetailRow label="Source">{vuln.constraint_source}</DetailRow>}
+            <DetailRow label="Library">{vuln.library_name}</DetailRow>
+            {vuln.source_url && (
+              <DetailRow label="Fix Commit">
+                <a href={vuln.source_url} target="_blank" rel="noopener noreferrer"
+                  className="text-primary hover:underline inline-flex items-center gap-1">
+                  View <ExternalLink className="h-3 w-3" />
+                </a>
+              </DetailRow>
+            )}
+            {vuln.upstream_vuln.commit_sha && (
+              <DetailRow label="Commit SHA">
+                <span className="font-mono text-[11px]">{vuln.upstream_vuln.commit_sha.slice(0, 12)}</span>
+              </DetailRow>
+            )}
+            {vuln.resolved_version && <DetailRow label="Version Used">{vuln.resolved_version}</DetailRow>}
+            {vuln.fix_version && <DetailRow label="Fix Version">{vuln.fix_version}</DetailRow>}
           </CardContent>
         </Card>
 
@@ -158,6 +172,13 @@ export default function ClientVulnDetailPage({
         <Card>
           <CardHeader><CardTitle>Verdict</CardTitle></CardHeader>
           <CardContent><p className="text-xs">{vuln.verdict}</p></CardContent>
+        </Card>
+      )}
+
+      {vuln.description && (
+        <Card>
+          <CardHeader><CardTitle>Description</CardTitle></CardHeader>
+          <CardContent><p className="text-xs whitespace-pre-wrap">{vuln.description}</p></CardContent>
         </Card>
       )}
 
